@@ -1,3 +1,11 @@
+This is Paul's version of braintree-web, which includes the Javascript
+source.  To update to the next version I pull in the tags from the
+original repository and run a command like:
+
+```
+VERSION=2.6.2; git merge $VERSION && wget https://js.braintreegateway.com/js/braintree-$VERSION.js -O braintree.js && git commit --amend -am "added $VERSION javascript source"
+```
+
 braintree-web
 =================
 
