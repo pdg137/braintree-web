@@ -8297,7 +8297,7 @@ function initialize(clientToken, options) {
 
     // when coinbase generates a nonce, write it to the Form.js DOM
     bus.on(bus.events.PAYMENT_METHOD_GENERATED, function (payload, origin) {
-      formIntegration.paymentMethodNonce.value = payload.nonce;
+      formIntegration.onExternalNonceReceived(payload);
       bus.emit(bus.events.PAYMENT_METHOD_RECEIVED, payload);
     });
 
@@ -8409,7 +8409,7 @@ module.exports = { initialize: initialize };
 (function (global){
 'use strict';
 
-var VERSION = '2.5.1';
+var VERSION = '2.5.2';
 var rpc = require('braintree-rpc');
 var bus = new rpc.MessageBus(global);
 var rpcServer = new rpc.RPCServer(bus);
@@ -8427,7 +8427,7 @@ module.exports = function _listen() {
 },{"braintree-rpc":285}],304:[function(require,module,exports){
 'use strict';
 
-var VERSION = '2.5.1';
+var VERSION = '2.5.2';
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
