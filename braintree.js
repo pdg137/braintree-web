@@ -3665,7 +3665,7 @@ module.exports = {
 
 var utils = require('braintree-utilities');
 var Receiver = require('../shared/receiver');
-var version = "1.1.0";
+var version = "1.2.0";
 
 var htmlNode, bodyNode;
 
@@ -3801,18 +3801,25 @@ module.exports = AuthenticationService;
 var utils = require('braintree-utilities');
 var AuthenticationService = require('./authorization_service');
 
+function noop() {}
+
 function Client(api, options) {
   options = options || {};
   this.clientToken = options.clientToken;
   this.container = options.container;
   this.api = api;
   this.nonce = null;
+
+  this._boundHandleUserClose = utils.bind(this._handleUserClose, this);
 }
 
 Client.prototype.verify = function (data, callback) {
   if (!utils.isFunction(callback)) {
     this.api.sendAnalyticsEvents('3ds.web.no_callback');
     throw new Error('No suitable callback argument was given');
+  }
+  if (utils.isFunction(data.onUserClose)) {
+    this._onUserClose = data.onUserClose;
   }
 
   var dataRecord = {nonce: '', amount: data.amount};
@@ -3850,6 +3857,9 @@ Client.prototype.handleLookupResponse = function (merchantCallback) {
       self.nonce = lookupResponse.paymentMethod.nonce;
       authenticationService = new AuthenticationService(this.clientToken.assetsUrl, this.container);
       authenticationService.get(lookupResponse.lookup, utils.bind(this.handleAuthenticationResponse(merchantCallback), this));
+
+      this._detachListeners();
+      this._attachListeners();
     } else {
       self.nonce = lookupResponse.paymentMethod.nonce;
       merchantCallback(null, {
@@ -3886,6 +3896,22 @@ Client.prototype.handleAuthenticationResponse = function (merchantCallback) {
     }
   };
 };
+
+Client.prototype._attachListeners = function () {
+  utils.addEventListener(window, 'message', this._boundHandleUserClose);
+};
+
+Client.prototype._detachListeners = function () {
+  utils.removeEventListener(window, 'message', this._boundHandleUserClose);
+};
+
+Client.prototype._handleUserClose = function (event) {
+  if (event.data === 'user_closed=true') {
+    this._onUserClose();
+  }
+};
+
+Client.prototype._onUserClose = noop;
 
 module.exports = Client;
 
@@ -4404,9 +4430,12 @@ Receiver.prototype.postMessageReceiver = function (callback) {
   var self = this;
 
   this.wrappedCallback = function (event) {
-    // TODO: Security - We should probably check event.origin in order to only act on our own events.
-    callback(event.data);
-    self.stopListening();
+    var data = event.data;
+
+    if (/^(auth_response=)/.test(data) || data === 'user_closed=true') {
+      callback(data);
+      self.stopListening();
+    }
   };
 
   utils.addEventListener(window, 'message', this.wrappedCallback);
@@ -5850,16 +5879,292 @@ arguments[4][18][0].apply(exports,arguments)
 },{"dup":18}],82:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
 },{"./lib/dom":78,"./lib/events":79,"./lib/fn":80,"./lib/url":81,"dup":19}],83:[function(require,module,exports){
-arguments[4][20][0].apply(exports,arguments)
-},{"../shared/receiver":87,"braintree-utilities":82,"dup":20}],84:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"./authorization_service":83,"braintree-utilities":82,"dup":21}],85:[function(require,module,exports){
+'use strict';
+
+var utils = require('braintree-utilities');
+var Receiver = require('../shared/receiver');
+var version = "1.1.0";
+
+var htmlNode, bodyNode;
+
+function getElementStyle(element, style) {
+  var computedStyle = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
+
+  return computedStyle[style];
+}
+
+function getMerchantPageDefaultStyles() {
+  return {
+    html: {
+      height: htmlNode.style.height || '',
+      overflow: getElementStyle(htmlNode, 'overflow'),
+      position: getElementStyle(htmlNode, 'position')
+    },
+    body: {
+      height: bodyNode.style.height || '',
+      overflow: getElementStyle(bodyNode, 'overflow')
+    }
+  };
+}
+
+function AuthenticationService (assetsUrl, container) {
+  this.assetsUrl = assetsUrl;
+  this.container = container || document.body;
+  this.iframe = null;
+
+  htmlNode = document.documentElement;
+  bodyNode = document.body;
+  this.merchantPageDefaultStyles = getMerchantPageDefaultStyles();
+}
+
+AuthenticationService.prototype.get = function (response, callback) {
+  var self = this,
+  url = this.constructAuthorizationURL(response);
+
+  if (this.container && utils.isFunction(this.container)) {
+    this.container(url + '&no_style=1');
+  } else {
+    this.insertIframe(url);
+  }
+
+  new Receiver(function (response) {
+    if (!utils.isFunction(self.container)) {
+      self.removeIframe();
+    }
+    callback(response);
+  });
+};
+
+AuthenticationService.prototype.removeIframe = function () {
+  if (this.container && this.container.nodeType && this.container.nodeType === 1) {
+    this.container.removeChild(this.iframe);
+  } else if (this.container && window.jQuery && this.container instanceof jQuery) {
+    $(this.iframe, this.container).remove();
+  } else if (typeof this.container === 'string') {
+    document.getElementById(this.container).removeChild(this.iframe);
+  }
+
+  this.unlockMerchantWindowSize();
+};
+
+AuthenticationService.prototype.insertIframe = function (url) {
+  // TODO: Security - This takes a url and makes an iframe. Doesn't seem like this would be a problem.
+  var iframe = document.createElement('iframe');
+  iframe.src = url;
+  this.applyStyles(iframe);
+  this.lockMerchantWindowSize();
+
+  if (this.container && this.container.nodeType && this.container.nodeType === 1) {
+    this.container.appendChild(iframe);
+  } else if (this.container && window.jQuery && this.container instanceof jQuery && this.container.length !== 0) {
+    this.container.append(iframe);
+  } else if (typeof this.container === 'string' && document.getElementById(this.container)) {
+    document.getElementById(this.container).appendChild(iframe);
+  } else {
+    throw new Error('Unable to find valid container for iframe.');
+  }
+  this.iframe = iframe;
+};
+
+AuthenticationService.prototype.applyStyles = function (iframe) {
+  iframe.style.position = 'fixed';
+  iframe.style.top = '0';
+  iframe.style.left = '0';
+  iframe.style.height = '100%';
+  iframe.style.width = '100%';
+  iframe.setAttribute('frameborder', '0');
+  iframe.setAttribute('allowTransparency', 'true');
+  iframe.style.border = '0';
+  iframe.style.zIndex = '99999';
+};
+
+AuthenticationService.prototype.lockMerchantWindowSize = function () {
+  htmlNode.style.overflow = 'hidden';
+  bodyNode.style.overflow = 'hidden';
+  bodyNode.style.height = '100%';
+};
+
+AuthenticationService.prototype.unlockMerchantWindowSize = function () {
+  var defaultStyles = this.merchantPageDefaultStyles;
+
+  bodyNode.style.height = defaultStyles.body.height;
+  bodyNode.style.overflow = defaultStyles.body.overflow;
+
+  htmlNode.style.overflow = defaultStyles.html.overflow;
+};
+
+AuthenticationService.prototype.constructAuthorizationURL = function (response) {
+  var queryString,
+  parentURL = window.location.href;
+
+  if (parentURL.indexOf('#') > -1) {
+    parentURL = parentURL.split('#')[0];
+  }
+
+  queryString = utils.makeQueryString({
+    acsUrl: response.acsUrl,
+    pareq: response.pareq,
+    termUrl: response.termUrl + '&three_d_secure_version=' + version,
+    md: response.md,
+    parentUrl: parentURL
+  });
+  return this.assetsUrl + '/3ds/' + version + '/html/style_frame?' + queryString;
+};
+
+module.exports = AuthenticationService;
+
+},{"../shared/receiver":87,"braintree-utilities":82}],84:[function(require,module,exports){
+'use strict';
+
+var utils = require('braintree-utilities');
+var AuthenticationService = require('./authorization_service');
+
+function Client(api, options) {
+  options = options || {};
+  this.clientToken = options.clientToken;
+  this.container = options.container;
+  this.api = api;
+  this.nonce = null;
+}
+
+Client.prototype.verify = function (data, callback) {
+  if (!utils.isFunction(callback)) {
+    this.api.sendAnalyticsEvents('3ds.web.no_callback');
+    throw new Error('No suitable callback argument was given');
+  }
+
+  var dataRecord = {nonce: '', amount: data.amount};
+  var creditCardMetaData = data.creditCard;
+
+  if (typeof creditCardMetaData === 'string') {
+    dataRecord.nonce = creditCardMetaData;
+    this.api.sendAnalyticsEvents('3ds.web.verify.nonce');
+    this.startVerification(dataRecord, callback);
+  } else {
+    var self = this;
+    var boundHandleTokenizeCard = function (err, nonce) {
+      if (err) {
+        return callback(err);
+      }
+      dataRecord.nonce = nonce;
+      self.startVerification(dataRecord, callback);
+    };
+    this.api.sendAnalyticsEvents('3ds.web.verify.credit_card');
+    this.api.tokenizeCard(creditCardMetaData, boundHandleTokenizeCard);
+  }
+};
+
+Client.prototype.startVerification = function (data, merchantCallback) {
+  this.api.lookup3DS(data, utils.bind(this.handleLookupResponse(merchantCallback), this));
+};
+
+Client.prototype.handleLookupResponse = function (merchantCallback) {
+  var self = this;
+  return function (errorResponse, lookupResponse) {
+    var authenticationService;
+    if (errorResponse) {
+      merchantCallback(errorResponse.error);
+    } else if (lookupResponse.lookup && lookupResponse.lookup.acsUrl && lookupResponse.lookup.acsUrl.length > 0) {
+      self.nonce = lookupResponse.paymentMethod.nonce;
+      authenticationService = new AuthenticationService(this.clientToken.assetsUrl, this.container);
+      authenticationService.get(lookupResponse.lookup, utils.bind(this.handleAuthenticationResponse(merchantCallback), this));
+    } else {
+      self.nonce = lookupResponse.paymentMethod.nonce;
+      merchantCallback(null, {
+        nonce: self.nonce,
+        verificationDetails: lookupResponse.threeDSecureInfo
+      });
+    }
+  };
+};
+
+Client.prototype.handleAuthenticationResponse = function (merchantCallback) {
+  return function (authResponseQueryString) {
+    var authResponse,
+        queryParams = utils.decodeQueryString(authResponseQueryString);
+
+    if (queryParams.user_closed) {
+      return;
+    }
+
+    authResponse = JSON.parse(queryParams.auth_response);
+
+    if (authResponse.success) {
+      merchantCallback(null, {
+        nonce: authResponse.paymentMethod.nonce,
+        verificationDetails: authResponse.threeDSecureInfo
+      });
+    } else if (authResponse.threeDSecureInfo && authResponse.threeDSecureInfo.liabilityShiftPossible) {
+      merchantCallback(null, {
+        nonce: this.nonce,
+        verificationDetails: authResponse.threeDSecureInfo
+      });
+    } else {
+      merchantCallback(authResponse.error);
+    }
+  };
+};
+
+module.exports = Client;
+
+},{"./authorization_service":83,"braintree-utilities":82}],85:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
 },{"./client":84,"./vendor/json2":86,"dup":22}],86:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
 },{"dup":23}],87:[function(require,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"braintree-utilities":82,"dup":24}],88:[function(require,module,exports){
+'use strict';
+
+var utils = require('braintree-utilities');
+
+function Receiver (callback) {
+  this.postMessageReceiver(callback);
+  this.hashChangeReceiver(callback);
+}
+
+Receiver.prototype.postMessageReceiver = function (callback) {
+  var self = this;
+
+  this.wrappedCallback = function (event) {
+    // TODO: Security - We should probably check event.origin in order to only act on our own events.
+    callback(event.data);
+    self.stopListening();
+  };
+
+  utils.addEventListener(window, 'message', this.wrappedCallback);
+};
+
+Receiver.prototype.hashChangeReceiver = function (callback) {
+  var hash,
+      originalHash = window.location.hash,
+      self = this;
+
+  this.poll = setInterval(function () {
+    hash = window.location.hash;
+
+    if (hash.length > 0 && (hash !== originalHash)) {
+      self.stopListening();
+
+      hash = hash.substring(1, hash.length);
+      callback(hash);
+
+      if (originalHash.length > 0) {
+        window.location.hash = originalHash;
+      } else {
+        window.location.hash = '';
+      }
+    }
+  }, 10);
+};
+
+Receiver.prototype.stopListening = function () {
+  clearTimeout(this.poll);
+
+  utils.removeEventListener(window, 'message', this.wrappedCallback);
+};
+
+module.exports = Receiver;
+
+},{"braintree-utilities":82}],88:[function(require,module,exports){
 arguments[4][25][0].apply(exports,arguments)
 },{"braintree-utilities":98,"dup":25}],89:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
@@ -5936,16 +6241,16 @@ arguments[4][18][0].apply(exports,arguments)
 },{"dup":18}],125:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
 },{"./lib/dom":121,"./lib/events":122,"./lib/fn":123,"./lib/url":124,"dup":19}],126:[function(require,module,exports){
-arguments[4][20][0].apply(exports,arguments)
-},{"../shared/receiver":130,"braintree-utilities":125,"dup":20}],127:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"./authorization_service":126,"braintree-utilities":125,"dup":21}],128:[function(require,module,exports){
+arguments[4][83][0].apply(exports,arguments)
+},{"../shared/receiver":130,"braintree-utilities":125,"dup":83}],127:[function(require,module,exports){
+arguments[4][84][0].apply(exports,arguments)
+},{"./authorization_service":126,"braintree-utilities":125,"dup":84}],128:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
 },{"./client":127,"./vendor/json2":129,"dup":22}],129:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
 },{"dup":23}],130:[function(require,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"braintree-utilities":125,"dup":24}],131:[function(require,module,exports){
+arguments[4][87][0].apply(exports,arguments)
+},{"braintree-utilities":125,"dup":87}],131:[function(require,module,exports){
 arguments[4][25][0].apply(exports,arguments)
 },{"braintree-utilities":141,"dup":25}],132:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
@@ -8048,16 +8353,16 @@ arguments[4][18][0].apply(exports,arguments)
 },{"dup":18}],226:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
 },{"./lib/dom":222,"./lib/events":223,"./lib/fn":224,"./lib/url":225,"dup":19}],227:[function(require,module,exports){
-arguments[4][20][0].apply(exports,arguments)
-},{"../shared/receiver":231,"braintree-utilities":226,"dup":20}],228:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"./authorization_service":227,"braintree-utilities":226,"dup":21}],229:[function(require,module,exports){
+arguments[4][83][0].apply(exports,arguments)
+},{"../shared/receiver":231,"braintree-utilities":226,"dup":83}],228:[function(require,module,exports){
+arguments[4][84][0].apply(exports,arguments)
+},{"./authorization_service":227,"braintree-utilities":226,"dup":84}],229:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
 },{"./client":228,"./vendor/json2":230,"dup":22}],230:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
 },{"dup":23}],231:[function(require,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"braintree-utilities":226,"dup":24}],232:[function(require,module,exports){
+arguments[4][87][0].apply(exports,arguments)
+},{"braintree-utilities":226,"dup":87}],232:[function(require,module,exports){
 arguments[4][25][0].apply(exports,arguments)
 },{"braintree-utilities":242,"dup":25}],233:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
@@ -8458,7 +8763,7 @@ module.exports = function sanitizePayload(payload) {
 (function (global){
 'use strict';
 
-var VERSION = '2.5.5';
+var VERSION = '2.6.0';
 var rpc = require('braintree-rpc');
 var bus = new rpc.MessageBus(global);
 var rpcServer = new rpc.RPCServer(bus);
@@ -8476,7 +8781,7 @@ module.exports = function _listen() {
 },{"braintree-rpc":285}],305:[function(require,module,exports){
 'use strict';
 
-var VERSION = '2.5.5';
+var VERSION = '2.6.0';
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
