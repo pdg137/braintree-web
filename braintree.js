@@ -5282,6 +5282,10 @@ Coinbase.prototype._insertFrame = function (container) {
 };
 
 Coinbase.prototype._onOAuthSuccess = function (data) {
+  if (!data.code) {
+    return;
+  }
+
   bus.emit('coinbase:view:navigate', 'loading');
   this._clearPollForRedirectDone();
 
@@ -5366,7 +5370,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "0.0.2"
+  VERSION: "0.0.3"
 };
 
 },{}],50:[function(require,module,exports){
@@ -7654,7 +7658,7 @@ var MerchantFormManager = require('./merchant-form-manager');
 var FrameContainer = require('./frame-container');
 var PayPalService = require('../shared/paypal-service');
 var paypalBrowser = require('braintree-paypal/src/shared/util/browser');
-var version = "1.3.4";
+var version = "1.3.5";
 
 function getElementStyle(element, style) {
   var computedStyle = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
@@ -7898,7 +7902,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.3.4";
+var VERSION = "1.3.5";
 
 function create(clientToken, options) {
   options.clientToken = clientToken;
@@ -8763,7 +8767,7 @@ module.exports = function sanitizePayload(payload) {
 (function (global){
 'use strict';
 
-var VERSION = '2.6.0';
+var VERSION = '2.6.1';
 var rpc = require('braintree-rpc');
 var bus = new rpc.MessageBus(global);
 var rpcServer = new rpc.RPCServer(bus);
@@ -8781,7 +8785,7 @@ module.exports = function _listen() {
 },{"braintree-rpc":285}],305:[function(require,module,exports){
 'use strict';
 
-var VERSION = '2.6.0';
+var VERSION = '2.6.1';
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
