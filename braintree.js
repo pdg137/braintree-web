@@ -2747,7 +2747,7 @@ require('./src/rpc-dispatcher')();
 
 module.exports = require('./src/setup.js');
 
-},{"./src/rpc-dispatcher":304,"./src/setup.js":305}],2:[function(require,module,exports){
+},{"./src/rpc-dispatcher":306,"./src/setup.js":307}],2:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -6209,8 +6209,8 @@ arguments[4][43][0].apply(exports,arguments)
 },{"dup":43}],107:[function(require,module,exports){
 arguments[4][44][0].apply(exports,arguments)
 },{"dup":44}],108:[function(require,module,exports){
-arguments[4][65][0].apply(exports,arguments)
-},{"./coinbase-account":109,"./credit-card":110,"./jsonp-driver":111,"./normalize-api-fields":113,"./parse-client-token":114,"./root-data":116,"./sepa-bank-account":117,"./sepa-mandate":118,"./util":119,"braintree-3ds":128,"braintree-utilities":147,"dup":65}],109:[function(require,module,exports){
+arguments[4][2][0].apply(exports,arguments)
+},{"./coinbase-account":109,"./credit-card":110,"./jsonp-driver":111,"./normalize-api-fields":113,"./parse-client-token":114,"./root-data":116,"./sepa-bank-account":117,"./sepa-mandate":118,"./util":119,"braintree-3ds":128,"braintree-utilities":147,"dup":2}],109:[function(require,module,exports){
 arguments[4][3][0].apply(exports,arguments)
 },{"dup":3}],110:[function(require,module,exports){
 arguments[4][4][0].apply(exports,arguments)
@@ -6245,16 +6245,16 @@ arguments[4][18][0].apply(exports,arguments)
 },{"dup":18}],125:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
 },{"./lib/dom":121,"./lib/events":122,"./lib/fn":123,"./lib/url":124,"dup":19}],126:[function(require,module,exports){
-arguments[4][83][0].apply(exports,arguments)
-},{"../shared/receiver":130,"braintree-utilities":125,"dup":83}],127:[function(require,module,exports){
-arguments[4][84][0].apply(exports,arguments)
-},{"./authorization_service":126,"braintree-utilities":125,"dup":84}],128:[function(require,module,exports){
+arguments[4][20][0].apply(exports,arguments)
+},{"../shared/receiver":130,"braintree-utilities":125,"dup":20}],127:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"./authorization_service":126,"braintree-utilities":125,"dup":21}],128:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
 },{"./client":127,"./vendor/json2":129,"dup":22}],129:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
 },{"dup":23}],130:[function(require,module,exports){
-arguments[4][87][0].apply(exports,arguments)
-},{"braintree-utilities":125,"dup":87}],131:[function(require,module,exports){
+arguments[4][24][0].apply(exports,arguments)
+},{"braintree-utilities":125,"dup":24}],131:[function(require,module,exports){
 arguments[4][25][0].apply(exports,arguments)
 },{"braintree-utilities":141,"dup":25}],132:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
@@ -6311,16 +6311,135 @@ arguments[4][18][0].apply(exports,arguments)
 },{"dup":18}],158:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
 },{"./lib/dom":154,"./lib/events":155,"./lib/fn":156,"./lib/url":157,"dup":19}],159:[function(require,module,exports){
-arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],160:[function(require,module,exports){
-arguments[4][32][0].apply(exports,arguments)
-},{"dup":32}],161:[function(require,module,exports){
-arguments[4][33][0].apply(exports,arguments)
-},{"dup":33}],162:[function(require,module,exports){
-arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],163:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"./lib/dom":159,"./lib/events":160,"./lib/fn":161,"./lib/url":162,"dup":19}],164:[function(require,module,exports){
+arguments[4][15][0].apply(exports,arguments)
+},{"dup":15}],160:[function(require,module,exports){
+arguments[4][16][0].apply(exports,arguments)
+},{"dup":16}],161:[function(require,module,exports){
+arguments[4][17][0].apply(exports,arguments)
+},{"dup":17}],162:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"dup":39}],163:[function(require,module,exports){
+'use strict';
+
+function isBrowserHttps() {
+  return window.location.protocol === 'https:';
+}
+
+function encode(str) {
+  switch (str) {
+    case null:
+    case undefined:
+      return '';
+    case true:
+      return '1';
+    case false:
+      return '0';
+    default:
+      return encodeURIComponent(str);
+  }
+}
+
+function makeQueryString(params, namespace) {
+  var query = [], k, p;
+  for (p in params) {
+    if (params.hasOwnProperty(p)) {
+      var v = params[p];
+      if (namespace) {
+        k = namespace + '[' + p + ']';
+      } else {
+        k = p;
+      }
+      if (typeof v === 'object') {
+        query.push(makeQueryString(v, k));
+      } else if (v !== undefined && v !== null) {
+        query.push(encode(k) + '=' + encode(v));
+      }
+    }
+  }
+  return query.join('&');
+}
+
+function decodeQueryString(queryString) {
+  var params = {},
+  paramPairs = queryString.split('&');
+
+  for (var i = 0; i < paramPairs.length; i++) {
+    var paramPair = paramPairs[i].split('=');
+    var key = paramPair[0];
+    var value = decodeURIComponent(paramPair[1]);
+    params[key] = value;
+  }
+
+  return params;
+}
+
+function getParams(url) {
+  var urlSegments = url.split('?');
+
+  if (urlSegments.length !== 2) {
+    return {};
+  }
+
+  return decodeQueryString(urlSegments[1]);
+}
+
+var parser = document.createElement('a');
+var legalHosts = [
+  'paypal.com',
+  'braintreepayments.com',
+  'braintreegateway.com',
+  'localhost'
+];
+
+function isWhitelistedDomain(url) {
+  url = url.toLowerCase();
+
+  if (!/^http/.test(url)) {
+    return false
+  }
+
+  parser.href = url;
+
+  var pieces = parser.hostname.split('.');
+  var topLevelDomain = pieces.slice(-2).join('.');
+
+  if (legalHosts.indexOf(topLevelDomain) === -1) {
+    return false;
+  }
+
+  return true;
+}
+
+module.exports = {
+  isBrowserHttps: isBrowserHttps,
+  makeQueryString: makeQueryString,
+  decodeQueryString: decodeQueryString,
+  getParams: getParams,
+  isWhitelistedDomain: isWhitelistedDomain
+};
+
+},{}],164:[function(require,module,exports){
+var dom = require('./lib/dom');
+var url = require('./lib/url');
+var fn = require('./lib/fn');
+var events = require('./lib/events');
+var string = require('./lib/string');
+
+module.exports = {
+  string: string,
+  normalizeElement: dom.normalizeElement,
+  isBrowserHttps: url.isBrowserHttps,
+  makeQueryString: url.makeQueryString,
+  decodeQueryString: url.decodeQueryString,
+  getParams: url.getParams,
+  isWhitelistedDomain: url.isWhitelistedDomain,
+  removeEventListener: events.removeEventListener,
+  addEventListener: events.addEventListener,
+  bind: fn.bind,
+  isFunction: fn.isFunction
+};
+
+},{"./lib/dom":159,"./lib/events":160,"./lib/fn":161,"./lib/string":162,"./lib/url":163}],165:[function(require,module,exports){
 var braintreeApi = require('braintree-api');
 var braintreeRpc = require('braintree-rpc');
 var braintreeUtil = require('braintree-utilities');
@@ -6602,6 +6721,10 @@ Client.prototype._setMerchantPageDefaultStyles = function () {
 };
 
 Client.prototype._open = function () {
+  if (this._isAriesCapable()) {
+    this._addCorrelationIdToClientToken();
+  }
+
   if (browser.isPopupSupported()) {
     this._openPopup();
   } else {
@@ -6623,7 +6746,7 @@ Client.prototype._openModal = function () {
 };
 
 Client.prototype._isAriesCapable = function () {
-  return !!this._clientOptions.singleUse && !!this._clientOptions.amount && !!this._clientOptions.currency;
+  return !!this._clientOptions.singleUse && !!this._clientOptions.amount && !!this._clientOptions.currency && !this._clientOptions.demo;
 };
 
 Client.prototype._openPopup = function () {
@@ -6654,8 +6777,6 @@ Client.prototype._openPopup = function () {
   opts.push('top=' + topPos);
   opts.push('left=' + leftPos);
   opts.push(constants.POPUP_OPTIONS);
-
-  this._addCorrelationIdToClientToken();
 
   this.popup = window.open(this.getViewerUrl(), name, opts.join(','));
   if (browser.isOverlaySupported()) {
@@ -6816,7 +6937,7 @@ Client.prototype._setNonceInputValue = function (value) {
 
 module.exports = Client;
 
-},{"../shared/constants":168,"../shared/get-locale":170,"../shared/util/browser":175,"../shared/util/dom":176,"../shared/util/util":177,"./logged-in-view":165,"./logged-out-view":166,"./overlay-view":167,"braintree-api":120,"braintree-rpc":153,"braintree-utilities":163}],165:[function(require,module,exports){
+},{"../shared/constants":169,"../shared/get-locale":171,"../shared/util/browser":176,"../shared/util/dom":177,"../shared/util/util":178,"./logged-in-view":166,"./logged-out-view":167,"./overlay-view":168,"braintree-api":120,"braintree-rpc":153,"braintree-utilities":164}],166:[function(require,module,exports){
 var constants = require('../shared/constants');
 
 function LoggedInView (options) {
@@ -6920,7 +7041,7 @@ LoggedInView.prototype.hide = function () {
 
 module.exports = LoggedInView;
 
-},{"../shared/constants":168}],166:[function(require,module,exports){
+},{"../shared/constants":169}],167:[function(require,module,exports){
 var util = require('braintree-utilities');
 var constants = require('../shared/constants');
 var getLocale = require('../shared/get-locale');
@@ -7000,7 +7121,7 @@ LoggedOutView.prototype.hide = function () {
 
 module.exports = LoggedOutView;
 
-},{"../shared/constants":168,"../shared/get-locale":170,"braintree-utilities":163}],167:[function(require,module,exports){
+},{"../shared/constants":169,"../shared/get-locale":171,"braintree-utilities":164}],168:[function(require,module,exports){
 var util = require('braintree-utilities');
 var constants = require('../shared/constants');
 
@@ -7159,8 +7280,8 @@ OverlayView.prototype._pollForPopup = function () {
 
 module.exports = OverlayView;
 
-},{"../shared/constants":168,"braintree-utilities":163}],168:[function(require,module,exports){
-var version = "1.3.2";
+},{"../shared/constants":169,"braintree-utilities":164}],169:[function(require,module,exports){
+var version = "1.3.3";
 
 exports.VERSION = version;
 exports.POPUP_NAME = 'braintree_paypal_popup';
@@ -7177,8 +7298,9 @@ exports.BRIDGE_FRAME_NAME = 'bt-proxy-frame';
 exports.ARIES_SUPPORTED_CURRENCIES = ['USD', 'GBP', 'EUR', 'AUD', 'CAD'];
 exports.ARIES_SUPPORTED_COUNTRIES = ['US', 'GB', 'AU', 'CA', 'ES', 'FR', 'DE', 'IT'];
 exports.NONCE_TYPE = 'PayPalAccount';
+exports.ILLEGAL_XHR_ERROR = 'Illegal XHR request attempted';
 
-},{}],169:[function(require,module,exports){
+},{}],170:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -7210,7 +7332,7 @@ module.exports = {
  ru: 'ru_ru'
 };
 
-},{}],170:[function(require,module,exports){
+},{}],171:[function(require,module,exports){
 'use strict';
 
 var countryCodeLookupTable = require('../shared/data/country-code-lookup');
@@ -7253,7 +7375,7 @@ function getLocale(code) {
 
 module.exports = getLocale;
 
-},{"../shared/data/country-code-lookup":169}],171:[function(require,module,exports){
+},{"../shared/data/country-code-lookup":170}],172:[function(require,module,exports){
 var userAgent = require('./useragent');
 
 var toString = Object.prototype.toString;
@@ -7296,7 +7418,7 @@ module.exports = {
   isSafari: isSafari
 };
 
-},{"./useragent":174}],172:[function(require,module,exports){
+},{"./useragent":175}],173:[function(require,module,exports){
 var userAgent = require('./useragent');
 var platform = require('./platform');
 
@@ -7321,7 +7443,7 @@ module.exports = {
   isDesktop: isDesktop
 };
 
-},{"./platform":173,"./useragent":174}],173:[function(require,module,exports){
+},{"./platform":174,"./useragent":175}],174:[function(require,module,exports){
 var userAgent = require('./useragent');
 
 function isAndroid() {
@@ -7352,7 +7474,7 @@ module.exports = {
   isIos: isIos
 };
 
-},{"./useragent":174}],174:[function(require,module,exports){
+},{"./useragent":175}],175:[function(require,module,exports){
 var nativeUserAgent = window.navigator.userAgent;
 
 function getNativeUserAgent() {
@@ -7371,7 +7493,7 @@ function matchUserAgent(pattern) {
 exports.getNativeUserAgent = getNativeUserAgent;
 exports.matchUserAgent = matchUserAgent;
 
-},{}],175:[function(require,module,exports){
+},{}],176:[function(require,module,exports){
 var browser = require('../useragent/browser');
 var device = require('../useragent/device');
 var platform = require('../useragent/platform');
@@ -7469,7 +7591,7 @@ module.exports = {
   isProxyFrameRequired: isProxyFrameRequired
 };
 
-},{"../useragent/browser":171,"../useragent/device":172,"../useragent/platform":173,"../useragent/useragent":174}],176:[function(require,module,exports){
+},{"../useragent/browser":172,"../useragent/device":173,"../useragent/platform":174,"../useragent/useragent":175}],177:[function(require,module,exports){
 function setTextContent(element, content) {
   var property = 'innerText';
   if (document && document.body) {
@@ -7484,7 +7606,7 @@ module.exports = {
   setTextContent: setTextContent
 };
 
-},{}],177:[function(require,module,exports){
+},{}],178:[function(require,module,exports){
 var trim = typeof String.prototype.trim === 'function' ?
   function (str) { return str.trim(); } :
   function (str) { return str.replace(/^\s+|\s+$/, ''); };
@@ -7586,39 +7708,39 @@ module.exports = {
   isFunction: isFunction
 };
 
-},{}],178:[function(require,module,exports){
+},{}],179:[function(require,module,exports){
 arguments[4][25][0].apply(exports,arguments)
-},{"braintree-utilities":188,"dup":25}],179:[function(require,module,exports){
+},{"braintree-utilities":189,"dup":25}],180:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
-},{"braintree-utilities":188,"dup":26}],180:[function(require,module,exports){
+},{"braintree-utilities":189,"dup":26}],181:[function(require,module,exports){
 arguments[4][27][0].apply(exports,arguments)
-},{"dup":27}],181:[function(require,module,exports){
+},{"dup":27}],182:[function(require,module,exports){
 arguments[4][28][0].apply(exports,arguments)
-},{"braintree-utilities":188,"dup":28}],182:[function(require,module,exports){
+},{"braintree-utilities":189,"dup":28}],183:[function(require,module,exports){
 arguments[4][29][0].apply(exports,arguments)
-},{"braintree-utilities":188,"dup":29}],183:[function(require,module,exports){
+},{"braintree-utilities":189,"dup":29}],184:[function(require,module,exports){
 arguments[4][30][0].apply(exports,arguments)
-},{"./lib/message-bus":178,"./lib/pubsub-client":179,"./lib/pubsub-server":180,"./lib/rpc-client":181,"./lib/rpc-server":182,"dup":30}],184:[function(require,module,exports){
+},{"./lib/message-bus":179,"./lib/pubsub-client":180,"./lib/pubsub-server":181,"./lib/rpc-client":182,"./lib/rpc-server":183,"dup":30}],185:[function(require,module,exports){
 arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],185:[function(require,module,exports){
+},{"dup":31}],186:[function(require,module,exports){
 arguments[4][32][0].apply(exports,arguments)
-},{"dup":32}],186:[function(require,module,exports){
+},{"dup":32}],187:[function(require,module,exports){
 arguments[4][33][0].apply(exports,arguments)
-},{"dup":33}],187:[function(require,module,exports){
+},{"dup":33}],188:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],188:[function(require,module,exports){
+},{"dup":18}],189:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"./lib/dom":184,"./lib/events":185,"./lib/fn":186,"./lib/url":187,"dup":19}],189:[function(require,module,exports){
+},{"./lib/dom":185,"./lib/events":186,"./lib/fn":187,"./lib/url":188,"dup":19}],190:[function(require,module,exports){
 arguments[4][15][0].apply(exports,arguments)
-},{"dup":15}],190:[function(require,module,exports){
+},{"dup":15}],191:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
-},{"dup":16}],191:[function(require,module,exports){
+},{"dup":16}],192:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],192:[function(require,module,exports){
+},{"dup":17}],193:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],193:[function(require,module,exports){
+},{"dup":18}],194:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"./lib/dom":189,"./lib/events":190,"./lib/fn":191,"./lib/url":192,"dup":19}],194:[function(require,module,exports){
+},{"./lib/dom":190,"./lib/events":191,"./lib/fn":192,"./lib/url":193,"dup":19}],195:[function(require,module,exports){
 'use strict';
 
 var RPC_METHOD_NAMES = ['getCreditCards', 'unlockCreditCard', 'sendAnalyticsEvents'];
@@ -7645,7 +7767,7 @@ APIProxyServer.prototype.attach = function (rpcServer) {
 
 module.exports = APIProxyServer;
 
-},{}],195:[function(require,module,exports){
+},{}],196:[function(require,module,exports){
 'use strict';
 
 var htmlNode, bodyNode;
@@ -7658,7 +7780,7 @@ var MerchantFormManager = require('./merchant-form-manager');
 var FrameContainer = require('./frame-container');
 var PayPalService = require('../shared/paypal-service');
 var paypalBrowser = require('braintree-paypal/src/shared/util/browser');
-var version = "1.3.5";
+var version = "1.3.6";
 
 function getElementStyle(element, style) {
   var computedStyle = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
@@ -7898,11 +8020,11 @@ Client.prototype._findClosest = function (node, tagName) {
 
 module.exports = Client;
 
-},{"../shared/paypal-service":199,"./api-proxy-server":194,"./frame-container":197,"./merchant-form-manager":198,"braintree-api":77,"braintree-bus":105,"braintree-paypal/src/shared/util/browser":175,"braintree-rpc":183,"braintree-utilities":193}],196:[function(require,module,exports){
+},{"../shared/paypal-service":200,"./api-proxy-server":195,"./frame-container":198,"./merchant-form-manager":199,"braintree-api":77,"braintree-bus":105,"braintree-paypal/src/shared/util/browser":176,"braintree-rpc":184,"braintree-utilities":194}],197:[function(require,module,exports){
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.3.5";
+var VERSION = "1.3.6";
 
 function create(clientToken, options) {
   options.clientToken = clientToken;
@@ -7918,7 +8040,7 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"./client":195}],197:[function(require,module,exports){
+},{"./client":196}],198:[function(require,module,exports){
 'use strict';
 
 function FrameContainer(endpoint, name) {
@@ -7938,7 +8060,7 @@ function FrameContainer(endpoint, name) {
 
 module.exports = FrameContainer;
 
-},{}],198:[function(require,module,exports){
+},{}],199:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -8050,7 +8172,7 @@ MerchantFormManager.prototype._triggerFormSubmission = function () {
 
 module.exports = MerchantFormManager;
 
-},{"braintree-utilities":193}],199:[function(require,module,exports){
+},{"braintree-utilities":194}],200:[function(require,module,exports){
 'use strict';
 
 var PaypalClient = require('braintree-paypal/src/external/client');
@@ -8079,7 +8201,7 @@ function PayPalService(options) {
 
 module.exports = PayPalService;
 
-},{"braintree-paypal/src/external/client":164}],200:[function(require,module,exports){
+},{"braintree-paypal/src/external/client":165}],201:[function(require,module,exports){
 'use strict';
 
 var util = require('braintree-utilities');
@@ -8225,7 +8347,7 @@ Form.prototype.clearCardNumberInput = function () {
 
 module.exports = Form;
 
-},{"braintree-utilities":208}],201:[function(require,module,exports){
+},{"braintree-utilities":209}],202:[function(require,module,exports){
 'use strict';
 
 module.exports = function getNonceInput(paymentMethodNonceInputField) {
@@ -8248,7 +8370,7 @@ module.exports = function getNonceInput(paymentMethodNonceInputField) {
   return nonceInput;
 };
 
-},{}],202:[function(require,module,exports){
+},{}],203:[function(require,module,exports){
 'use strict';
 
 module.exports = function validateAnnotations(htmlForm) {
@@ -8283,7 +8405,7 @@ module.exports = function validateAnnotations(htmlForm) {
   }
 };
 
-},{}],203:[function(require,module,exports){
+},{}],204:[function(require,module,exports){
 'use strict';
 
 var Form = require('./lib/form');
@@ -8310,134 +8432,136 @@ function setup(client, options) {
 
 module.exports = { setup: setup };
 
-},{"./lib/form":200,"./lib/get-nonce-input":201,"./lib/validate-annotations":202}],204:[function(require,module,exports){
+},{"./lib/form":201,"./lib/get-nonce-input":202,"./lib/validate-annotations":203}],205:[function(require,module,exports){
 arguments[4][15][0].apply(exports,arguments)
-},{"dup":15}],205:[function(require,module,exports){
+},{"dup":15}],206:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
-},{"dup":16}],206:[function(require,module,exports){
+},{"dup":16}],207:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],207:[function(require,module,exports){
+},{"dup":17}],208:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],208:[function(require,module,exports){
+},{"dup":18}],209:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"./lib/dom":204,"./lib/events":205,"./lib/fn":206,"./lib/url":207,"dup":19}],209:[function(require,module,exports){
-arguments[4][65][0].apply(exports,arguments)
-},{"./coinbase-account":210,"./credit-card":211,"./jsonp-driver":212,"./normalize-api-fields":214,"./parse-client-token":215,"./root-data":217,"./sepa-bank-account":218,"./sepa-mandate":219,"./util":220,"braintree-3ds":229,"braintree-utilities":248,"dup":65}],210:[function(require,module,exports){
+},{"./lib/dom":205,"./lib/events":206,"./lib/fn":207,"./lib/url":208,"dup":19}],210:[function(require,module,exports){
+arguments[4][2][0].apply(exports,arguments)
+},{"./coinbase-account":211,"./credit-card":212,"./jsonp-driver":213,"./normalize-api-fields":215,"./parse-client-token":216,"./root-data":218,"./sepa-bank-account":219,"./sepa-mandate":220,"./util":221,"braintree-3ds":230,"braintree-utilities":249,"dup":2}],211:[function(require,module,exports){
 arguments[4][3][0].apply(exports,arguments)
-},{"dup":3}],211:[function(require,module,exports){
+},{"dup":3}],212:[function(require,module,exports){
 arguments[4][4][0].apply(exports,arguments)
-},{"dup":4}],212:[function(require,module,exports){
+},{"dup":4}],213:[function(require,module,exports){
 arguments[4][5][0].apply(exports,arguments)
-},{"./jsonp":213,"dup":5}],213:[function(require,module,exports){
+},{"./jsonp":214,"dup":5}],214:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"./util":220,"dup":6}],214:[function(require,module,exports){
+},{"./util":221,"dup":6}],215:[function(require,module,exports){
 arguments[4][7][0].apply(exports,arguments)
-},{"dup":7}],215:[function(require,module,exports){
+},{"dup":7}],216:[function(require,module,exports){
 arguments[4][8][0].apply(exports,arguments)
-},{"./polyfill":216,"dup":8}],216:[function(require,module,exports){
+},{"./polyfill":217,"dup":8}],217:[function(require,module,exports){
 arguments[4][9][0].apply(exports,arguments)
-},{"dup":9}],217:[function(require,module,exports){
+},{"dup":9}],218:[function(require,module,exports){
 arguments[4][10][0].apply(exports,arguments)
-},{"braintree-rpc":237,"dup":10}],218:[function(require,module,exports){
+},{"braintree-rpc":238,"dup":10}],219:[function(require,module,exports){
 arguments[4][11][0].apply(exports,arguments)
-},{"dup":11}],219:[function(require,module,exports){
+},{"dup":11}],220:[function(require,module,exports){
 arguments[4][12][0].apply(exports,arguments)
-},{"dup":12}],220:[function(require,module,exports){
+},{"dup":12}],221:[function(require,module,exports){
 arguments[4][13][0].apply(exports,arguments)
-},{"dup":13}],221:[function(require,module,exports){
+},{"dup":13}],222:[function(require,module,exports){
 arguments[4][14][0].apply(exports,arguments)
-},{"./lib/client":209,"./lib/jsonp":213,"./lib/jsonp-driver":212,"./lib/parse-client-token":215,"./lib/util":220,"dup":14}],222:[function(require,module,exports){
+},{"./lib/client":210,"./lib/jsonp":214,"./lib/jsonp-driver":213,"./lib/parse-client-token":216,"./lib/util":221,"dup":14}],223:[function(require,module,exports){
 arguments[4][15][0].apply(exports,arguments)
-},{"dup":15}],223:[function(require,module,exports){
+},{"dup":15}],224:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
-},{"dup":16}],224:[function(require,module,exports){
+},{"dup":16}],225:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],225:[function(require,module,exports){
+},{"dup":17}],226:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],226:[function(require,module,exports){
+},{"dup":18}],227:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"./lib/dom":222,"./lib/events":223,"./lib/fn":224,"./lib/url":225,"dup":19}],227:[function(require,module,exports){
-arguments[4][83][0].apply(exports,arguments)
-},{"../shared/receiver":231,"braintree-utilities":226,"dup":83}],228:[function(require,module,exports){
-arguments[4][84][0].apply(exports,arguments)
-},{"./authorization_service":227,"braintree-utilities":226,"dup":84}],229:[function(require,module,exports){
+},{"./lib/dom":223,"./lib/events":224,"./lib/fn":225,"./lib/url":226,"dup":19}],228:[function(require,module,exports){
+arguments[4][20][0].apply(exports,arguments)
+},{"../shared/receiver":232,"braintree-utilities":227,"dup":20}],229:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"./authorization_service":228,"braintree-utilities":227,"dup":21}],230:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"./client":228,"./vendor/json2":230,"dup":22}],230:[function(require,module,exports){
+},{"./client":229,"./vendor/json2":231,"dup":22}],231:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
-},{"dup":23}],231:[function(require,module,exports){
-arguments[4][87][0].apply(exports,arguments)
-},{"braintree-utilities":226,"dup":87}],232:[function(require,module,exports){
+},{"dup":23}],232:[function(require,module,exports){
+arguments[4][24][0].apply(exports,arguments)
+},{"braintree-utilities":227,"dup":24}],233:[function(require,module,exports){
 arguments[4][25][0].apply(exports,arguments)
-},{"braintree-utilities":242,"dup":25}],233:[function(require,module,exports){
+},{"braintree-utilities":243,"dup":25}],234:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
-},{"braintree-utilities":242,"dup":26}],234:[function(require,module,exports){
+},{"braintree-utilities":243,"dup":26}],235:[function(require,module,exports){
 arguments[4][27][0].apply(exports,arguments)
-},{"dup":27}],235:[function(require,module,exports){
+},{"dup":27}],236:[function(require,module,exports){
 arguments[4][28][0].apply(exports,arguments)
-},{"braintree-utilities":242,"dup":28}],236:[function(require,module,exports){
+},{"braintree-utilities":243,"dup":28}],237:[function(require,module,exports){
 arguments[4][29][0].apply(exports,arguments)
-},{"braintree-utilities":242,"dup":29}],237:[function(require,module,exports){
+},{"braintree-utilities":243,"dup":29}],238:[function(require,module,exports){
 arguments[4][30][0].apply(exports,arguments)
-},{"./lib/message-bus":232,"./lib/pubsub-client":233,"./lib/pubsub-server":234,"./lib/rpc-client":235,"./lib/rpc-server":236,"dup":30}],238:[function(require,module,exports){
+},{"./lib/message-bus":233,"./lib/pubsub-client":234,"./lib/pubsub-server":235,"./lib/rpc-client":236,"./lib/rpc-server":237,"dup":30}],239:[function(require,module,exports){
 arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],239:[function(require,module,exports){
+},{"dup":31}],240:[function(require,module,exports){
 arguments[4][32][0].apply(exports,arguments)
-},{"dup":32}],240:[function(require,module,exports){
+},{"dup":32}],241:[function(require,module,exports){
 arguments[4][33][0].apply(exports,arguments)
-},{"dup":33}],241:[function(require,module,exports){
+},{"dup":33}],242:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],242:[function(require,module,exports){
+},{"dup":18}],243:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"./lib/dom":238,"./lib/events":239,"./lib/fn":240,"./lib/url":241,"dup":19}],243:[function(require,module,exports){
+},{"./lib/dom":239,"./lib/events":240,"./lib/fn":241,"./lib/url":242,"dup":19}],244:[function(require,module,exports){
 arguments[4][15][0].apply(exports,arguments)
-},{"dup":15}],244:[function(require,module,exports){
+},{"dup":15}],245:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
-},{"dup":16}],245:[function(require,module,exports){
+},{"dup":16}],246:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],246:[function(require,module,exports){
+},{"dup":17}],247:[function(require,module,exports){
 arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],247:[function(require,module,exports){
+},{"dup":39}],248:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],248:[function(require,module,exports){
+},{"dup":18}],249:[function(require,module,exports){
 arguments[4][41][0].apply(exports,arguments)
-},{"./lib/dom":243,"./lib/events":244,"./lib/fn":245,"./lib/string":246,"./lib/url":247,"dup":41}],249:[function(require,module,exports){
+},{"./lib/dom":244,"./lib/events":245,"./lib/fn":246,"./lib/string":247,"./lib/url":248,"dup":41}],250:[function(require,module,exports){
 arguments[4][25][0].apply(exports,arguments)
-},{"braintree-utilities":259,"dup":25}],250:[function(require,module,exports){
+},{"braintree-utilities":260,"dup":25}],251:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
-},{"braintree-utilities":259,"dup":26}],251:[function(require,module,exports){
+},{"braintree-utilities":260,"dup":26}],252:[function(require,module,exports){
 arguments[4][27][0].apply(exports,arguments)
-},{"dup":27}],252:[function(require,module,exports){
+},{"dup":27}],253:[function(require,module,exports){
 arguments[4][28][0].apply(exports,arguments)
-},{"braintree-utilities":259,"dup":28}],253:[function(require,module,exports){
+},{"braintree-utilities":260,"dup":28}],254:[function(require,module,exports){
 arguments[4][29][0].apply(exports,arguments)
-},{"braintree-utilities":259,"dup":29}],254:[function(require,module,exports){
+},{"braintree-utilities":260,"dup":29}],255:[function(require,module,exports){
 arguments[4][30][0].apply(exports,arguments)
-},{"./lib/message-bus":249,"./lib/pubsub-client":250,"./lib/pubsub-server":251,"./lib/rpc-client":252,"./lib/rpc-server":253,"dup":30}],255:[function(require,module,exports){
+},{"./lib/message-bus":250,"./lib/pubsub-client":251,"./lib/pubsub-server":252,"./lib/rpc-client":253,"./lib/rpc-server":254,"dup":30}],256:[function(require,module,exports){
 arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],256:[function(require,module,exports){
+},{"dup":31}],257:[function(require,module,exports){
 arguments[4][32][0].apply(exports,arguments)
-},{"dup":32}],257:[function(require,module,exports){
+},{"dup":32}],258:[function(require,module,exports){
 arguments[4][33][0].apply(exports,arguments)
-},{"dup":33}],258:[function(require,module,exports){
+},{"dup":33}],259:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],259:[function(require,module,exports){
+},{"dup":18}],260:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"./lib/dom":255,"./lib/events":256,"./lib/fn":257,"./lib/url":258,"dup":19}],260:[function(require,module,exports){
-arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],261:[function(require,module,exports){
-arguments[4][32][0].apply(exports,arguments)
-},{"dup":32}],262:[function(require,module,exports){
-arguments[4][33][0].apply(exports,arguments)
-},{"dup":33}],263:[function(require,module,exports){
-arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],264:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"./lib/dom":260,"./lib/events":261,"./lib/fn":262,"./lib/url":263,"dup":19}],265:[function(require,module,exports){
+},{"./lib/dom":256,"./lib/events":257,"./lib/fn":258,"./lib/url":259,"dup":19}],261:[function(require,module,exports){
+arguments[4][15][0].apply(exports,arguments)
+},{"dup":15}],262:[function(require,module,exports){
+arguments[4][16][0].apply(exports,arguments)
+},{"dup":16}],263:[function(require,module,exports){
+arguments[4][17][0].apply(exports,arguments)
+},{"dup":17}],264:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"dup":39}],265:[function(require,module,exports){
+arguments[4][163][0].apply(exports,arguments)
+},{"dup":163}],266:[function(require,module,exports){
 arguments[4][164][0].apply(exports,arguments)
-},{"../shared/constants":270,"../shared/get-locale":272,"../shared/util/browser":277,"../shared/util/dom":278,"../shared/util/util":279,"./logged-in-view":267,"./logged-out-view":268,"./overlay-view":269,"braintree-api":221,"braintree-rpc":254,"braintree-utilities":264,"dup":164}],266:[function(require,module,exports){
+},{"./lib/dom":261,"./lib/events":262,"./lib/fn":263,"./lib/string":264,"./lib/url":265,"dup":164}],267:[function(require,module,exports){
+arguments[4][165][0].apply(exports,arguments)
+},{"../shared/constants":272,"../shared/get-locale":274,"../shared/util/browser":279,"../shared/util/dom":280,"../shared/util/util":281,"./logged-in-view":269,"./logged-out-view":270,"./overlay-view":271,"braintree-api":222,"braintree-rpc":255,"braintree-utilities":266,"dup":165}],268:[function(require,module,exports){
 var Client = require('./client');
 var browser = require('../shared/util/browser');
-var VERSION = "1.3.2";
+var VERSION = "1.3.3";
 
 function create(clientToken, options) {
   if (!browser.detectedPostMessage()) {
@@ -8457,65 +8581,65 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"../shared/util/browser":277,"./client":265}],267:[function(require,module,exports){
-arguments[4][165][0].apply(exports,arguments)
-},{"../shared/constants":270,"dup":165}],268:[function(require,module,exports){
+},{"../shared/util/browser":279,"./client":267}],269:[function(require,module,exports){
 arguments[4][166][0].apply(exports,arguments)
-},{"../shared/constants":270,"../shared/get-locale":272,"braintree-utilities":264,"dup":166}],269:[function(require,module,exports){
+},{"../shared/constants":272,"dup":166}],270:[function(require,module,exports){
 arguments[4][167][0].apply(exports,arguments)
-},{"../shared/constants":270,"braintree-utilities":264,"dup":167}],270:[function(require,module,exports){
+},{"../shared/constants":272,"../shared/get-locale":274,"braintree-utilities":266,"dup":167}],271:[function(require,module,exports){
 arguments[4][168][0].apply(exports,arguments)
-},{"dup":168}],271:[function(require,module,exports){
+},{"../shared/constants":272,"braintree-utilities":266,"dup":168}],272:[function(require,module,exports){
 arguments[4][169][0].apply(exports,arguments)
-},{"dup":169}],272:[function(require,module,exports){
+},{"dup":169}],273:[function(require,module,exports){
 arguments[4][170][0].apply(exports,arguments)
-},{"../shared/data/country-code-lookup":271,"dup":170}],273:[function(require,module,exports){
+},{"dup":170}],274:[function(require,module,exports){
 arguments[4][171][0].apply(exports,arguments)
-},{"./useragent":276,"dup":171}],274:[function(require,module,exports){
+},{"../shared/data/country-code-lookup":273,"dup":171}],275:[function(require,module,exports){
 arguments[4][172][0].apply(exports,arguments)
-},{"./platform":275,"./useragent":276,"dup":172}],275:[function(require,module,exports){
+},{"./useragent":278,"dup":172}],276:[function(require,module,exports){
 arguments[4][173][0].apply(exports,arguments)
-},{"./useragent":276,"dup":173}],276:[function(require,module,exports){
+},{"./platform":277,"./useragent":278,"dup":173}],277:[function(require,module,exports){
 arguments[4][174][0].apply(exports,arguments)
-},{"dup":174}],277:[function(require,module,exports){
+},{"./useragent":278,"dup":174}],278:[function(require,module,exports){
 arguments[4][175][0].apply(exports,arguments)
-},{"../useragent/browser":273,"../useragent/device":274,"../useragent/platform":275,"../useragent/useragent":276,"dup":175}],278:[function(require,module,exports){
+},{"dup":175}],279:[function(require,module,exports){
 arguments[4][176][0].apply(exports,arguments)
-},{"dup":176}],279:[function(require,module,exports){
+},{"../useragent/browser":275,"../useragent/device":276,"../useragent/platform":277,"../useragent/useragent":278,"dup":176}],280:[function(require,module,exports){
 arguments[4][177][0].apply(exports,arguments)
-},{"dup":177}],280:[function(require,module,exports){
+},{"dup":177}],281:[function(require,module,exports){
+arguments[4][178][0].apply(exports,arguments)
+},{"dup":178}],282:[function(require,module,exports){
 arguments[4][25][0].apply(exports,arguments)
-},{"braintree-utilities":290,"dup":25}],281:[function(require,module,exports){
+},{"braintree-utilities":292,"dup":25}],283:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
-},{"braintree-utilities":290,"dup":26}],282:[function(require,module,exports){
+},{"braintree-utilities":292,"dup":26}],284:[function(require,module,exports){
 arguments[4][27][0].apply(exports,arguments)
-},{"dup":27}],283:[function(require,module,exports){
+},{"dup":27}],285:[function(require,module,exports){
 arguments[4][28][0].apply(exports,arguments)
-},{"braintree-utilities":290,"dup":28}],284:[function(require,module,exports){
+},{"braintree-utilities":292,"dup":28}],286:[function(require,module,exports){
 arguments[4][29][0].apply(exports,arguments)
-},{"braintree-utilities":290,"dup":29}],285:[function(require,module,exports){
+},{"braintree-utilities":292,"dup":29}],287:[function(require,module,exports){
 arguments[4][30][0].apply(exports,arguments)
-},{"./lib/message-bus":280,"./lib/pubsub-client":281,"./lib/pubsub-server":282,"./lib/rpc-client":283,"./lib/rpc-server":284,"dup":30}],286:[function(require,module,exports){
+},{"./lib/message-bus":282,"./lib/pubsub-client":283,"./lib/pubsub-server":284,"./lib/rpc-client":285,"./lib/rpc-server":286,"dup":30}],288:[function(require,module,exports){
 arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],287:[function(require,module,exports){
+},{"dup":31}],289:[function(require,module,exports){
 arguments[4][32][0].apply(exports,arguments)
-},{"dup":32}],288:[function(require,module,exports){
+},{"dup":32}],290:[function(require,module,exports){
 arguments[4][33][0].apply(exports,arguments)
-},{"dup":33}],289:[function(require,module,exports){
+},{"dup":33}],291:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],290:[function(require,module,exports){
+},{"dup":18}],292:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"./lib/dom":286,"./lib/events":287,"./lib/fn":288,"./lib/url":289,"dup":19}],291:[function(require,module,exports){
+},{"./lib/dom":288,"./lib/events":289,"./lib/fn":290,"./lib/url":291,"dup":19}],293:[function(require,module,exports){
 arguments[4][15][0].apply(exports,arguments)
-},{"dup":15}],292:[function(require,module,exports){
+},{"dup":15}],294:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
-},{"dup":16}],293:[function(require,module,exports){
+},{"dup":16}],295:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],294:[function(require,module,exports){
+},{"dup":17}],296:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],295:[function(require,module,exports){
+},{"dup":18}],297:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"./lib/dom":291,"./lib/events":292,"./lib/fn":293,"./lib/url":294,"dup":19}],296:[function(require,module,exports){
+},{"./lib/dom":293,"./lib/events":294,"./lib/fn":295,"./lib/url":296,"dup":19}],298:[function(require,module,exports){
 function convertToLegacyShippingAddress (address) {
   var legacyShippingAddress = {};
 
@@ -8540,7 +8664,7 @@ function toSnakeCase (string) {
 
 module.exports = { convertToLegacyShippingAddress: convertToLegacyShippingAddress };
 
-},{}],297:[function(require,module,exports){
+},{}],299:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -8548,7 +8672,7 @@ module.exports = {
   ROOT_ERROR_CALLBACK: 'onError'
 };
 
-},{}],298:[function(require,module,exports){
+},{}],300:[function(require,module,exports){
 'use strict';
 
 var api = require('braintree-api');
@@ -8572,7 +8696,7 @@ function initialize(clientToken, options) {
 
 module.exports = { initialize: initialize };
 
-},{"braintree-api":14,"braintree-bus":42,"braintree-coinbase":45,"braintree-utilities":295}],299:[function(require,module,exports){
+},{"braintree-api":14,"braintree-bus":42,"braintree-coinbase":45,"braintree-utilities":297}],301:[function(require,module,exports){
 'use strict';
 
 var api = require('braintree-api');
@@ -8655,7 +8779,7 @@ function initialize(clientToken, options) {
 
 module.exports = { initialize: initialize };
 
-},{"../compatibility":296,"../constants":297,"../lib/sanitize-payload":303,"braintree-api":14,"braintree-bus":42,"braintree-coinbase":45,"braintree-form":203,"braintree-paypal":266,"braintree-utilities":295}],300:[function(require,module,exports){
+},{"../compatibility":298,"../constants":299,"../lib/sanitize-payload":305,"braintree-api":14,"braintree-bus":42,"braintree-coinbase":45,"braintree-form":204,"braintree-paypal":268,"braintree-utilities":297}],302:[function(require,module,exports){
 'use strict';
 
 var dropin = require('braintree-dropin');
@@ -8696,7 +8820,7 @@ function initialize(clientToken, options) {
 
 module.exports = { initialize: initialize };
 
-},{"../constants":297,"../lib/sanitize-payload":303,"braintree-bus":42,"braintree-dropin":196,"braintree-utilities":295}],301:[function(require,module,exports){
+},{"../constants":299,"../lib/sanitize-payload":305,"braintree-bus":42,"braintree-dropin":197,"braintree-utilities":297}],303:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -8706,7 +8830,7 @@ module.exports = {
   coinbase: require('./coinbase')
 };
 
-},{"./coinbase":298,"./custom":299,"./dropin":300,"./paypal":302}],302:[function(require,module,exports){
+},{"./coinbase":300,"./custom":301,"./dropin":302,"./paypal":304}],304:[function(require,module,exports){
 'use strict';
 
 var paypal = require('braintree-paypal');
@@ -8752,7 +8876,7 @@ function initialize(clientToken, options) {
 
 module.exports = { initialize: initialize };
 
-},{"../compatibility":296,"../constants":297,"braintree-bus":42,"braintree-paypal":266,"braintree-utilities":295}],303:[function(require,module,exports){
+},{"../compatibility":298,"../constants":299,"braintree-bus":42,"braintree-paypal":268,"braintree-utilities":297}],305:[function(require,module,exports){
 'use strict';
 
 module.exports = function sanitizePayload(payload) {
@@ -8763,11 +8887,11 @@ module.exports = function sanitizePayload(payload) {
   }
 };
 
-},{}],304:[function(require,module,exports){
+},{}],306:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var VERSION = '2.6.1';
+var VERSION = '2.6.2';
 var rpc = require('braintree-rpc');
 var bus = new rpc.MessageBus(global);
 var rpcServer = new rpc.RPCServer(bus);
@@ -8782,10 +8906,10 @@ module.exports = function _listen() {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"braintree-rpc":285}],305:[function(require,module,exports){
+},{"braintree-rpc":287}],307:[function(require,module,exports){
 'use strict';
 
-var VERSION = '2.6.1';
+var VERSION = '2.6.2';
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
@@ -8853,5 +8977,5 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"./constants":297,"./integrations":301,"./lib/sanitize-payload":303,"braintree-api":14,"braintree-bus":42,"braintree-dropin":196,"braintree-form":203,"braintree-paypal":266,"braintree-utilities":295}]},{},[1])(1)
+},{"./constants":299,"./integrations":303,"./lib/sanitize-payload":305,"braintree-api":14,"braintree-bus":42,"braintree-dropin":197,"braintree-form":204,"braintree-paypal":268,"braintree-utilities":297}]},{},[1])(1)
 });
