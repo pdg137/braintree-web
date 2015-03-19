@@ -8273,6 +8273,7 @@ var coinbase = require('braintree-coinbase');
 var utils = require('braintree-utilities');
 var constants = require('../constants');
 var bus = require('braintree-bus');
+var sanitizePayload = require('../lib/sanitize-payload');
 var convertToLegacyShippingAddress = require('../compatibility').convertToLegacyShippingAddress;
 
 function getIntegrationCallbackLookup(options, integration) {
@@ -8299,7 +8300,7 @@ function initialize(clientToken, options) {
 
   if (utils.isFunction(options[constants.ROOT_SUCCESS_CALLBACK])) {
     formIntegration.onNonceReceived = function (err, payload) {
-      options[constants.ROOT_SUCCESS_CALLBACK](payload);
+      options[constants.ROOT_SUCCESS_CALLBACK](sanitizePayload(payload));
     }
   }
 
@@ -8335,7 +8336,6 @@ function initialize(clientToken, options) {
     // when coinbase generates a nonce, write it to the Form.js DOM
     bus.on(bus.events.PAYMENT_METHOD_GENERATED, function (payload, origin) {
       formIntegration.onExternalNonceReceived(payload);
-      bus.emit(bus.events.PAYMENT_METHOD_RECEIVED, payload);
     });
 
     coinbase.create(options);
@@ -8346,7 +8346,7 @@ function initialize(clientToken, options) {
 
 module.exports = { initialize: initialize };
 
-},{"../compatibility":296,"../constants":297,"braintree-api":14,"braintree-bus":42,"braintree-coinbase":45,"braintree-form":203,"braintree-paypal":266,"braintree-utilities":295}],300:[function(require,module,exports){
+},{"../compatibility":296,"../constants":297,"../lib/sanitize-payload":303,"braintree-api":14,"braintree-bus":42,"braintree-coinbase":45,"braintree-form":203,"braintree-paypal":266,"braintree-utilities":295}],300:[function(require,module,exports){
 'use strict';
 
 var dropin = require('braintree-dropin');
@@ -8458,7 +8458,7 @@ module.exports = function sanitizePayload(payload) {
 (function (global){
 'use strict';
 
-var VERSION = '2.5.4';
+var VERSION = '2.5.5';
 var rpc = require('braintree-rpc');
 var bus = new rpc.MessageBus(global);
 var rpcServer = new rpc.RPCServer(bus);
@@ -8476,7 +8476,7 @@ module.exports = function _listen() {
 },{"braintree-rpc":285}],305:[function(require,module,exports){
 'use strict';
 
-var VERSION = '2.5.4';
+var VERSION = '2.5.5';
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
@@ -8485,6 +8485,7 @@ var utils = require('braintree-utilities');
 var integrations = require('./integrations');
 var bus = require('braintree-bus');
 var constants = require('./constants');
+var sanitizePayload = require('./lib/sanitize-payload');
 var _rootSuccessCallback = _noop;
 var _rootErrorCallback = _fallbackError;
 
@@ -8508,7 +8509,9 @@ function setup(clientToken, integration, options) {
   }
 
   if (utils.isFunction(options[constants.ROOT_SUCCESS_CALLBACK])) {
-    _rootSuccessCallback = options[constants.ROOT_SUCCESS_CALLBACK];
+    _rootSuccessCallback = function (payload) {
+      options[constants.ROOT_SUCCESS_CALLBACK](sanitizePayload(payload));
+    }
   }
 
   if (utils.isFunction(options[constants.ROOT_ERROR_CALLBACK])) {
@@ -8541,5 +8544,5 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"./constants":297,"./integrations":301,"braintree-api":14,"braintree-bus":42,"braintree-dropin":196,"braintree-form":203,"braintree-paypal":266,"braintree-utilities":295}]},{},[1])(1)
+},{"./constants":297,"./integrations":301,"./lib/sanitize-payload":303,"braintree-api":14,"braintree-bus":42,"braintree-dropin":196,"braintree-form":203,"braintree-paypal":266,"braintree-utilities":295}]},{},[1])(1)
 });
