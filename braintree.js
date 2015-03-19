@@ -6022,6 +6022,7 @@ var browser = require('../shared/util/browser');
 var dom = require('../shared/util/dom');
 var constants = require('../shared/constants');
 var util = require('../shared/util/util');
+var getLocale = require('../shared/get-locale');
 
 function getStyles(element) {
   var computedStyles = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
@@ -6092,9 +6093,23 @@ Client.prototype.initialize = function () {
     }
     return;
   }
-  if (this._isAriesCapable() && !this._isAriesSupportedCurrency()) {
+  if (this._isAriesCapable()) {
+    if (!this._isAriesSupportedCurrency()) {
+      if (typeof this.onUnsupported === 'function') {
+        this.onUnsupported(new Error('This PayPal integration does not support this currency'));
+      }
+      return;
+    }
+    if (!this._isAriesSupportedCountries()) {
+      if (typeof this.onUnsupported === 'function') {
+        this.onUnsupported(new Error('This PayPal integration does not support this locale'));
+      }
+      return;
+    }
+  }
+  if (this._isMisconfiguredUnvettedMerchant()) {
     if (typeof this.onUnsupported === 'function') {
-      this.onUnsupported(new Error('This PayPal integration does not support this currency'));
+      this.onUnsupported(new Error('Unvetted merchant client token does not include a payee email'));
     }
     return;
   }
@@ -6108,18 +6123,29 @@ Client.prototype.initialize = function () {
   this._createRpcServer();
 };
 
-Client.prototype._isAriesSupportedCurrency = function () {
-  var currency = this._clientOptions.currency;
-  var supportedCurrenciesLength = constants.ARIES_SUPPORTED_CURRENCIES.length;
-  var supported = false;
+Client.prototype._isSupportedOption = function (option, supported) {
+  var supportedLength = supported.length;
+  var isSupported = false;
 
-  for (var i = 0; i < supportedCurrenciesLength; i++) {
-    if (currency.toLowerCase() === constants.ARIES_SUPPORTED_CURRENCIES[i].toLowerCase()) {
-      supported = true;
+  for (var i = 0; i < supportedLength; i++) {
+    if (option.toLowerCase() === supported[i].toLowerCase()) {
+      isSupported = true;
     }
   }
 
-  return supported;
+  return isSupported;
+};
+
+Client.prototype._isAriesSupportedCurrency = function () {
+  return this._isSupportedOption(this._clientOptions.currency, constants.ARIES_SUPPORTED_CURRENCIES);
+};
+
+Client.prototype._isAriesSupportedCountries = function () {
+  return this._isSupportedOption(getLocale(this._clientOptions.locale).split('_')[1], constants.ARIES_SUPPORTED_COUNTRIES);
+};
+
+Client.prototype._isMisconfiguredUnvettedMerchant = function () {
+  return this._clientToken.paypal.unvettedMerchant && (!this._isAriesCapable() || !this._clientToken.paypal.payeeEmail);
 };
 
 Client.prototype._isBrowserSecure = function () {
@@ -6320,6 +6346,8 @@ Client.prototype._openPopup = function () {
   opts.push('left=' + leftPos);
   opts.push(constants.POPUP_OPTIONS);
 
+  this._addCorrelationIdToClientToken();
+
   this.popup = window.open(this.getViewerUrl(), name, opts.join(','));
   if (browser.isOverlaySupported()) {
     this.overlayView = new OverlayView(this.popup, this._clientToken.paypal.assetsUrl);
@@ -6328,6 +6356,10 @@ Client.prototype._openPopup = function () {
   this.popup.focus();
 
   return this.popup;
+};
+
+Client.prototype._addCorrelationIdToClientToken = function () {
+  this._clientToken.correlationId = util.generateUid();
 };
 
 Client.prototype._createProxyFrame = function () {
@@ -6379,6 +6411,9 @@ Client.prototype._clientTokenData = function () {
     paypalClientId: this._clientToken.paypal.clientId,
     paypalPrivacyUrl: this._clientToken.paypal.privacyUrl,
     paypalUserAgreementUrl: this._clientToken.paypal.userAgreementUrl,
+    unvettedMerchant: this._clientToken.paypal.unvettedMerchant,
+    payeeEmail: this._clientToken.paypal.payeeEmail,
+    correlationId: this._clientToken.correlationId,
     offline: this._clientOptions.offline || this._clientToken.paypal.environmentNoNetwork
   };
 };
@@ -6472,49 +6507,7 @@ Client.prototype._setNonceInputValue = function (value) {
 
 module.exports = Client;
 
-},{"../shared/constants":169,"../shared/util/browser":175,"../shared/util/dom":176,"../shared/util/util":177,"./logged-in-view":166,"./logged-out-view":167,"./overlay-view":168,"braintree-api":120,"braintree-rpc":153,"braintree-utilities":163}],165:[function(require,module,exports){
-'use strict';
-
-var countryCodeLookupTable = require('../shared/data/country-code-lookup');
-
-function isFormatted(code) {
-  return code.indexOf('_') !== -1 && code.length === 5;
-}
-
-function queryTable(code) {
-  var match;
-
-  for (var key in countryCodeLookupTable) {
-    if (countryCodeLookupTable.hasOwnProperty(key)) {
-      if (key === code) {
-        match = countryCodeLookupTable[key];
-      } else if (countryCodeLookupTable[key] === code) {
-        match = countryCodeLookupTable[key];
-      }
-    }
-  }
-
-  return match;
-}
-
-function getLocale(code) {
-  var match;
-
-  code = code ? code.toLowerCase() : 'us';
-
-  match = isFormatted(code) ? code : queryTable(code);
-
-  if (match) {
-    var pieces = match.split('_');
-    return [pieces[0], pieces[1].toUpperCase()].join('_');
-  }
-
-  return 'en_US';
-}
-
-module.exports = getLocale;
-
-},{"../shared/data/country-code-lookup":170}],166:[function(require,module,exports){
+},{"../shared/constants":168,"../shared/get-locale":170,"../shared/util/browser":175,"../shared/util/dom":176,"../shared/util/util":177,"./logged-in-view":165,"./logged-out-view":166,"./overlay-view":167,"braintree-api":120,"braintree-rpc":153,"braintree-utilities":163}],165:[function(require,module,exports){
 var constants = require('../shared/constants');
 
 function LoggedInView (options) {
@@ -6618,10 +6611,10 @@ LoggedInView.prototype.hide = function () {
 
 module.exports = LoggedInView;
 
-},{"../shared/constants":169}],167:[function(require,module,exports){
+},{"../shared/constants":168}],166:[function(require,module,exports){
 var util = require('braintree-utilities');
 var constants = require('../shared/constants');
-var getLocale = require('./get-locale');
+var getLocale = require('../shared/get-locale');
 
 function LoggedOutView (options) {
   this.options = options;
@@ -6698,7 +6691,7 @@ LoggedOutView.prototype.hide = function () {
 
 module.exports = LoggedOutView;
 
-},{"../shared/constants":169,"./get-locale":165,"braintree-utilities":163}],168:[function(require,module,exports){
+},{"../shared/constants":168,"../shared/get-locale":170,"braintree-utilities":163}],167:[function(require,module,exports){
 var util = require('braintree-utilities');
 var constants = require('../shared/constants');
 
@@ -6857,8 +6850,8 @@ OverlayView.prototype._pollForPopup = function () {
 
 module.exports = OverlayView;
 
-},{"../shared/constants":169,"braintree-utilities":163}],169:[function(require,module,exports){
-var version = "1.3.1";
+},{"../shared/constants":168,"braintree-utilities":163}],168:[function(require,module,exports){
+var version = "1.3.2";
 
 exports.VERSION = version;
 exports.POPUP_NAME = 'braintree_paypal_popup';
@@ -6873,9 +6866,10 @@ exports.ARIES_POPUP_HEIGHT = 535;
 exports.ARIES_POPUP_WIDTH = 450;
 exports.BRIDGE_FRAME_NAME = 'bt-proxy-frame';
 exports.ARIES_SUPPORTED_CURRENCIES = ['USD', 'GBP', 'EUR', 'AUD', 'CAD'];
+exports.ARIES_SUPPORTED_COUNTRIES = ['US', 'GB', 'AU', 'CA', 'ES', 'FR', 'DE', 'IT'];
 exports.NONCE_TYPE = 'PayPalAccount';
 
-},{}],170:[function(require,module,exports){
+},{}],169:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -6907,7 +6901,50 @@ module.exports = {
  ru: 'ru_ru'
 };
 
-},{}],171:[function(require,module,exports){
+},{}],170:[function(require,module,exports){
+'use strict';
+
+var countryCodeLookupTable = require('../shared/data/country-code-lookup');
+
+function isFormatted(code) {
+  return code.indexOf('_') !== -1 && code.length === 5;
+}
+
+function queryTable(code) {
+  var match;
+
+  for (var key in countryCodeLookupTable) {
+    if (countryCodeLookupTable.hasOwnProperty(key)) {
+      if (key === code) {
+        match = countryCodeLookupTable[key];
+      } else if (countryCodeLookupTable[key] === code) {
+        match = countryCodeLookupTable[key];
+      }
+    }
+  }
+
+  return match;
+}
+
+function getLocale(code) {
+  var match;
+
+  code = code ? code.toLowerCase() : 'us';
+  code = code.replace(/-/g, '_');
+
+  match = isFormatted(code) ? code : queryTable(code);
+
+  if (match) {
+    var pieces = match.split('_');
+    return [pieces[0], pieces[1].toUpperCase()].join('_');
+  }
+
+  return 'en_US';
+}
+
+module.exports = getLocale;
+
+},{"../shared/data/country-code-lookup":169}],171:[function(require,module,exports){
 var userAgent = require('./useragent');
 
 var toString = Object.prototype.toString;
@@ -7312,7 +7349,7 @@ var MerchantFormManager = require('./merchant-form-manager');
 var FrameContainer = require('./frame-container');
 var PayPalService = require('../shared/paypal-service');
 var paypalBrowser = require('braintree-paypal/src/shared/util/browser');
-var version = "1.3.3";
+var version = "1.3.4";
 
 function getElementStyle(element, style) {
   var computedStyle = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
@@ -7556,7 +7593,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.3.3";
+var VERSION = "1.3.4";
 
 function create(clientToken, options) {
   options.clientToken = clientToken;
@@ -8088,10 +8125,10 @@ arguments[4][18][0].apply(exports,arguments)
 arguments[4][19][0].apply(exports,arguments)
 },{"./lib/dom":260,"./lib/events":261,"./lib/fn":262,"./lib/url":263,"dup":19}],265:[function(require,module,exports){
 arguments[4][164][0].apply(exports,arguments)
-},{"../shared/constants":271,"../shared/util/browser":277,"../shared/util/dom":278,"../shared/util/util":279,"./logged-in-view":268,"./logged-out-view":269,"./overlay-view":270,"braintree-api":221,"braintree-rpc":254,"braintree-utilities":264,"dup":164}],266:[function(require,module,exports){
+},{"../shared/constants":270,"../shared/get-locale":272,"../shared/util/browser":277,"../shared/util/dom":278,"../shared/util/util":279,"./logged-in-view":267,"./logged-out-view":268,"./overlay-view":269,"braintree-api":221,"braintree-rpc":254,"braintree-utilities":264,"dup":164}],266:[function(require,module,exports){
 var Client = require('./client');
 var browser = require('../shared/util/browser');
-var VERSION = "1.3.1";
+var VERSION = "1.3.2";
 
 function create(clientToken, options) {
   if (!browser.detectedPostMessage()) {
@@ -8113,17 +8150,17 @@ module.exports = {
 
 },{"../shared/util/browser":277,"./client":265}],267:[function(require,module,exports){
 arguments[4][165][0].apply(exports,arguments)
-},{"../shared/data/country-code-lookup":272,"dup":165}],268:[function(require,module,exports){
+},{"../shared/constants":270,"dup":165}],268:[function(require,module,exports){
 arguments[4][166][0].apply(exports,arguments)
-},{"../shared/constants":271,"dup":166}],269:[function(require,module,exports){
+},{"../shared/constants":270,"../shared/get-locale":272,"braintree-utilities":264,"dup":166}],269:[function(require,module,exports){
 arguments[4][167][0].apply(exports,arguments)
-},{"../shared/constants":271,"./get-locale":267,"braintree-utilities":264,"dup":167}],270:[function(require,module,exports){
+},{"../shared/constants":270,"braintree-utilities":264,"dup":167}],270:[function(require,module,exports){
 arguments[4][168][0].apply(exports,arguments)
-},{"../shared/constants":271,"braintree-utilities":264,"dup":168}],271:[function(require,module,exports){
+},{"dup":168}],271:[function(require,module,exports){
 arguments[4][169][0].apply(exports,arguments)
 },{"dup":169}],272:[function(require,module,exports){
 arguments[4][170][0].apply(exports,arguments)
-},{"dup":170}],273:[function(require,module,exports){
+},{"../shared/data/country-code-lookup":271,"dup":170}],273:[function(require,module,exports){
 arguments[4][171][0].apply(exports,arguments)
 },{"./useragent":276,"dup":171}],274:[function(require,module,exports){
 arguments[4][172][0].apply(exports,arguments)
@@ -8421,7 +8458,7 @@ module.exports = function sanitizePayload(payload) {
 (function (global){
 'use strict';
 
-var VERSION = '2.5.3';
+var VERSION = '2.5.4';
 var rpc = require('braintree-rpc');
 var bus = new rpc.MessageBus(global);
 var rpcServer = new rpc.RPCServer(bus);
@@ -8439,7 +8476,7 @@ module.exports = function _listen() {
 },{"braintree-rpc":285}],305:[function(require,module,exports){
 'use strict';
 
-var VERSION = '2.5.3';
+var VERSION = '2.5.4';
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
