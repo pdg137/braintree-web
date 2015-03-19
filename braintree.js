@@ -2912,7 +2912,7 @@ Client.prototype.tokenizeCard = function (attrs, callback) {
   attrs.options = { validate: false };
   this.addCreditCard(attrs, function (err, result) {
     if (result && result.nonce) {
-      callback(err, result.nonce, {type: result.type});
+      callback(err, result.nonce, {type: result.type, details: result.details});
     } else {
       callback('Unable to tokenize card.', null);
     }
@@ -5508,8 +5508,314 @@ arguments[4][18][0].apply(exports,arguments)
 },{"dup":18}],64:[function(require,module,exports){
 arguments[4][41][0].apply(exports,arguments)
 },{"./lib/dom":59,"./lib/events":60,"./lib/fn":61,"./lib/string":62,"./lib/url":63,"dup":41}],65:[function(require,module,exports){
-arguments[4][2][0].apply(exports,arguments)
-},{"./coinbase-account":66,"./credit-card":67,"./jsonp-driver":68,"./normalize-api-fields":70,"./parse-client-token":71,"./root-data":73,"./sepa-bank-account":74,"./sepa-mandate":75,"./util":76,"braintree-3ds":85,"braintree-utilities":104,"dup":2}],66:[function(require,module,exports){
+(function (global){
+'use strict';
+
+var braintreeUtils = require('braintree-utilities');
+var braintree3ds = require('braintree-3ds');
+var parseClientToken = require('./parse-client-token');
+var JSONPDriver = require('./jsonp-driver');
+var util = require('./util');
+var SEPAMandate = require('./sepa-mandate');
+var SEPABankAccount = require('./sepa-bank-account');
+var CreditCard = require('./credit-card');
+var CoinbaseAccount = require('./coinbase-account');
+var rootData = require('./root-data');
+var normalizeCreditCardFields = require('./normalize-api-fields').normalizeCreditCardFields;
+
+function deserialize(response, mapper) {
+  if (response.status >= 400) {
+    return [response, null];
+  } else {
+    return [null, mapper(response)];
+  }
+}
+
+function Client(options) {
+  var parsedClientToken;
+
+  this.attrs = {};
+
+  if (options.hasOwnProperty('sharedCustomerIdentifier')) {
+    this.attrs.sharedCustomerIdentifier = options.sharedCustomerIdentifier;
+  }
+
+  parsedClientToken = parseClientToken(options.clientToken);
+
+  this.driver = options.driver || JSONPDriver;
+  this.authUrl = parsedClientToken.authUrl;
+  this.analyticsUrl = parsedClientToken.analytics ? parsedClientToken.analytics.url : undefined;
+  this.clientApiUrl = parsedClientToken.clientApiUrl;
+  this.customerId = options.customerId;
+  this.challenges = parsedClientToken.challenges;
+  this.integration = options.integration || '';
+
+  var secure3d = braintree3ds.create(this, {
+    container: options.container,
+    clientToken: parsedClientToken
+  });
+  this.verify3DS = braintreeUtils.bind(secure3d.verify, secure3d);
+
+  this.attrs.authorizationFingerprint = parsedClientToken.authorizationFingerprint;
+  this.attrs.sharedCustomerIdentifierType = options.sharedCustomerIdentifierType;
+
+  if (parsedClientToken.merchantAccountId) {
+    this.attrs.merchantAccountId = parsedClientToken.merchantAccountId;
+  }
+
+  this.timeoutWatchers = [];
+  if (options.hasOwnProperty('timeout')) {
+    this.requestTimeout = options.timeout;
+  } else {
+    this.requestTimeout = 60000;
+  }
+}
+
+function noop () {}
+
+function mergeOptions(obj1, obj2) {
+  var obj3 = {};
+  var attrname;
+  for (attrname in obj1) {
+    if (obj1.hasOwnProperty(attrname)) {
+      obj3[attrname] = obj1[attrname];
+    }
+  }
+  for (attrname in obj2) {
+    if (obj2.hasOwnProperty(attrname)) {
+      obj3[attrname] = obj2[attrname];
+    }
+  }
+  return obj3;
+}
+
+Client.prototype.requestWithTimeout = function (url, attrs, deserializer, method, callback) {
+  callback = callback || noop;
+
+  var uniqueName, version;
+  var client = this;
+
+  rootData.get(function (payload) {
+    version = 'braintree/web/' + payload.sdkVersion;
+
+    attrs.braintreeLibraryVersion = version;
+
+    if (attrs.hasOwnProperty('analytics') && attrs.hasOwnProperty('_meta')) {
+      attrs._meta.sdkVersion = version;
+      attrs._meta.merchantAppId = payload.merchantAppId;
+    }
+
+    uniqueName = method(url, attrs, function (data, uniqueName) {
+      if (client.timeoutWatchers[uniqueName]) {
+        clearTimeout(client.timeoutWatchers[uniqueName]);
+        var args = deserialize(data, function (d) { return deserializer(d);});
+        callback.apply(null, args);
+      }
+    });
+
+    if (client.requestTimeout > 0) {
+      this.timeoutWatchers[uniqueName] = setTimeout(function () {
+        client.timeoutWatchers[uniqueName] = null;
+        callback.apply(null, [{'errors': 'Unknown error'}, null]);
+      }, client.requestTimeout);
+    } else {
+      callback.apply(null, [{'errors': 'Unknown error'}, null]);
+    }
+  }, this);
+};
+
+Client.prototype.post = function (url, attrs, deserializer, callback) {
+  this.requestWithTimeout(url, attrs, deserializer, this.driver.post, callback);
+};
+
+Client.prototype.get = function (url, attrs, deserializer, callback) {
+  this.requestWithTimeout(url, attrs, deserializer, this.driver.get, callback);
+};
+
+Client.prototype.put = function (url, attrs, deserializer, callback) {
+  this.requestWithTimeout(url, attrs, deserializer, this.driver.put, callback);
+};
+
+Client.prototype.getCreditCards = function (callback) {
+  this.get(
+    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods']),
+    this.attrs,
+    function (d) {
+      var i = 0;
+      var len = d.paymentMethods.length;
+      var creditCards = [];
+
+      for (i; i < len; i++) {
+        creditCards.push(new CreditCard(d.paymentMethods[i]));
+      }
+
+      return creditCards;
+    },
+    callback
+  );
+};
+
+Client.prototype.tokenizeCoinbase = function (attrs, callback) {
+  attrs.options = { validate: false };
+  this.addCoinbase(attrs, function (err, result) {
+    if (err) {
+      callback(err, null);
+    } else if (result && result.nonce) {
+      callback(err, result);
+    } else {
+      callback('Unable to tokenize coinbase account.', null);
+    }
+  });
+};
+
+Client.prototype.tokenizeCard = function (attrs, callback) {
+  attrs.options = { validate: false };
+  this.addCreditCard(attrs, function (err, result) {
+    if (result && result.nonce) {
+      callback(err, result.nonce, {type: result.type});
+    } else {
+      callback('Unable to tokenize card.', null);
+    }
+  });
+};
+
+Client.prototype.lookup3DS = function (attrs, callback) {
+  var url = util.joinUrlFragments([this.clientApiUrl, 'v1/payment_methods', attrs.nonce, 'three_d_secure/lookup']);
+  var mergedAttrs = mergeOptions(this.attrs, {amount: attrs.amount});
+  this.post(url, mergedAttrs, function (d) {
+      return d;
+    },
+    callback
+  );
+};
+
+Client.prototype.addSEPAMandate = function (attrs, callback) {
+  var mergedAttrs = mergeOptions(this.attrs, {sepaMandate: attrs});
+  this.post(
+    util.joinUrlFragments([this.clientApiUrl, 'v1', 'sepa_mandates.json']),
+    mergedAttrs,
+    function (d) { return new SEPAMandate(d.sepaMandates[0]); },
+    callback
+  );
+};
+
+Client.prototype.acceptSEPAMandate = function (mandateReferenceNumber, callback) {
+  this.put(
+    util.joinUrlFragments([this.clientApiUrl, 'v1', 'sepa_mandates', mandateReferenceNumber, 'accept']),
+    this.attrs,
+    function (d) { return new SEPABankAccount(d.sepaBankAccounts[0]); },
+    callback
+  );
+};
+
+Client.prototype.getSEPAMandate = function (mandateIdentifier, callback) {
+  var mergedAttrs;
+  if (mandateIdentifier.paymentMethodToken) {
+    mergedAttrs = mergeOptions(this.attrs, {paymentMethodToken: mandateIdentifier.paymentMethodToken});
+  } else {
+    mergedAttrs = this.attrs;
+  }
+  this.get(
+    util.joinUrlFragments([this.clientApiUrl, 'v1', 'sepa_mandates', mandateIdentifier.mandateReferenceNumber || '']),
+    mergedAttrs,
+    function (d) { return new SEPAMandate(d.sepaMandates[0]); },
+    callback
+  );
+};
+
+Client.prototype.addCoinbase = function (attrs, callback) {
+  var mergedAttrs;
+  delete attrs.share;
+
+  mergedAttrs = mergeOptions(this.attrs, {
+    coinbaseAccount: attrs,
+    _meta: {
+      integration: this.integration || 'custom',
+      source: 'coinbase'
+    }
+  });
+
+  this.post(
+    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods/coinbase_accounts']),
+    mergedAttrs,
+    function (d) {
+      return new CoinbaseAccount(d.coinbaseAccounts[0]);
+    },
+    callback
+  );
+};
+
+Client.prototype.addCreditCard = function (attrs, callback) {
+  var mergedAttrs;
+  var share = attrs.share;
+  delete attrs.share;
+
+  var creditCard = normalizeCreditCardFields(attrs);
+
+  mergedAttrs = mergeOptions(this.attrs, {
+    share: share,
+    creditCard: creditCard,
+    _meta: {
+      integration: this.integration || 'custom',
+      source: 'form'
+    }
+  });
+
+  this.post(
+    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods/credit_cards']),
+    mergedAttrs,
+    function (d) {
+      return new CreditCard(d.creditCards[0]);
+    },
+    callback
+  );
+};
+
+Client.prototype.unlockCreditCard = function (creditCard, params, callback) {
+  var attrs = mergeOptions(this.attrs, {challengeResponses: params});
+  this.put(
+    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods/', creditCard.nonce]),
+    attrs,
+    function (d) { return new CreditCard(d.paymentMethods[0]); },
+    callback
+  );
+};
+
+Client.prototype.sendAnalyticsEvents = function (events, callback) {
+  var attrs;
+  var url = this.analyticsUrl;
+  var eventObjects = [];
+  events = util.isArray(events) ? events : [events];
+
+  if (!url) {
+    if (callback) {
+      callback.apply(null, [null, {}]);
+    }
+    return;
+  }
+
+  for (var event in events) {
+    if (events.hasOwnProperty(event)) {
+      eventObjects.push({ kind: events[event] });
+    }
+  }
+
+  attrs = mergeOptions(this.attrs, {
+    analytics: eventObjects,
+    _meta: {
+      platform: 'web',
+      platformVersion: global.navigator.userAgent,
+      integrationType: this.integration
+    }
+  });
+
+  this.post(url, attrs, function (d) { return d; }, callback);
+};
+
+module.exports = Client;
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./coinbase-account":66,"./credit-card":67,"./jsonp-driver":68,"./normalize-api-fields":70,"./parse-client-token":71,"./root-data":73,"./sepa-bank-account":74,"./sepa-mandate":75,"./util":76,"braintree-3ds":85,"braintree-utilities":104}],66:[function(require,module,exports){
 arguments[4][3][0].apply(exports,arguments)
 },{"dup":3}],67:[function(require,module,exports){
 arguments[4][4][0].apply(exports,arguments)
@@ -5594,8 +5900,8 @@ arguments[4][43][0].apply(exports,arguments)
 },{"dup":43}],107:[function(require,module,exports){
 arguments[4][44][0].apply(exports,arguments)
 },{"dup":44}],108:[function(require,module,exports){
-arguments[4][2][0].apply(exports,arguments)
-},{"./coinbase-account":109,"./credit-card":110,"./jsonp-driver":111,"./normalize-api-fields":113,"./parse-client-token":114,"./root-data":116,"./sepa-bank-account":117,"./sepa-mandate":118,"./util":119,"braintree-3ds":128,"braintree-utilities":147,"dup":2}],109:[function(require,module,exports){
+arguments[4][65][0].apply(exports,arguments)
+},{"./coinbase-account":109,"./credit-card":110,"./jsonp-driver":111,"./normalize-api-fields":113,"./parse-client-token":114,"./root-data":116,"./sepa-bank-account":117,"./sepa-mandate":118,"./util":119,"braintree-3ds":128,"braintree-utilities":147,"dup":65}],109:[function(require,module,exports){
 arguments[4][3][0].apply(exports,arguments)
 },{"dup":3}],110:[function(require,module,exports){
 arguments[4][4][0].apply(exports,arguments)
@@ -7460,10 +7766,10 @@ Form.prototype.handleSubmit = function (event) {
     return;
   }
 
-  this.client.addCreditCard(this.extractValues(), function (err, payload) {
+  this.client.tokenizeCard(this.extractValues(), function (err, nonce, payload) {
     if (!err) {
       self.setNonce({
-        nonce: payload.nonce,
+        nonce: nonce,
         type: payload.type,
         details: payload.details
       });
@@ -7669,8 +7975,8 @@ arguments[4][18][0].apply(exports,arguments)
 },{"dup":18}],208:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
 },{"./lib/dom":204,"./lib/events":205,"./lib/fn":206,"./lib/url":207,"dup":19}],209:[function(require,module,exports){
-arguments[4][2][0].apply(exports,arguments)
-},{"./coinbase-account":210,"./credit-card":211,"./jsonp-driver":212,"./normalize-api-fields":214,"./parse-client-token":215,"./root-data":217,"./sepa-bank-account":218,"./sepa-mandate":219,"./util":220,"braintree-3ds":229,"braintree-utilities":248,"dup":2}],210:[function(require,module,exports){
+arguments[4][65][0].apply(exports,arguments)
+},{"./coinbase-account":210,"./credit-card":211,"./jsonp-driver":212,"./normalize-api-fields":214,"./parse-client-token":215,"./root-data":217,"./sepa-bank-account":218,"./sepa-mandate":219,"./util":220,"braintree-3ds":229,"braintree-utilities":248,"dup":65}],210:[function(require,module,exports){
 arguments[4][3][0].apply(exports,arguments)
 },{"dup":3}],211:[function(require,module,exports){
 arguments[4][4][0].apply(exports,arguments)
@@ -8103,7 +8409,7 @@ module.exports = { initialize: initialize };
 (function (global){
 'use strict';
 
-var VERSION = '2.5.0';
+var VERSION = '2.5.1';
 var rpc = require('braintree-rpc');
 var bus = new rpc.MessageBus(global);
 var rpcServer = new rpc.RPCServer(bus);
@@ -8121,7 +8427,7 @@ module.exports = function _listen() {
 },{"braintree-rpc":285}],304:[function(require,module,exports){
 'use strict';
 
-var VERSION = '2.5.0';
+var VERSION = '2.5.1';
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
