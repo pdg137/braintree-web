@@ -2747,7 +2747,7 @@ require('./src/rpc-dispatcher')();
 
 module.exports = require('./src/setup.js');
 
-},{"./src/rpc-dispatcher":303,"./src/setup.js":304}],2:[function(require,module,exports){
+},{"./src/rpc-dispatcher":304,"./src/setup.js":305}],2:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -7312,7 +7312,7 @@ var MerchantFormManager = require('./merchant-form-manager');
 var FrameContainer = require('./frame-container');
 var PayPalService = require('../shared/paypal-service');
 var paypalBrowser = require('braintree-paypal/src/shared/util/browser');
-var version = "1.3.2";
+var version = "1.3.3";
 
 function getElementStyle(element, style) {
   var computedStyle = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
@@ -7556,7 +7556,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.3.2";
+var VERSION = "1.3.3";
 
 function create(clientToken, options) {
   options.clientToken = clientToken;
@@ -8316,6 +8316,7 @@ var dropin = require('braintree-dropin');
 var utils = require('braintree-utilities');
 var bus = require('braintree-bus');
 var constants = require('../constants');
+var sanitizePayload = require('../lib/sanitize-payload');
 
 function _getLegacyCallback(options) {
   if (utils.isFunction(options.paymentMethodNonceReceived)) {
@@ -8340,7 +8341,7 @@ function initialize(clientToken, options) {
       }
 
       delete payload.originalEvent;
-      bus.emit(bus.events.PAYMENT_METHOD_RECEIVED, payload);
+      bus.emit(bus.events.PAYMENT_METHOD_RECEIVED, sanitizePayload(payload));
     };
   }
 
@@ -8349,7 +8350,7 @@ function initialize(clientToken, options) {
 
 module.exports = { initialize: initialize };
 
-},{"../constants":297,"braintree-bus":42,"braintree-dropin":196,"braintree-utilities":295}],301:[function(require,module,exports){
+},{"../constants":297,"../lib/sanitize-payload":303,"braintree-bus":42,"braintree-dropin":196,"braintree-utilities":295}],301:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -8406,10 +8407,21 @@ function initialize(clientToken, options) {
 module.exports = { initialize: initialize };
 
 },{"../compatibility":296,"../constants":297,"braintree-bus":42,"braintree-paypal":266,"braintree-utilities":295}],303:[function(require,module,exports){
+'use strict';
+
+module.exports = function sanitizePayload(payload) {
+  return {
+    nonce: payload.nonce,
+    details: payload.details,
+    type: payload.type
+  }
+};
+
+},{}],304:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var VERSION = '2.5.2';
+var VERSION = '2.5.3';
 var rpc = require('braintree-rpc');
 var bus = new rpc.MessageBus(global);
 var rpcServer = new rpc.RPCServer(bus);
@@ -8424,10 +8436,10 @@ module.exports = function _listen() {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"braintree-rpc":285}],304:[function(require,module,exports){
+},{"braintree-rpc":285}],305:[function(require,module,exports){
 'use strict';
 
-var VERSION = '2.5.2';
+var VERSION = '2.5.3';
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
