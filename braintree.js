@@ -2744,7 +2744,7 @@ window.Braintree = Braintree;
 (function (global){
 'use strict';
 
-var VERSION = "2.13.0";
+var VERSION = "2.14.0";
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
@@ -2791,12 +2791,13 @@ module.exports = {
   cse: global.Braintree,
   paypal: paypal,
   dropin: dropin,
+  hostedFields: {VERSION: require('hosted-fields').VERSION},
   setup: setup,
   VERSION: VERSION
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./constants":399,"./integrations":404,"./lib/fallback-error-handler":406,"./lib/lookup-callback-for":407,"braintree-api":21,"braintree-dropin":237,"braintree-paypal":345,"braintree-utilities":373}],2:[function(require,module,exports){
+},{"./constants":440,"./integrations":445,"./lib/fallback-error-handler":447,"./lib/lookup-callback-for":449,"braintree-api":21,"braintree-dropin":236,"braintree-paypal":344,"braintree-utilities":372,"hosted-fields":377}],2:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -5907,8 +5908,7 @@ module.exports = BraintreeBus;
 var BT_ORIGIN_REGEX = /^https:\/\/([a-zA-Z0-9-]+\.)*(braintreepayments|braintreegateway|paypal)\.com(:\d{1,5})?$/;
 
 function checkOrigin(postMessageOrigin, merchantUrl) {
-  var merchantOrigin;
-  var merchantHost;
+  var merchantOrigin, merchantHost;
   var a = document.createElement('a');
 
   a.href = merchantUrl;
@@ -5933,6 +5933,7 @@ module.exports = {
 },{}],54:[function(require,module,exports){
 'use strict';
 
+var i, evnt;
 var eventList = [
   'PAYMENT_METHOD_REQUEST',
   'PAYMENT_METHOD_RECEIVED',
@@ -5954,8 +5955,8 @@ var eventList = [
 ];
 var eventEnum = {};
 
-for (var i = 0; i < eventList.length; i++) {
-  var evnt = eventList[i];
+for (i = 0; i < eventList.length; i++) {
+  evnt = eventList[i];
   eventEnum[evnt] = evnt;
 }
 
@@ -6161,7 +6162,7 @@ module.exports = eventEnum;
       frame.postMessage(payload, origin);
     } catch (_) { return; }
 
-    if (frame.opener && !frame.opener.closed && frame.opener !== win) {
+    if (frame.opener && frame.opener !== frame && !frame.opener.closed && frame.opener !== win) {
       _broadcast(frame.opener.top, payload, origin);
     }
 
@@ -6571,7 +6572,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "0.3.0",
+  VERSION: "0.3.1",
   INTEGRATION_NAME: 'Coinbase',
   CONFIGURATION_ERROR: 'CONFIGURATION',
   UNSUPPORTED_BROWSER_ERROR: 'UNSUPPORTED_BROWSER',
@@ -7870,7 +7871,7 @@ module.exports = PopupView;
 'use strict';
 
 var i;
-var version = "1.6.0";
+var version = "1.6.1";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
@@ -8047,6 +8048,7 @@ exports.matchUserAgent = matchUserAgent;
 
 },{}],191:[function(require,module,exports){
 'use strict';
+/* globals ActiveXObject */
 
 var browser = require('../useragent/browser');
 var device = require('../useragent/device');
@@ -8065,7 +8067,7 @@ function isMobileDevice() {
 }
 
 function detectedPostMessage() {
-  return !!window.postMessage;
+  return Boolean(window.postMessage);
 }
 
 function isPopupSupported() {
@@ -8138,7 +8140,7 @@ function isMetroBrowser() {
   }
 
   try {
-    supported = !!new ActiveXObject('htmlfile');
+    supported = Boolean(new ActiveXObject('htmlfile'));
   } catch (e) {
     supported = false;
   }
@@ -8472,110 +8474,36 @@ arguments[4][81][0].apply(exports,arguments)
 },{"dup":81}],218:[function(require,module,exports){
 arguments[4][39][0].apply(exports,arguments)
 },{"dup":39}],219:[function(require,module,exports){
-(function (global){
-'use strict';
-
-function FormNapper(form) {
-  if (typeof form === 'string' || form instanceof String) {
-    form = document.getElementById(form);
-  }
-
-  if (form instanceof HTMLFormElement) {
-    this.htmlForm = form;
-  } else {
-    throw new TypeError('FormNapper requires an HTMLFormElement element or the id string of one.');
-  }
-}
-
-FormNapper.prototype.hijack = function (onsubmit) {
-  if (this.submitHandler) { return; }
-
-  this.submitHandler = function (event) {
-    if (event.preventDefault) {
-      event.preventDefault();
-    } else {
-      event.returnValue = false;
-    }
-
-    onsubmit(event);
-  };
-
-  if (global.addEventListener != null) {
-    this.htmlForm.addEventListener('submit', this.submitHandler, false);
-  } else if (global.attachEvent != null) {
-    this.htmlForm.attachEvent('onsubmit', this.submitHandler);
-  } else {
-    this.htmlForm.onsubmit = this.submitHandler;
-  }
-};
-
-FormNapper.prototype.inject = function (name, value) {
-  var input = this.htmlForm.querySelector('input[name="' + name + '"]');
-
-  if (input == null) {
-    input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = name;
-    this.htmlForm.appendChild(input);
-  }
-
-  input.value = value;
-
-  return input;
-};
-
-FormNapper.prototype.submit = function () {
-  HTMLFormElement.prototype.submit.call(this.htmlForm);
-};
-
-FormNapper.prototype.detach = function () {
-  if (!this.submitHandler) { return; }
-
-  if (global.removeEventListener != null) {
-    this.htmlForm.removeEventListener('submit', this.submitHandler, false);
-  } else if (global.detachEvent != null) {
-    this.htmlForm.detachEvent('onsubmit', this.submitHandler);
-  } else {
-    this.htmlForm.onsubmit = null;
-  }
-
-  delete this.submitHandler;
-};
-
-module.exports = FormNapper;
-
-}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],220:[function(require,module,exports){
 arguments[4][83][0].apply(exports,arguments)
-},{"./lib/default-attributes":221,"dup":83,"lodash.assign":222,"lodash.isstring":233,"setattributes":234}],221:[function(require,module,exports){
+},{"./lib/default-attributes":220,"dup":83,"lodash.assign":221,"lodash.isstring":232,"setattributes":233}],220:[function(require,module,exports){
 arguments[4][84][0].apply(exports,arguments)
-},{"dup":84}],222:[function(require,module,exports){
+},{"dup":84}],221:[function(require,module,exports){
 arguments[4][85][0].apply(exports,arguments)
-},{"dup":85,"lodash._baseassign":223,"lodash._createassigner":225,"lodash.keys":229}],223:[function(require,module,exports){
+},{"dup":85,"lodash._baseassign":222,"lodash._createassigner":224,"lodash.keys":228}],222:[function(require,module,exports){
 arguments[4][86][0].apply(exports,arguments)
-},{"dup":86,"lodash._basecopy":224,"lodash.keys":229}],224:[function(require,module,exports){
+},{"dup":86,"lodash._basecopy":223,"lodash.keys":228}],223:[function(require,module,exports){
 arguments[4][87][0].apply(exports,arguments)
-},{"dup":87}],225:[function(require,module,exports){
+},{"dup":87}],224:[function(require,module,exports){
 arguments[4][88][0].apply(exports,arguments)
-},{"dup":88,"lodash._bindcallback":226,"lodash._isiterateecall":227,"lodash.restparam":228}],226:[function(require,module,exports){
+},{"dup":88,"lodash._bindcallback":225,"lodash._isiterateecall":226,"lodash.restparam":227}],225:[function(require,module,exports){
 arguments[4][89][0].apply(exports,arguments)
-},{"dup":89}],227:[function(require,module,exports){
+},{"dup":89}],226:[function(require,module,exports){
 arguments[4][90][0].apply(exports,arguments)
-},{"dup":90}],228:[function(require,module,exports){
+},{"dup":90}],227:[function(require,module,exports){
 arguments[4][91][0].apply(exports,arguments)
-},{"dup":91}],229:[function(require,module,exports){
+},{"dup":91}],228:[function(require,module,exports){
 arguments[4][48][0].apply(exports,arguments)
-},{"dup":48,"lodash._getnative":230,"lodash.isarguments":231,"lodash.isarray":232}],230:[function(require,module,exports){
+},{"dup":48,"lodash._getnative":229,"lodash.isarguments":230,"lodash.isarray":231}],229:[function(require,module,exports){
 arguments[4][49][0].apply(exports,arguments)
-},{"dup":49}],231:[function(require,module,exports){
+},{"dup":49}],230:[function(require,module,exports){
 arguments[4][45][0].apply(exports,arguments)
-},{"dup":45}],232:[function(require,module,exports){
+},{"dup":45}],231:[function(require,module,exports){
 arguments[4][46][0].apply(exports,arguments)
-},{"dup":46}],233:[function(require,module,exports){
+},{"dup":46}],232:[function(require,module,exports){
 arguments[4][51][0].apply(exports,arguments)
-},{"dup":51}],234:[function(require,module,exports){
+},{"dup":51}],233:[function(require,module,exports){
 arguments[4][97][0].apply(exports,arguments)
-},{"dup":97}],235:[function(require,module,exports){
+},{"dup":97}],234:[function(require,module,exports){
 'use strict';
 
 var RPC_METHOD_NAMES = ['getCreditCards', 'unlockCreditCard', 'sendAnalyticsEvents'];
@@ -8602,7 +8530,7 @@ APIProxyServer.prototype.attach = function (rpcServer) {
 
 module.exports = APIProxyServer;
 
-},{}],236:[function(require,module,exports){
+},{}],235:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -8619,7 +8547,7 @@ var APIProxyServer = require('./api-proxy-server');
 var MerchantFormManager = require('./merchant-form-manager');
 var FrameContainer = require('./frame-container');
 var constants = require('../shared/constants');
-var version = "1.9.0";
+var version = "1.9.1";
 var PayPalModalView = require('braintree-paypal/src/external/views/app-view');
 
 function getElementStyle(element, style) {
@@ -8911,11 +8839,11 @@ Client.prototype.teardown = function (done) {
 module.exports = Client;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../shared/constants":240,"./api-proxy-server":235,"./frame-container":238,"./merchant-form-manager":239,"braintree-api":117,"braintree-bus":148,"braintree-paypal/src/external/views/app-view":183,"braintree-rpc":197,"braintree-utilities":215,"destructor":216}],237:[function(require,module,exports){
+},{"../shared/constants":239,"./api-proxy-server":234,"./frame-container":237,"./merchant-form-manager":238,"braintree-api":117,"braintree-bus":148,"braintree-paypal/src/external/views/app-view":183,"braintree-rpc":197,"braintree-utilities":215,"destructor":216}],236:[function(require,module,exports){
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.9.0";
+var VERSION = "1.9.1";
 
 function create(options) {
   var client = new Client(options);
@@ -8929,7 +8857,7 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"./client":236}],238:[function(require,module,exports){
+},{"./client":235}],237:[function(require,module,exports){
 'use strict';
 
 var BraintreeBus = require('braintree-bus');
@@ -9006,7 +8934,7 @@ function FrameContainer(endpoint, name, braintreeBus) {
 
 module.exports = FrameContainer;
 
-},{"../shared/constants":240,"braintree-bus":148,"iframer":220}],239:[function(require,module,exports){
+},{"../shared/constants":239,"braintree-bus":148,"iframer":219}],238:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -9106,7 +9034,7 @@ MerchantFormManager.prototype.teardown = function () {
 
 module.exports = MerchantFormManager;
 
-},{"braintree-utilities":215,"form-napper":219}],240:[function(require,module,exports){
+},{"braintree-utilities":215,"form-napper":376}],239:[function(require,module,exports){
 module.exports={
   "PAYPAL_INTEGRATION_NAME": "PayPal",
   "INLINE_FRAME_NAME": "braintree-dropin-frame",
@@ -9130,7 +9058,7 @@ module.exports={
   "MODAL_FRAME_TEARDOWN_EVENT": "dropin:TEARDOWN_MODAL_FRAME"
 }
 
-},{}],241:[function(require,module,exports){
+},{}],240:[function(require,module,exports){
 (function (global){
 'use strict';
 var ELEMENT_NODE = global.Node ? global.Node.ELEMENT_NODE : 1;
@@ -9186,7 +9114,7 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],242:[function(require,module,exports){
+},{}],241:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -9328,7 +9256,7 @@ Form.prototype.teardown = function () {
 module.exports = Form;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./fields":241,"./get-nonce-input":243,"./models/payment-method-model":244,"braintree-bus":247,"braintree-utilities":259,"destructor":260}],243:[function(require,module,exports){
+},{"./fields":240,"./get-nonce-input":242,"./models/payment-method-model":243,"braintree-bus":246,"braintree-utilities":258,"destructor":259}],242:[function(require,module,exports){
 'use strict';
 
 module.exports = function getNonceInput(paymentMethodNonceInputField) {
@@ -9351,7 +9279,7 @@ module.exports = function getNonceInput(paymentMethodNonceInputField) {
   return nonceInput;
 };
 
-},{}],244:[function(require,module,exports){
+},{}],243:[function(require,module,exports){
 'use strict';
 
 function PaymentMethodModel() {
@@ -9372,7 +9300,7 @@ PaymentMethodModel.prototype.reset = function () {
 
 module.exports = PaymentMethodModel;
 
-},{}],245:[function(require,module,exports){
+},{}],244:[function(require,module,exports){
 'use strict';
 
 module.exports = function validateAnnotations(htmlForm) {
@@ -9407,7 +9335,7 @@ module.exports = function validateAnnotations(htmlForm) {
   }
 };
 
-},{}],246:[function(require,module,exports){
+},{}],245:[function(require,module,exports){
 'use strict';
 
 var Form = require('./lib/form');
@@ -9431,201 +9359,201 @@ function setup(apiClient, configuration) {
 
 module.exports = {setup: setup};
 
-},{"./lib/form":242,"./lib/validate-annotations":245}],247:[function(require,module,exports){
+},{"./lib/form":241,"./lib/validate-annotations":244}],246:[function(require,module,exports){
 arguments[4][52][0].apply(exports,arguments)
-},{"./lib/check-origin":248,"./lib/events":249,"dup":52,"framebus":250}],248:[function(require,module,exports){
+},{"./lib/check-origin":247,"./lib/events":248,"dup":52,"framebus":249}],247:[function(require,module,exports){
 arguments[4][53][0].apply(exports,arguments)
-},{"dup":53}],249:[function(require,module,exports){
+},{"dup":53}],248:[function(require,module,exports){
 arguments[4][54][0].apply(exports,arguments)
-},{"dup":54}],250:[function(require,module,exports){
+},{"dup":54}],249:[function(require,module,exports){
 arguments[4][55][0].apply(exports,arguments)
-},{"dup":55}],251:[function(require,module,exports){
+},{"dup":55}],250:[function(require,module,exports){
 arguments[4][35][0].apply(exports,arguments)
-},{"dup":35}],252:[function(require,module,exports){
+},{"dup":35}],251:[function(require,module,exports){
 arguments[4][36][0].apply(exports,arguments)
-},{"dup":36}],253:[function(require,module,exports){
+},{"dup":36}],252:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"dup":22}],254:[function(require,module,exports){
+},{"dup":22}],253:[function(require,module,exports){
 arguments[4][38][0].apply(exports,arguments)
-},{"dup":38}],255:[function(require,module,exports){
+},{"dup":38}],254:[function(require,module,exports){
 arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],256:[function(require,module,exports){
+},{"dup":39}],255:[function(require,module,exports){
 arguments[4][40][0].apply(exports,arguments)
-},{"dup":40}],257:[function(require,module,exports){
+},{"dup":40}],256:[function(require,module,exports){
 arguments[4][41][0].apply(exports,arguments)
-},{"./array":251,"dup":41}],258:[function(require,module,exports){
+},{"./array":250,"dup":41}],257:[function(require,module,exports){
 arguments[4][42][0].apply(exports,arguments)
-},{"dup":42}],259:[function(require,module,exports){
+},{"dup":42}],258:[function(require,module,exports){
 arguments[4][43][0].apply(exports,arguments)
-},{"./lib/array":251,"./lib/base64":252,"./lib/dom":253,"./lib/events":254,"./lib/fn":255,"./lib/string":256,"./lib/url":257,"./lib/uuid":258,"dup":43}],260:[function(require,module,exports){
+},{"./lib/array":250,"./lib/base64":251,"./lib/dom":252,"./lib/events":253,"./lib/fn":254,"./lib/string":255,"./lib/url":256,"./lib/uuid":257,"dup":43}],259:[function(require,module,exports){
 arguments[4][80][0].apply(exports,arguments)
-},{"batch-execute-functions":261,"braintree-utilities/lib/fn":262,"dup":80}],261:[function(require,module,exports){
+},{"batch-execute-functions":260,"braintree-utilities/lib/fn":261,"dup":80}],260:[function(require,module,exports){
 arguments[4][81][0].apply(exports,arguments)
-},{"dup":81}],262:[function(require,module,exports){
+},{"dup":81}],261:[function(require,module,exports){
 arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],263:[function(require,module,exports){
+},{"dup":39}],262:[function(require,module,exports){
 arguments[4][2][0].apply(exports,arguments)
-},{"./coinbase-account":264,"./constants":265,"./credit-card":266,"./europe-bank-account":267,"./normalize-api-fields":269,"./parse-client-token":270,"./paypal-account":271,"./request/choose-driver":274,"./sepa-mandate":279,"./should-enable-cors":280,"./util":281,"braintree-3ds":290,"braintree-utilities":304,"dup":2}],264:[function(require,module,exports){
+},{"./coinbase-account":263,"./constants":264,"./credit-card":265,"./europe-bank-account":266,"./normalize-api-fields":268,"./parse-client-token":269,"./paypal-account":270,"./request/choose-driver":273,"./sepa-mandate":278,"./should-enable-cors":279,"./util":280,"braintree-3ds":289,"braintree-utilities":303,"dup":2}],263:[function(require,module,exports){
 arguments[4][3][0].apply(exports,arguments)
-},{"dup":3}],265:[function(require,module,exports){
+},{"dup":3}],264:[function(require,module,exports){
 arguments[4][4][0].apply(exports,arguments)
-},{"dup":4}],266:[function(require,module,exports){
+},{"dup":4}],265:[function(require,module,exports){
 arguments[4][5][0].apply(exports,arguments)
-},{"dup":5}],267:[function(require,module,exports){
+},{"dup":5}],266:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"dup":6}],268:[function(require,module,exports){
+},{"dup":6}],267:[function(require,module,exports){
 arguments[4][7][0].apply(exports,arguments)
-},{"./constants":265,"./parse-client-token":270,"./request/choose-driver":274,"./should-enable-cors":280,"./util":281,"dup":7}],269:[function(require,module,exports){
+},{"./constants":264,"./parse-client-token":269,"./request/choose-driver":273,"./should-enable-cors":279,"./util":280,"dup":7}],268:[function(require,module,exports){
 arguments[4][8][0].apply(exports,arguments)
-},{"dup":8}],270:[function(require,module,exports){
+},{"dup":8}],269:[function(require,module,exports){
 arguments[4][9][0].apply(exports,arguments)
-},{"./polyfill":272,"braintree-utilities":304,"dup":9}],271:[function(require,module,exports){
+},{"./polyfill":271,"braintree-utilities":303,"dup":9}],270:[function(require,module,exports){
 arguments[4][10][0].apply(exports,arguments)
-},{"dup":10}],272:[function(require,module,exports){
+},{"dup":10}],271:[function(require,module,exports){
 arguments[4][11][0].apply(exports,arguments)
-},{"dup":11}],273:[function(require,module,exports){
+},{"dup":11}],272:[function(require,module,exports){
 arguments[4][12][0].apply(exports,arguments)
-},{"../constants":265,"../util":281,"./parse-body":277,"./prep-body":278,"dup":12}],274:[function(require,module,exports){
+},{"../constants":264,"../util":280,"./parse-body":276,"./prep-body":277,"dup":12}],273:[function(require,module,exports){
 arguments[4][13][0].apply(exports,arguments)
-},{"../util":281,"./ajax-driver":273,"./jsonp-driver":275,"dup":13}],275:[function(require,module,exports){
+},{"../util":280,"./ajax-driver":272,"./jsonp-driver":274,"dup":13}],274:[function(require,module,exports){
 arguments[4][14][0].apply(exports,arguments)
-},{"../constants":265,"./jsonp":276,"dup":14}],276:[function(require,module,exports){
+},{"../constants":264,"./jsonp":275,"dup":14}],275:[function(require,module,exports){
 arguments[4][15][0].apply(exports,arguments)
-},{"../util":281,"dup":15}],277:[function(require,module,exports){
+},{"../util":280,"dup":15}],276:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
-},{"dup":16}],278:[function(require,module,exports){
+},{"dup":16}],277:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17,"lodash.isstring":312}],279:[function(require,module,exports){
+},{"dup":17,"lodash.isstring":311}],278:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],280:[function(require,module,exports){
+},{"dup":18}],279:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],281:[function(require,module,exports){
+},{"dup":19}],280:[function(require,module,exports){
 arguments[4][20][0].apply(exports,arguments)
-},{"dup":20,"lodash.isempty":305,"lodash.isobject":311}],282:[function(require,module,exports){
+},{"dup":20,"lodash.isempty":304,"lodash.isobject":310}],281:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"./lib/client":263,"./lib/get-configuration":268,"./lib/parse-client-token":270,"./lib/util":281,"dup":21}],283:[function(require,module,exports){
+},{"./lib/client":262,"./lib/get-configuration":267,"./lib/parse-client-token":269,"./lib/util":280,"dup":21}],282:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"dup":22}],284:[function(require,module,exports){
+},{"dup":22}],283:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
-},{"dup":23}],285:[function(require,module,exports){
+},{"dup":23}],284:[function(require,module,exports){
 arguments[4][24][0].apply(exports,arguments)
-},{"dup":24}],286:[function(require,module,exports){
+},{"dup":24}],285:[function(require,module,exports){
 arguments[4][25][0].apply(exports,arguments)
-},{"dup":25}],287:[function(require,module,exports){
+},{"dup":25}],286:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
-},{"./lib/dom":283,"./lib/events":284,"./lib/fn":285,"./lib/url":286,"dup":26}],288:[function(require,module,exports){
+},{"./lib/dom":282,"./lib/events":283,"./lib/fn":284,"./lib/url":285,"dup":26}],287:[function(require,module,exports){
 arguments[4][27][0].apply(exports,arguments)
-},{"../shared/receiver":295,"braintree-utilities":287,"dup":27}],289:[function(require,module,exports){
+},{"../shared/receiver":294,"braintree-utilities":286,"dup":27}],288:[function(require,module,exports){
 arguments[4][28][0].apply(exports,arguments)
-},{"./authorization_service":288,"./loader":291,"braintree-utilities":287,"dup":28}],290:[function(require,module,exports){
+},{"./authorization_service":287,"./loader":290,"braintree-utilities":286,"dup":28}],289:[function(require,module,exports){
 arguments[4][29][0].apply(exports,arguments)
-},{"./client":289,"dup":29}],291:[function(require,module,exports){
+},{"./client":288,"dup":29}],290:[function(require,module,exports){
 arguments[4][30][0].apply(exports,arguments)
-},{"./loader_display":292,"./loader_message":293,"./loader_spinner":294,"dup":30}],292:[function(require,module,exports){
+},{"./loader_display":291,"./loader_message":292,"./loader_spinner":293,"dup":30}],291:[function(require,module,exports){
 arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],293:[function(require,module,exports){
+},{"dup":31}],292:[function(require,module,exports){
 arguments[4][32][0].apply(exports,arguments)
-},{"dup":32}],294:[function(require,module,exports){
+},{"dup":32}],293:[function(require,module,exports){
 arguments[4][33][0].apply(exports,arguments)
-},{"dup":33}],295:[function(require,module,exports){
+},{"dup":33}],294:[function(require,module,exports){
 arguments[4][34][0].apply(exports,arguments)
-},{"braintree-utilities":287,"dup":34}],296:[function(require,module,exports){
+},{"braintree-utilities":286,"dup":34}],295:[function(require,module,exports){
 arguments[4][35][0].apply(exports,arguments)
-},{"dup":35}],297:[function(require,module,exports){
+},{"dup":35}],296:[function(require,module,exports){
 arguments[4][36][0].apply(exports,arguments)
-},{"dup":36}],298:[function(require,module,exports){
+},{"dup":36}],297:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"dup":22}],299:[function(require,module,exports){
+},{"dup":22}],298:[function(require,module,exports){
 arguments[4][38][0].apply(exports,arguments)
-},{"dup":38}],300:[function(require,module,exports){
+},{"dup":38}],299:[function(require,module,exports){
 arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],301:[function(require,module,exports){
+},{"dup":39}],300:[function(require,module,exports){
 arguments[4][40][0].apply(exports,arguments)
-},{"dup":40}],302:[function(require,module,exports){
+},{"dup":40}],301:[function(require,module,exports){
 arguments[4][41][0].apply(exports,arguments)
-},{"./array":296,"dup":41}],303:[function(require,module,exports){
+},{"./array":295,"dup":41}],302:[function(require,module,exports){
 arguments[4][42][0].apply(exports,arguments)
-},{"dup":42}],304:[function(require,module,exports){
+},{"dup":42}],303:[function(require,module,exports){
 arguments[4][43][0].apply(exports,arguments)
-},{"./lib/array":296,"./lib/base64":297,"./lib/dom":298,"./lib/events":299,"./lib/fn":300,"./lib/string":301,"./lib/url":302,"./lib/uuid":303,"dup":43}],305:[function(require,module,exports){
+},{"./lib/array":295,"./lib/base64":296,"./lib/dom":297,"./lib/events":298,"./lib/fn":299,"./lib/string":300,"./lib/url":301,"./lib/uuid":302,"dup":43}],304:[function(require,module,exports){
 arguments[4][44][0].apply(exports,arguments)
-},{"dup":44,"lodash.isarguments":306,"lodash.isarray":307,"lodash.isfunction":308,"lodash.isstring":312,"lodash.keys":309}],306:[function(require,module,exports){
+},{"dup":44,"lodash.isarguments":305,"lodash.isarray":306,"lodash.isfunction":307,"lodash.isstring":311,"lodash.keys":308}],305:[function(require,module,exports){
 arguments[4][45][0].apply(exports,arguments)
-},{"dup":45}],307:[function(require,module,exports){
+},{"dup":45}],306:[function(require,module,exports){
 arguments[4][46][0].apply(exports,arguments)
-},{"dup":46}],308:[function(require,module,exports){
+},{"dup":46}],307:[function(require,module,exports){
 arguments[4][47][0].apply(exports,arguments)
-},{"dup":47}],309:[function(require,module,exports){
+},{"dup":47}],308:[function(require,module,exports){
 arguments[4][48][0].apply(exports,arguments)
-},{"dup":48,"lodash._getnative":310,"lodash.isarguments":306,"lodash.isarray":307}],310:[function(require,module,exports){
+},{"dup":48,"lodash._getnative":309,"lodash.isarguments":305,"lodash.isarray":306}],309:[function(require,module,exports){
 arguments[4][49][0].apply(exports,arguments)
-},{"dup":49}],311:[function(require,module,exports){
+},{"dup":49}],310:[function(require,module,exports){
 arguments[4][50][0].apply(exports,arguments)
-},{"dup":50}],312:[function(require,module,exports){
+},{"dup":50}],311:[function(require,module,exports){
 arguments[4][51][0].apply(exports,arguments)
-},{"dup":51}],313:[function(require,module,exports){
+},{"dup":51}],312:[function(require,module,exports){
 arguments[4][52][0].apply(exports,arguments)
-},{"./lib/check-origin":314,"./lib/events":315,"dup":52,"framebus":316}],314:[function(require,module,exports){
+},{"./lib/check-origin":313,"./lib/events":314,"dup":52,"framebus":315}],313:[function(require,module,exports){
 arguments[4][53][0].apply(exports,arguments)
-},{"dup":53}],315:[function(require,module,exports){
+},{"dup":53}],314:[function(require,module,exports){
 arguments[4][54][0].apply(exports,arguments)
-},{"dup":54}],316:[function(require,module,exports){
+},{"dup":54}],315:[function(require,module,exports){
 arguments[4][55][0].apply(exports,arguments)
-},{"dup":55}],317:[function(require,module,exports){
+},{"dup":55}],316:[function(require,module,exports){
 arguments[4][35][0].apply(exports,arguments)
-},{"dup":35}],318:[function(require,module,exports){
+},{"dup":35}],317:[function(require,module,exports){
 arguments[4][36][0].apply(exports,arguments)
-},{"dup":36}],319:[function(require,module,exports){
+},{"dup":36}],318:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"dup":22}],320:[function(require,module,exports){
+},{"dup":22}],319:[function(require,module,exports){
 arguments[4][38][0].apply(exports,arguments)
-},{"dup":38}],321:[function(require,module,exports){
+},{"dup":38}],320:[function(require,module,exports){
 arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],322:[function(require,module,exports){
+},{"dup":39}],321:[function(require,module,exports){
 arguments[4][40][0].apply(exports,arguments)
-},{"dup":40}],323:[function(require,module,exports){
+},{"dup":40}],322:[function(require,module,exports){
 arguments[4][41][0].apply(exports,arguments)
-},{"./array":317,"dup":41}],324:[function(require,module,exports){
+},{"./array":316,"dup":41}],323:[function(require,module,exports){
 arguments[4][42][0].apply(exports,arguments)
-},{"dup":42}],325:[function(require,module,exports){
+},{"dup":42}],324:[function(require,module,exports){
 arguments[4][43][0].apply(exports,arguments)
-},{"./lib/array":317,"./lib/base64":318,"./lib/dom":319,"./lib/events":320,"./lib/fn":321,"./lib/string":322,"./lib/url":323,"./lib/uuid":324,"dup":43}],326:[function(require,module,exports){
+},{"./lib/array":316,"./lib/base64":317,"./lib/dom":318,"./lib/events":319,"./lib/fn":320,"./lib/string":321,"./lib/url":322,"./lib/uuid":323,"dup":43}],325:[function(require,module,exports){
 arguments[4][80][0].apply(exports,arguments)
-},{"batch-execute-functions":327,"braintree-utilities/lib/fn":328,"dup":80}],327:[function(require,module,exports){
+},{"batch-execute-functions":326,"braintree-utilities/lib/fn":327,"dup":80}],326:[function(require,module,exports){
 arguments[4][81][0].apply(exports,arguments)
-},{"dup":81}],328:[function(require,module,exports){
+},{"dup":81}],327:[function(require,module,exports){
 arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],329:[function(require,module,exports){
+},{"dup":39}],328:[function(require,module,exports){
 arguments[4][83][0].apply(exports,arguments)
-},{"./lib/default-attributes":330,"dup":83,"lodash.assign":331,"lodash.isstring":342,"setattributes":343}],330:[function(require,module,exports){
+},{"./lib/default-attributes":329,"dup":83,"lodash.assign":330,"lodash.isstring":341,"setattributes":342}],329:[function(require,module,exports){
 arguments[4][84][0].apply(exports,arguments)
-},{"dup":84}],331:[function(require,module,exports){
+},{"dup":84}],330:[function(require,module,exports){
 arguments[4][85][0].apply(exports,arguments)
-},{"dup":85,"lodash._baseassign":332,"lodash._createassigner":334,"lodash.keys":338}],332:[function(require,module,exports){
+},{"dup":85,"lodash._baseassign":331,"lodash._createassigner":333,"lodash.keys":337}],331:[function(require,module,exports){
 arguments[4][86][0].apply(exports,arguments)
-},{"dup":86,"lodash._basecopy":333,"lodash.keys":338}],333:[function(require,module,exports){
+},{"dup":86,"lodash._basecopy":332,"lodash.keys":337}],332:[function(require,module,exports){
 arguments[4][87][0].apply(exports,arguments)
-},{"dup":87}],334:[function(require,module,exports){
+},{"dup":87}],333:[function(require,module,exports){
 arguments[4][88][0].apply(exports,arguments)
-},{"dup":88,"lodash._bindcallback":335,"lodash._isiterateecall":336,"lodash.restparam":337}],335:[function(require,module,exports){
+},{"dup":88,"lodash._bindcallback":334,"lodash._isiterateecall":335,"lodash.restparam":336}],334:[function(require,module,exports){
 arguments[4][89][0].apply(exports,arguments)
-},{"dup":89}],336:[function(require,module,exports){
+},{"dup":89}],335:[function(require,module,exports){
 arguments[4][90][0].apply(exports,arguments)
-},{"dup":90}],337:[function(require,module,exports){
+},{"dup":90}],336:[function(require,module,exports){
 arguments[4][91][0].apply(exports,arguments)
-},{"dup":91}],338:[function(require,module,exports){
+},{"dup":91}],337:[function(require,module,exports){
 arguments[4][48][0].apply(exports,arguments)
-},{"dup":48,"lodash._getnative":339,"lodash.isarguments":340,"lodash.isarray":341}],339:[function(require,module,exports){
+},{"dup":48,"lodash._getnative":338,"lodash.isarguments":339,"lodash.isarray":340}],338:[function(require,module,exports){
 arguments[4][49][0].apply(exports,arguments)
-},{"dup":49}],340:[function(require,module,exports){
+},{"dup":49}],339:[function(require,module,exports){
 arguments[4][45][0].apply(exports,arguments)
-},{"dup":45}],341:[function(require,module,exports){
+},{"dup":45}],340:[function(require,module,exports){
 arguments[4][46][0].apply(exports,arguments)
-},{"dup":46}],342:[function(require,module,exports){
+},{"dup":46}],341:[function(require,module,exports){
 arguments[4][51][0].apply(exports,arguments)
-},{"dup":51}],343:[function(require,module,exports){
+},{"dup":51}],342:[function(require,module,exports){
 arguments[4][97][0].apply(exports,arguments)
-},{"dup":97}],344:[function(require,module,exports){
+},{"dup":97}],343:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -9720,7 +9648,7 @@ Client.prototype._createViews = function () {
   this.appView = new AppView({
     insertFrameFunction: this.insertFrameFunction,
     paypalAssetsUrl: this._clientToken.paypal.assetsUrl,
-    isHermes: util.isHermesConfiguration(this._clientOptions),
+    isHermes: util.isHermesConfiguration(this._clientToken, this._clientOptions),
     headless: this._clientOptions.headless,
     channel: this.channel
   });
@@ -9749,7 +9677,7 @@ Client.prototype._createViews = function () {
     this.loggedOutView = new LoggedOutView({
       paypalAssetsUrl: this._clientToken.paypal.assetsUrl,
       container: this.container,
-      isHermes: util.isHermesConfiguration(this._clientOptions),
+      enablePayPalButton: util.isOneTimeHermesConfiguration(this._clientOptions),
       locale: this._clientOptions.locale,
       channel: this.channel
     });
@@ -9795,7 +9723,7 @@ Client.prototype.launch = function () {
 
 Client.prototype._isButton = function (node) {
   var isPayPalButton = node.id === 'braintree-paypal-button';
-  var isHermesButton = util.isHermesConfiguration(this._clientOptions) &&
+  var isHermesButton = util.isOneTimeHermesConfiguration(this._clientOptions) &&
     node.className.match(/paypal-button(?!-widget)/);
 
   return isPayPalButton || isHermesButton;
@@ -9818,7 +9746,7 @@ Client.prototype._clientTokenData = function () {
     paypalClientId: this._clientToken.paypal.clientId,
     paypalPrivacyUrl: this._clientToken.paypal.privacyUrl,
     paypalUserAgreementUrl: this._clientToken.paypal.userAgreementUrl,
-    billingAgreementEnabled: this._clientToken.paypal.billingAgreementsEnabled,
+    billingAgreementsEnabled: this._clientToken.paypal.billingAgreementsEnabled,
     unvettedMerchant: this._clientToken.paypal.unvettedMerchant,
     payeeEmail: this._clientToken.paypal.payeeEmail,
     correlationId: this._clientToken.correlationId,
@@ -9839,7 +9767,7 @@ Client.prototype._clientOptionsData = function () {
     integration: this._clientOptions.integration || 'paypal',
     enableShippingAddress: this._clientOptions.enableShippingAddress || false,
     enableBillingAddress: this._clientOptions.enableBillingAddress || false,
-    enableHermes: util.isHermesConfiguration(this._clientOptions),
+    enableHermes: util.isHermesConfiguration(this._clientToken, this._clientOptions),
     amount: this._clientOptions.amount || null,
     currency: this._clientOptions.currency || null,
     shippingAddressOverride: this._clientOptions.shippingAddressOverride || null,
@@ -9860,7 +9788,7 @@ Client.prototype.teardown = function () {
 module.exports = Client;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../shared/constants":355,"../shared/util/browser":362,"../shared/util/util":364,"./views/app-view":346,"./views/bridge-iframe-view":347,"./views/logged-in-view":348,"./views/logged-out-view":349,"./views/merchant-page-view":350,"./views/overlay-view":352,"./views/payment-method-nonce-input-field-view":353,"braintree-bus":313,"braintree-utilities":325,"destructor":326}],345:[function(require,module,exports){
+},{"../shared/constants":354,"../shared/util/browser":361,"../shared/util/util":363,"./views/app-view":345,"./views/bridge-iframe-view":346,"./views/logged-in-view":347,"./views/logged-out-view":348,"./views/merchant-page-view":349,"./views/overlay-view":351,"./views/payment-method-nonce-input-field-view":352,"braintree-bus":312,"braintree-utilities":324,"destructor":325}],344:[function(require,module,exports){
 'use strict';
 
 var Client = require('./client');
@@ -9869,7 +9797,7 @@ var constants = require('../shared/constants');
 var getLocale = require('../shared/get-locale');
 var isHermesConfiguration = require('../shared/util/util').isHermesConfiguration;
 var isOneTimeHermesConfiguration = require('../shared/util/util').isOneTimeHermesConfiguration;
-var VERSION = "1.6.0";
+var VERSION = "1.6.1";
 var braintreeUtil = require('braintree-utilities');
 var braintreeApi = require('braintree-api');
 
@@ -9918,7 +9846,7 @@ function create(clientToken, options, channel) {
     return null;
   }
 
-  if (isHermesConfiguration(options)) {
+  if (isHermesConfiguration(clientToken, options)) {
     if (!isHermesSupportedCountry(options.locale)) {
       onUnsupported(new Error('This PayPal integration does not support this country'));
       return null;
@@ -9971,7 +9899,7 @@ function isValidAmount(amount) {
 }
 
 function isMisconfiguredUnvettedMerchant(clientToken, options) {
-  return clientToken.paypal.unvettedMerchant && (!isHermesConfiguration(options) || !clientToken.paypal.payeeEmail);
+  return clientToken.paypal.unvettedMerchant && (!isHermesConfiguration(clientToken, options) || !clientToken.paypal.payeeEmail);
 }
 
 function isBrowserSecure(clientToken, options) {
@@ -9987,9 +9915,9 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"../shared/constants":355,"../shared/get-locale":357,"../shared/util/browser":362,"../shared/util/util":364,"./client":344,"braintree-api":282,"braintree-utilities":325}],346:[function(require,module,exports){
+},{"../shared/constants":354,"../shared/get-locale":356,"../shared/util/browser":361,"../shared/util/util":363,"./client":343,"braintree-api":281,"braintree-utilities":324}],345:[function(require,module,exports){
 arguments[4][183][0].apply(exports,arguments)
-},{"../../shared/constants":355,"../../shared/util/browser":362,"./modal-view":351,"./popup-view":354,"braintree-bus":313,"braintree-utilities":325,"destructor":326,"dup":183}],347:[function(require,module,exports){
+},{"../../shared/constants":354,"../../shared/util/browser":361,"./modal-view":350,"./popup-view":353,"braintree-bus":312,"braintree-utilities":324,"destructor":325,"dup":183}],346:[function(require,module,exports){
 'use strict';
 
 var constants = require('../../shared/constants');
@@ -10035,7 +9963,7 @@ BridgeIframeView.prototype.teardown = function () {
 
 module.exports = BridgeIframeView;
 
-},{"../../shared/constants":355,"iframer":329}],348:[function(require,module,exports){
+},{"../../shared/constants":354,"iframer":328}],347:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -10206,7 +10134,7 @@ LoggedInView.prototype.teardown = function () {
 module.exports = LoggedInView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../shared/constants":355,"../../shared/util/dom":363,"../../shared/util/util":364,"braintree-bus":313,"braintree-utilities":325,"destructor":326}],349:[function(require,module,exports){
+},{"../../shared/constants":354,"../../shared/util/dom":362,"../../shared/util/util":363,"braintree-bus":312,"braintree-utilities":324,"destructor":325}],348:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -10230,7 +10158,7 @@ function LoggedOutView(options) {
 LoggedOutView.prototype._initialize = function () {
   this.createViewContainer();
 
-  if (this.options.isHermes) {
+  if (this.options.enablePayPalButton) {
     this.createCheckoutWithPayPalButton();
   } else {
     this.createPayWithPayPalButton();
@@ -10280,15 +10208,23 @@ LoggedOutView.prototype.createPayWithPayPalButton = function () {
 
 LoggedOutView.prototype.createCheckoutWithPayPalButton = function () {
   var script = document.createElement('script');
+  var attr;
+  var scriptAttrs = {
+    'data-merchant': 'merchant-id',
+    'data-button': 'checkout',
+    'data-type': 'button',
+    'data-color': 'blue',
+    'data-lc': getLocale(this.options.locale)
+  };
 
   script.src = '//www.paypalobjects.com/api/button.js';
   script.async = true;
-  script.setAttribute('data-merchant', 'merchant-id');
-  script.setAttribute('data-button', 'checkout');
-  script.setAttribute('data-type', 'button');
-  script.setAttribute('data-width', '150');
-  script.setAttribute('data-height', '44');
-  script.setAttribute('data-lc', getLocale(this.options.locale));
+
+  for (attr in scriptAttrs) {
+    if (scriptAttrs.hasOwnProperty(attr)) {
+      script.setAttribute(attr, scriptAttrs[attr]);
+    }
+  }
 
   this.container.appendChild(script);
 };
@@ -10321,7 +10257,7 @@ LoggedOutView.prototype.teardown = function () {
 module.exports = LoggedOutView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../shared/constants":355,"../../shared/get-locale":357,"braintree-bus":313,"braintree-utilities":325}],350:[function(require,module,exports){
+},{"../../shared/constants":354,"../../shared/get-locale":356,"braintree-bus":312,"braintree-utilities":324}],349:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -10400,9 +10336,9 @@ function getMerchantPageDefaultStyles() {
 module.exports = MerchantPageView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../shared/constants":355,"braintree-bus":313,"braintree-utilities":325}],351:[function(require,module,exports){
+},{"../../shared/constants":354,"braintree-bus":312,"braintree-utilities":324}],350:[function(require,module,exports){
 arguments[4][184][0].apply(exports,arguments)
-},{"../../shared/constants":355,"../../shared/util/browser":362,"braintree-bus":313,"braintree-utilities":325,"dup":184,"iframer":329}],352:[function(require,module,exports){
+},{"../../shared/constants":354,"../../shared/util/browser":361,"braintree-bus":312,"braintree-utilities":324,"dup":184,"iframer":328}],351:[function(require,module,exports){
 (function (global){
 'use strict';
 var braintreeUtil = require('braintree-utilities');
@@ -10597,7 +10533,7 @@ OverlayView.prototype.teardown = function () {
 module.exports = OverlayView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../shared/constants":355,"braintree-bus":313,"braintree-utilities":325,"destructor":326}],353:[function(require,module,exports){
+},{"../../shared/constants":354,"braintree-bus":312,"braintree-utilities":324,"destructor":325}],352:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -10683,11 +10619,11 @@ PaymentMethodNonceInputFieldView.prototype.teardown = function () {
 module.exports = PaymentMethodNonceInputFieldView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../shared/constants":355,"braintree-bus":313,"braintree-utilities":325,"destructor":326}],354:[function(require,module,exports){
+},{"../../shared/constants":354,"braintree-bus":312,"braintree-utilities":324,"destructor":325}],353:[function(require,module,exports){
 arguments[4][185][0].apply(exports,arguments)
-},{"../../shared/constants":355,"../../shared/useragent/browser":358,"braintree-bus":313,"dup":185}],355:[function(require,module,exports){
+},{"../../shared/constants":354,"../../shared/useragent/browser":357,"braintree-bus":312,"dup":185}],354:[function(require,module,exports){
 arguments[4][186][0].apply(exports,arguments)
-},{"dup":186}],356:[function(require,module,exports){
+},{"dup":186}],355:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -10719,7 +10655,7 @@ module.exports = {
   ru: 'ru_ru'
 };
 
-},{}],357:[function(require,module,exports){
+},{}],356:[function(require,module,exports){
 'use strict';
 
 var countryCodeLookupTable = require('../shared/data/country-code-lookup');
@@ -10762,17 +10698,17 @@ function getLocale(code) {
 
 module.exports = getLocale;
 
-},{"../shared/data/country-code-lookup":356}],358:[function(require,module,exports){
+},{"../shared/data/country-code-lookup":355}],357:[function(require,module,exports){
 arguments[4][187][0].apply(exports,arguments)
-},{"./platform":360,"./useragent":361,"dup":187}],359:[function(require,module,exports){
+},{"./platform":359,"./useragent":360,"dup":187}],358:[function(require,module,exports){
 arguments[4][188][0].apply(exports,arguments)
-},{"./platform":360,"./useragent":361,"dup":188}],360:[function(require,module,exports){
+},{"./platform":359,"./useragent":360,"dup":188}],359:[function(require,module,exports){
 arguments[4][189][0].apply(exports,arguments)
-},{"./useragent":361,"dup":189}],361:[function(require,module,exports){
+},{"./useragent":360,"dup":189}],360:[function(require,module,exports){
 arguments[4][190][0].apply(exports,arguments)
-},{"dup":190}],362:[function(require,module,exports){
+},{"dup":190}],361:[function(require,module,exports){
 arguments[4][191][0].apply(exports,arguments)
-},{"../useragent/browser":358,"../useragent/device":359,"../useragent/platform":360,"../useragent/useragent":361,"dup":191}],363:[function(require,module,exports){
+},{"../useragent/browser":357,"../useragent/device":358,"../useragent/platform":359,"../useragent/useragent":360,"dup":191}],362:[function(require,module,exports){
 'use strict';
 
 function setTextContent(element, content) {
@@ -10789,7 +10725,7 @@ module.exports = {
   setTextContent: setTextContent
 };
 
-},{}],364:[function(require,module,exports){
+},{}],363:[function(require,module,exports){
 'use strict';
 
 var trim = typeof String.prototype.trim === 'function' ?
@@ -10895,15 +10831,15 @@ function preventDefault(event) {
 }
 
 function isOneTimeHermesConfiguration(options) {
-  return !!options.singleUse && !!options.amount && !!options.currency;
+  return Boolean(options.singleUse) && Boolean(options.amount) && Boolean(options.currency);
 }
 
-function isBillingAgreementHermesConfiguration(options) {
-  return !!options.billingAgreementEnabled;
+function isBillingAgreementsHermesConfiguration(clientToken) {
+  return Boolean(clientToken.paypal.billingAgreementsEnabled);
 }
 
-function isHermesConfiguration(options) {
-  return isBillingAgreementHermesConfiguration(options) || isOneTimeHermesConfiguration(options);
+function isHermesConfiguration(clientToken, options) {
+  return isBillingAgreementsHermesConfiguration(clientToken) || isOneTimeHermesConfiguration(options);
 }
 
 module.exports = {
@@ -10915,35 +10851,661 @@ module.exports = {
   parseUrlParams: parseUrlParams,
   preventDefault: preventDefault,
   isOneTimeHermesConfiguration: isOneTimeHermesConfiguration,
-  isBillingAgreementHermesConfiguration: isBillingAgreementHermesConfiguration,
+  isBillingAgreementsHermesConfiguration: isBillingAgreementsHermesConfiguration,
   isHermesConfiguration: isHermesConfiguration
 };
 
-},{}],365:[function(require,module,exports){
+},{}],364:[function(require,module,exports){
 arguments[4][35][0].apply(exports,arguments)
-},{"dup":35}],366:[function(require,module,exports){
+},{"dup":35}],365:[function(require,module,exports){
 arguments[4][36][0].apply(exports,arguments)
-},{"dup":36}],367:[function(require,module,exports){
+},{"dup":36}],366:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"dup":22}],368:[function(require,module,exports){
+},{"dup":22}],367:[function(require,module,exports){
 arguments[4][38][0].apply(exports,arguments)
-},{"dup":38}],369:[function(require,module,exports){
+},{"dup":38}],368:[function(require,module,exports){
 arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],370:[function(require,module,exports){
+},{"dup":39}],369:[function(require,module,exports){
 arguments[4][40][0].apply(exports,arguments)
-},{"dup":40}],371:[function(require,module,exports){
+},{"dup":40}],370:[function(require,module,exports){
 arguments[4][41][0].apply(exports,arguments)
-},{"./array":365,"dup":41}],372:[function(require,module,exports){
+},{"./array":364,"dup":41}],371:[function(require,module,exports){
 arguments[4][42][0].apply(exports,arguments)
-},{"dup":42}],373:[function(require,module,exports){
+},{"dup":42}],372:[function(require,module,exports){
 arguments[4][43][0].apply(exports,arguments)
-},{"./lib/array":365,"./lib/base64":366,"./lib/dom":367,"./lib/events":368,"./lib/fn":369,"./lib/string":370,"./lib/url":371,"./lib/uuid":372,"dup":43}],374:[function(require,module,exports){
+},{"./lib/array":364,"./lib/base64":365,"./lib/dom":366,"./lib/events":367,"./lib/fn":368,"./lib/string":369,"./lib/url":370,"./lib/uuid":371,"dup":43}],373:[function(require,module,exports){
 arguments[4][80][0].apply(exports,arguments)
-},{"batch-execute-functions":375,"braintree-utilities/lib/fn":376,"dup":80}],375:[function(require,module,exports){
+},{"batch-execute-functions":374,"braintree-utilities/lib/fn":375,"dup":80}],374:[function(require,module,exports){
 arguments[4][81][0].apply(exports,arguments)
-},{"dup":81}],376:[function(require,module,exports){
+},{"dup":81}],375:[function(require,module,exports){
 arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],377:[function(require,module,exports){
+},{"dup":39}],376:[function(require,module,exports){
+(function (global){
+'use strict';
+
+function FormNapper(form) {
+  if (typeof form === 'string' || form instanceof String) {
+    form = document.getElementById(form);
+  }
+
+  if (form instanceof HTMLFormElement) {
+    this.htmlForm = form;
+  } else {
+    throw new TypeError('FormNapper requires an HTMLFormElement element or the id string of one.');
+  }
+}
+
+FormNapper.prototype.hijack = function (onsubmit) {
+  if (this.submitHandler) { return; }
+
+  this.submitHandler = function (event) {
+    if (event.preventDefault) {
+      event.preventDefault();
+    } else {
+      event.returnValue = false;
+    }
+
+    onsubmit(event);
+  };
+
+  if (global.addEventListener != null) {
+    this.htmlForm.addEventListener('submit', this.submitHandler, false);
+  } else if (global.attachEvent != null) {
+    this.htmlForm.attachEvent('onsubmit', this.submitHandler);
+  } else {
+    this.htmlForm.onsubmit = this.submitHandler;
+  }
+};
+
+FormNapper.prototype.inject = function (name, value) {
+  var input = this.htmlForm.querySelector('input[name="' + name + '"]');
+
+  if (input == null) {
+    input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = name;
+    this.htmlForm.appendChild(input);
+  }
+
+  input.value = value;
+
+  return input;
+};
+
+FormNapper.prototype.submit = function () {
+  HTMLFormElement.prototype.submit.call(this.htmlForm);
+};
+
+FormNapper.prototype.detach = function () {
+  if (!this.submitHandler) { return; }
+
+  if (global.removeEventListener != null) {
+    this.htmlForm.removeEventListener('submit', this.submitHandler, false);
+  } else if (global.detachEvent != null) {
+    this.htmlForm.detachEvent('onsubmit', this.submitHandler);
+  } else {
+    this.htmlForm.onsubmit = null;
+  }
+
+  delete this.submitHandler;
+};
+
+module.exports = FormNapper;
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],377:[function(require,module,exports){
+var HostedFields = require('./lib/external');
+var events = require('./lib/shared/constants').events;
+var VERSION = "1.0.0";
+
+module.exports = {
+  create: function (configuration) {
+    return new HostedFields(configuration);
+  },
+  events: events,
+  VERSION: VERSION
+};
+
+},{"./lib/external":379,"./lib/shared/constants":381}],378:[function(require,module,exports){
+var constants = require('../shared/constants');
+
+module.exports = function composeUrl(assetsUrl, channel) {
+  return assetsUrl +
+    '/hosted-fields/' +
+    constants.VERSION +
+    '/hosted-fields-frame.html#' +
+    channel;
+};
+
+},{"../shared/constants":381}],379:[function(require,module,exports){
+'use strict';
+
+var Destructor = require('destructor');
+var classListManager = require('classlist');
+var iFramer = require('iframer');
+var Bus = require('braintree-bus');
+var composeUrl = require('./compose-url');
+var constants = require('../shared/constants');
+var nodeListToArray = require('nodelist-to-array');
+var utils = require('braintree-utilities');
+var findParentTags = require('../shared/find-parent-tags');
+var shouldUseLabelFocus = require('./should-use-label-focus');
+var events = constants.events;
+
+function injectFrame(frame, container) {
+  var clearboth = document.createElement('div');
+
+  clearboth.style.clear = 'both';
+
+  container = container || document.body;
+
+  container.appendChild(frame);
+  container.appendChild(clearboth);
+
+  return {
+    parent: container,
+    children: [frame, clearboth]
+  };
+}
+
+function inputEventHandler(fields, onFieldEvent) {
+  return function (eventData) {
+    var container = fields[eventData.fieldKey].containerElement;
+    var classList = classListManager(container);
+
+    eventData.target = {
+      fieldKey: eventData.fieldKey,
+      container: container
+    };
+
+    classList
+      .toggle(constants.externalClasses.FOCUSED, eventData.isFocused)
+      .toggle(constants.externalClasses.VALID, eventData.isValid);
+    if (eventData.isStrictlyValidating) {
+      classList.toggle(constants.externalClasses.INVALID, !eventData.isValid);
+    } else {
+      classList.toggle(constants.externalClasses.INVALID, !eventData.isPotentiallyValid);
+    }
+
+    delete eventData.fieldKey;
+    delete eventData.isStrictlyValidating;
+
+    if (onFieldEvent) {
+      onFieldEvent(eventData);
+    }
+  };
+}
+
+function HostedFieldsIntegration(configuration) {
+  var type, field, container, frame, i, msg;
+  var fields = {};
+  var fieldCount = 0;
+
+  this.injectedNodes = [];
+  this.destructor = new Destructor();
+
+  this.bus = new Bus({
+    channel: configuration.channel,
+    merchantUrl: location.href
+  });
+
+  this.destructor.registerFunctionForTeardown(utils.bind(function () {
+    this.bus.teardown();
+  }, this));
+
+  this.bus.emit(Bus.events.ASYNC_DEPENDENCY_INITIALIZING);
+  this.bus.emit(Bus.events.SEND_ANALYTICS_EVENTS, 'hosted-fields.initialized');
+
+  for (i = 0; i < constants.whitelistedFields.length; i++) {
+    type = constants.whitelistedFields[i];
+    field = configuration.merchantConfiguration.hostedFields[type];
+
+    if (!field) { continue; }
+
+    container = document.querySelector(field.selector);
+
+    if (!container) {
+      msg = 'Unable to find element with selector "' + field.selector + '" for hostedFields.' + type;
+      this.bus.emit(Bus.events.ERROR, {
+        message: msg
+      });
+      continue;
+    } else if (container.querySelector('iframe[name^="braintree-"]')) {
+      this.bus.emit(Bus.events.ERROR, {
+        message: 'Cannot place two elements in "' + field.selector + '"'
+      });
+      continue;
+    }
+
+    frame = iFramer({
+      type: type,
+      name: 'braintree-hosted-field-' + type,
+      style: constants.defaultIFrameStyle
+    });
+
+    this.injectedNodes.push(injectFrame(frame, container));
+    this.setupLabelFocus(type, container);
+    fields[type] = {
+      frameElement: frame,
+      containerElement: container
+    };
+    fieldCount++;
+
+    /* eslint-disable no-loop-func */
+    setTimeout((function (f) {
+      return function () {
+        f.src = composeUrl(
+          configuration.gatewayConfiguration.assetsUrl,
+          configuration.channel
+        );
+      };
+    })(frame), 0);
+  } /* eslint-enable no-loop-func */
+
+  this.bus.on(events.FRAME_READY, function (reply) {
+    fieldCount--;
+    if (fieldCount === 0) {
+      reply(true);
+    } else {
+      reply(false);
+    }
+  });
+
+  this.bus.on(
+    events.INPUT_EVENT,
+    inputEventHandler(fields, configuration.merchantConfiguration.hostedFields.onFieldEvent)
+  );
+
+  this.destructor.registerFunctionForTeardown(utils.bind(function () {
+    var j, k, nodeGroup;
+
+    for (j = 0; j < this.injectedNodes.length; j++) {
+      nodeGroup = this.injectedNodes[j];
+
+      for (k = 0; k < nodeGroup.children.length; k++) {
+        nodeGroup.parent.removeChild(nodeGroup.children[k]);
+      }
+
+      classListManager(nodeGroup.parent).remove(
+        constants.externalClasses.FOCUSED,
+        constants.externalClasses.INVALID,
+        constants.externalClasses.VALID
+      );
+    }
+  }, this));
+}
+
+HostedFieldsIntegration.prototype.setupLabelFocus = function (type, container) {
+  var labels, i;
+  var bus = this.bus;
+
+  if (!shouldUseLabelFocus()) { return; }
+  if (container.id == null) { return; }
+
+  function triggerFocus() {
+    bus.emit(events.TRIGGER_INPUT_FOCUS, type);
+  }
+
+  labels = nodeListToArray(document.querySelectorAll('label[for="' + container.id + '"]'));
+  labels = labels.concat(findParentTags(container, 'label'));
+
+  for (i = 0; i < labels.length; i++) {
+    utils.addEventListener(labels[i], 'click', triggerFocus, false);
+  }
+
+  this.destructor.registerFunctionForTeardown(function () {
+    for (i = 0; i < labels.length; i++) {
+      utils.removeEventListener(labels[i], 'click', triggerFocus, false);
+    }
+  });
+};
+
+HostedFieldsIntegration.prototype.teardown = function (done) {
+  this.destructor.teardown(done);
+};
+
+module.exports = HostedFieldsIntegration;
+
+},{"../shared/constants":381,"../shared/find-parent-tags":382,"./compose-url":378,"./should-use-label-focus":380,"braintree-bus":383,"braintree-utilities":395,"classlist":396,"destructor":399,"iframer":402,"nodelist-to-array":417}],380:[function(require,module,exports){
+'use strict';
+
+module.exports = function shouldUseLabelFocus() {
+  return !/(iPad|iPhone|iPod)/i.test(navigator.userAgent);
+};
+
+},{}],381:[function(require,module,exports){
+/*eslint-disable no-reserved-keys */
+'use strict';
+
+var VERSION = "1.0.0";
+
+module.exports = {
+  VERSION: VERSION,
+  events: {
+    FRAME_READY: 'hosted-fields:FRAME_READY',
+    VALIDATE_STRICT: 'hosted-fields:VALIDATE_STRICT',
+    CONFIGURATION: 'hosted-fields:CONFIGURATION',
+    TOKENIZATION_REQUEST: 'hosted-fields:TOKENIZATION_REQUEST',
+    INPUT_EVENT: 'hosted-fields:INPUT_EVENT',
+    TRIGGER_INPUT_FOCUS: 'hosted-fields:TRIGGER_INPUT_FOCUS'
+  },
+  externalEvents: {
+    FOCUS: 'focus',
+    BLUR: 'blur',
+    FIELD_STATE_CHANGE: 'fieldStateChange'
+  },
+  defaultMaxLengths: {
+    number: 19,
+    postalCode: 8,
+    expirationDate: 7,
+    expirationMonth: 2,
+    expirationYear: 4,
+    cvv: 3
+  },
+  externalClasses: {
+    FOCUSED: 'braintree-hosted-fields-focused',
+    INVALID: 'braintree-hosted-fields-invalid',
+    VALID: 'braintree-hosted-fields-valid'
+  },
+  defaultIFrameStyle: {
+    border: 'none',
+    width: '100%',
+    height: '100%',
+    float: 'left'
+  },
+  whitelistedFields: [
+    'number',
+    'cvv',
+    'expirationDate',
+    'expirationMonth',
+    'expirationYear',
+    'postalCode'
+  ],
+  whitelistedStyles: [
+    '-moz-osx-font-smoothing',
+    '-moz-transition',
+    '-webkit-font-smoothing',
+    '-webkit-transition',
+    'color',
+    'font',
+    'font-family',
+    'font-size',
+    'font-size-adjust',
+    'font-stretch',
+    'font-style',
+    'font-variant',
+    'font-variant-alternates',
+    'font-variant-caps',
+    'font-variant-east-asian',
+    'font-variant-ligatures',
+    'font-variant-numeric',
+    'font-weight',
+    'line-height',
+    'opacity',
+    'outline',
+    'text-shadow',
+    'transition'
+  ],
+  passwordManagerFields: {
+    number: {
+      name: 'credit-card-number',
+      label: 'Credit Card Number'
+    },
+    expirationDate: {
+      name: 'expiration',
+      label: 'Expiration Date'
+    },
+    postalCode: {
+      name: 'postal-code',
+      label: 'Postal Code'
+    }
+  }
+};
+
+},{}],382:[function(require,module,exports){
+'use strict';
+
+function findParentTags(element, tag) {
+  var parent = element.parentNode;
+  var parents = [];
+
+  while (parent != null) {
+    if (parent.tagName != null && parent.tagName.toLowerCase() === tag) {
+      parents.push(parent);
+    }
+
+    parent = parent.parentNode;
+  }
+
+  return parents;
+}
+
+module.exports = findParentTags;
+
+},{}],383:[function(require,module,exports){
+arguments[4][52][0].apply(exports,arguments)
+},{"./lib/check-origin":384,"./lib/events":385,"dup":52,"framebus":386}],384:[function(require,module,exports){
+arguments[4][53][0].apply(exports,arguments)
+},{"dup":53}],385:[function(require,module,exports){
+arguments[4][54][0].apply(exports,arguments)
+},{"dup":54}],386:[function(require,module,exports){
+arguments[4][55][0].apply(exports,arguments)
+},{"dup":55}],387:[function(require,module,exports){
+arguments[4][35][0].apply(exports,arguments)
+},{"dup":35}],388:[function(require,module,exports){
+arguments[4][36][0].apply(exports,arguments)
+},{"dup":36}],389:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],390:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"dup":38}],391:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"dup":39}],392:[function(require,module,exports){
+arguments[4][40][0].apply(exports,arguments)
+},{"dup":40}],393:[function(require,module,exports){
+arguments[4][41][0].apply(exports,arguments)
+},{"./array":387,"dup":41}],394:[function(require,module,exports){
+arguments[4][42][0].apply(exports,arguments)
+},{"dup":42}],395:[function(require,module,exports){
+arguments[4][43][0].apply(exports,arguments)
+},{"./lib/array":387,"./lib/base64":388,"./lib/dom":389,"./lib/events":390,"./lib/fn":391,"./lib/string":392,"./lib/url":393,"./lib/uuid":394,"dup":43}],396:[function(require,module,exports){
+'use strict';
+
+module.exports = ClassList
+
+var indexOf = require('component-indexof'),
+    trim = require('trim'),
+    arr = Array.prototype
+
+/**
+ * ClassList(elem) is kind of like Element#classList.
+ *
+ * @param {Element} elem
+ * @return {ClassList}
+ */
+function ClassList (elem) {
+  if (!(this instanceof ClassList))
+    return new ClassList(elem)
+
+  var classes = trim(elem.className).split(/\s+/),
+      i
+
+  this._elem = elem
+
+  this.length = 0
+
+  for (i = 0; i < classes.length; i += 1) {
+    if (classes[i])
+      arr.push.call(this, classes[i])
+  }
+}
+
+/**
+ * add(class1 [, class2 [, ...]]) adds the given class(es) to the
+ * element.
+ *
+ * @param {String} ...
+ * @return {Context}
+ */
+ClassList.prototype.add = function () {
+  var name,
+      i
+
+  for (i = 0; i < arguments.length; i += 1) {
+    name = '' + arguments[i]
+
+    if (indexOf(this, name) >= 0)
+      continue
+
+    arr.push.call(this, name)
+  }
+
+  this._elem.className = this.toString()
+
+  return this
+}
+
+/**
+ * remove(class1 [, class2 [, ...]]) removes the given class(es) from
+ * the element.
+ *
+ * @param {String} ...
+ * @return {Context}
+ */
+ClassList.prototype.remove = function () {
+  var index,
+      name,
+      i
+
+  for (i = 0; i < arguments.length; i += 1) {
+    name = '' + arguments[i]
+    index = indexOf(this, name)
+
+    if (index < 0) continue
+
+    arr.splice.call(this, index, 1)
+  }
+
+  this._elem.className = this.toString()
+
+  return this
+}
+
+/**
+ * contains(name) determines if the element has a given class.
+ *
+ * @param {String} name
+ * @return {Boolean}
+ */
+ClassList.prototype.contains = function (name) {
+  name += ''
+  return indexOf(this, name) >= 0
+}
+
+/**
+ * toggle(name [, force]) toggles a class. If force is a boolean,
+ * this method is basically just an alias for add/remove.
+ *
+ * @param {String} name
+ * @param {Boolean} force
+ * @return {Context}
+ */
+ClassList.prototype.toggle = function (name, force) {
+  name += ''
+
+  if (force === true) return this.add(name)
+  if (force === false) return this.remove(name)
+
+  return this[this.contains(name) ? 'remove' : 'add'](name)
+}
+
+/**
+ * toString() returns the className of the element.
+ *
+ * @return {String}
+ */
+ClassList.prototype.toString = function () {
+  return arr.join.call(this, ' ')
+}
+
+},{"component-indexof":397,"trim":398}],397:[function(require,module,exports){
+module.exports = function(arr, obj){
+  if (arr.indexOf) return arr.indexOf(obj);
+  for (var i = 0; i < arr.length; ++i) {
+    if (arr[i] === obj) return i;
+  }
+  return -1;
+};
+},{}],398:[function(require,module,exports){
+
+exports = module.exports = trim;
+
+function trim(str){
+  return str.replace(/^\s*|\s*$/g, '');
+}
+
+exports.left = function(str){
+  return str.replace(/^\s*/, '');
+};
+
+exports.right = function(str){
+  return str.replace(/\s*$/, '');
+};
+
+},{}],399:[function(require,module,exports){
+arguments[4][80][0].apply(exports,arguments)
+},{"batch-execute-functions":400,"braintree-utilities/lib/fn":401,"dup":80}],400:[function(require,module,exports){
+arguments[4][81][0].apply(exports,arguments)
+},{"dup":81}],401:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"dup":39}],402:[function(require,module,exports){
+arguments[4][83][0].apply(exports,arguments)
+},{"./lib/default-attributes":403,"dup":83,"lodash.assign":406,"lodash.isstring":404,"setattributes":405}],403:[function(require,module,exports){
+arguments[4][84][0].apply(exports,arguments)
+},{"dup":84}],404:[function(require,module,exports){
+arguments[4][51][0].apply(exports,arguments)
+},{"dup":51}],405:[function(require,module,exports){
+arguments[4][97][0].apply(exports,arguments)
+},{"dup":97}],406:[function(require,module,exports){
+arguments[4][85][0].apply(exports,arguments)
+},{"dup":85,"lodash._baseassign":407,"lodash._createassigner":409,"lodash.keys":413}],407:[function(require,module,exports){
+arguments[4][86][0].apply(exports,arguments)
+},{"dup":86,"lodash._basecopy":408,"lodash.keys":413}],408:[function(require,module,exports){
+arguments[4][87][0].apply(exports,arguments)
+},{"dup":87}],409:[function(require,module,exports){
+arguments[4][88][0].apply(exports,arguments)
+},{"dup":88,"lodash._bindcallback":410,"lodash._isiterateecall":411,"lodash.restparam":412}],410:[function(require,module,exports){
+arguments[4][89][0].apply(exports,arguments)
+},{"dup":89}],411:[function(require,module,exports){
+arguments[4][90][0].apply(exports,arguments)
+},{"dup":90}],412:[function(require,module,exports){
+arguments[4][91][0].apply(exports,arguments)
+},{"dup":91}],413:[function(require,module,exports){
+arguments[4][48][0].apply(exports,arguments)
+},{"dup":48,"lodash._getnative":414,"lodash.isarguments":415,"lodash.isarray":416}],414:[function(require,module,exports){
+arguments[4][49][0].apply(exports,arguments)
+},{"dup":49}],415:[function(require,module,exports){
+arguments[4][45][0].apply(exports,arguments)
+},{"dup":45}],416:[function(require,module,exports){
+arguments[4][46][0].apply(exports,arguments)
+},{"dup":46}],417:[function(require,module,exports){
+function nodeListToArray(nodeList) {
+  try {
+    return Array.prototype.slice.call(nodeList);
+  } catch (err) {
+    var result = [];
+    for (var i = 0; i < nodeList.length; i++) {
+      result.push(nodeList[i]);
+    }
+    return result;
+  }
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = nodeListToArray;
+}
+
+},{}],418:[function(require,module,exports){
 /**
  * lodash 3.0.2 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -11008,7 +11570,7 @@ function cloneDeep(value, customizer, thisArg) {
 
 module.exports = cloneDeep;
 
-},{"lodash._baseclone":378,"lodash._bindcallback":388}],378:[function(require,module,exports){
+},{"lodash._baseclone":419,"lodash._bindcallback":429}],419:[function(require,module,exports){
 (function (global){
 /**
  * lodash 3.3.0 (Custom Build) <https://lodash.com/>
@@ -11283,7 +11845,7 @@ function isObject(value) {
 module.exports = baseClone;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"lodash._arraycopy":379,"lodash._arrayeach":380,"lodash._baseassign":381,"lodash._basefor":383,"lodash.isarray":384,"lodash.keys":385}],379:[function(require,module,exports){
+},{"lodash._arraycopy":420,"lodash._arrayeach":421,"lodash._baseassign":422,"lodash._basefor":424,"lodash.isarray":425,"lodash.keys":426}],420:[function(require,module,exports){
 /**
  * lodash 3.0.0 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -11314,7 +11876,7 @@ function arrayCopy(source, array) {
 
 module.exports = arrayCopy;
 
-},{}],380:[function(require,module,exports){
+},{}],421:[function(require,module,exports){
 /**
  * lodash 3.0.0 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -11347,11 +11909,11 @@ function arrayEach(array, iteratee) {
 
 module.exports = arrayEach;
 
-},{}],381:[function(require,module,exports){
+},{}],422:[function(require,module,exports){
 arguments[4][86][0].apply(exports,arguments)
-},{"dup":86,"lodash._basecopy":382,"lodash.keys":385}],382:[function(require,module,exports){
+},{"dup":86,"lodash._basecopy":423,"lodash.keys":426}],423:[function(require,module,exports){
 arguments[4][87][0].apply(exports,arguments)
-},{"dup":87}],383:[function(require,module,exports){
+},{"dup":87}],424:[function(require,module,exports){
 /**
  * lodash 3.0.2 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -11439,17 +12001,17 @@ function isObject(value) {
 
 module.exports = baseFor;
 
-},{}],384:[function(require,module,exports){
+},{}],425:[function(require,module,exports){
 arguments[4][46][0].apply(exports,arguments)
-},{"dup":46}],385:[function(require,module,exports){
+},{"dup":46}],426:[function(require,module,exports){
 arguments[4][48][0].apply(exports,arguments)
-},{"dup":48,"lodash._getnative":386,"lodash.isarguments":387,"lodash.isarray":384}],386:[function(require,module,exports){
+},{"dup":48,"lodash._getnative":427,"lodash.isarguments":428,"lodash.isarray":425}],427:[function(require,module,exports){
 arguments[4][49][0].apply(exports,arguments)
-},{"dup":49}],387:[function(require,module,exports){
+},{"dup":49}],428:[function(require,module,exports){
 arguments[4][45][0].apply(exports,arguments)
-},{"dup":45}],388:[function(require,module,exports){
+},{"dup":45}],429:[function(require,module,exports){
 arguments[4][89][0].apply(exports,arguments)
-},{"dup":89}],389:[function(require,module,exports){
+},{"dup":89}],430:[function(require,module,exports){
 /**
  * lodash 3.1.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -11506,19 +12068,19 @@ function create(prototype, properties, guard) {
 
 module.exports = create;
 
-},{"lodash._baseassign":390,"lodash._basecreate":396,"lodash._isiterateecall":397}],390:[function(require,module,exports){
+},{"lodash._baseassign":431,"lodash._basecreate":437,"lodash._isiterateecall":438}],431:[function(require,module,exports){
 arguments[4][86][0].apply(exports,arguments)
-},{"dup":86,"lodash._basecopy":391,"lodash.keys":392}],391:[function(require,module,exports){
+},{"dup":86,"lodash._basecopy":432,"lodash.keys":433}],432:[function(require,module,exports){
 arguments[4][87][0].apply(exports,arguments)
-},{"dup":87}],392:[function(require,module,exports){
+},{"dup":87}],433:[function(require,module,exports){
 arguments[4][48][0].apply(exports,arguments)
-},{"dup":48,"lodash._getnative":393,"lodash.isarguments":394,"lodash.isarray":395}],393:[function(require,module,exports){
+},{"dup":48,"lodash._getnative":434,"lodash.isarguments":435,"lodash.isarray":436}],434:[function(require,module,exports){
 arguments[4][49][0].apply(exports,arguments)
-},{"dup":49}],394:[function(require,module,exports){
+},{"dup":49}],435:[function(require,module,exports){
 arguments[4][45][0].apply(exports,arguments)
-},{"dup":45}],395:[function(require,module,exports){
+},{"dup":45}],436:[function(require,module,exports){
 arguments[4][46][0].apply(exports,arguments)
-},{"dup":46}],396:[function(require,module,exports){
+},{"dup":46}],437:[function(require,module,exports){
 /**
  * lodash 3.0.3 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -11577,9 +12139,9 @@ function isObject(value) {
 
 module.exports = baseCreate;
 
-},{}],397:[function(require,module,exports){
+},{}],438:[function(require,module,exports){
 arguments[4][90][0].apply(exports,arguments)
-},{"dup":90}],398:[function(require,module,exports){
+},{"dup":90}],439:[function(require,module,exports){
 'use strict';
 /* eslint-disable consistent-return */
 
@@ -11608,7 +12170,7 @@ function toSnakeCase(string) {
 
 module.exports = {convertToLegacyShippingAddress: convertToLegacyShippingAddress};
 
-},{}],399:[function(require,module,exports){
+},{}],440:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -11617,10 +12179,11 @@ module.exports = {
   ROOT_READY_CALLBACK: 'onReady'
 };
 
-},{}],400:[function(require,module,exports){
+},{}],441:[function(require,module,exports){
 (function (global){
 'use strict';
 
+var clone = require('lodash.clonedeep');
 var api = require('braintree-api');
 var Bus = require('braintree-bus');
 var Destructor = require('destructor');
@@ -11629,6 +12192,9 @@ var constants = require('../constants');
 var sanitizePayload = require('../lib/sanitize-payload');
 var lookupCallbackFor = require('../lib/lookup-callback-for');
 var fallbackErrorHandler = require('../lib/fallback-error-handler');
+var nodeType = require('../lib/node-type');
+var isJQueryElement = nodeType.isJQueryElement;
+var isHTMLElement = nodeType.isHTMLElement;
 
 function noop() {}
 
@@ -11684,7 +12250,6 @@ BaseIntegration.prototype._createApiClient = function () {
   }
 
   this.apiClient = new api.Client(apiClientOptions);
-  // TODO: investigate whether we need to tear these down
 };
 
 BaseIntegration.prototype._configureCallbacks = function () {
@@ -11717,11 +12282,11 @@ BaseIntegration.prototype._configureAnalytics = function () {
     }
 
     apiClient.sendAnalyticsEvents(events, callback);
-    // TODO: maybe this needs to be canceled
   });
 };
 
 BaseIntegration.prototype._attachEvents = function () {
+  var replyConfiguration;
   var configuration = this.configuration;
 
   this.bus.on(Bus.events.ERROR, this.onError);
@@ -11731,17 +12296,18 @@ BaseIntegration.prototype._attachEvents = function () {
     try { console.warn(warning); } catch (e) { /* ignored */ } // eslint-disable-line no-console
   });
 
+  replyConfiguration = {
+    enableCORS: configuration.merchantConfiguration.enableCORS,
+    configuration: configuration.gatewayConfiguration,
+    integration: configuration.integrationType,
+    analyticsConfiguration: configuration.analyticsConfiguration,
+    merchantConfiguration: clone(configuration.merchantConfiguration, function (value) {
+      if (isJQueryElement(value) || isHTMLElement(value)) { return {}; }
+    })
+  };
+
   this.bus.on(Bus.events.CONFIGURATION_REQUEST, function (reply) {
-    // TODO: Coinbase and Hosted Fields both expect this reply
-    // in this format. We need to amend that
-    reply({
-      // We do not want to send the entire merchantConfiguration object
-      // because it could contain unserializable DOM nodes
-      enableCORS: configuration.merchantConfiguration.enableCORS,
-      configuration: configuration.gatewayConfiguration,
-      integration: configuration.integrationType,
-      analyticsConfiguration: configuration.analyticsConfiguration
-    });
+    reply(replyConfiguration);
   });
 
   this._dependenciesRemaining = 0;
@@ -11785,7 +12351,7 @@ BaseIntegration.prototype._onIntegrationReady = function () {
 module.exports = BaseIntegration;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../constants":399,"../lib/fallback-error-handler":406,"../lib/lookup-callback-for":407,"../lib/sanitize-payload":408,"braintree-api":21,"braintree-bus":52,"braintree-utilities":373,"destructor":374}],401:[function(require,module,exports){
+},{"../constants":440,"../lib/fallback-error-handler":447,"../lib/lookup-callback-for":449,"../lib/node-type":450,"../lib/sanitize-payload":451,"braintree-api":21,"braintree-bus":52,"braintree-utilities":372,"destructor":373,"lodash.clonedeep":418}],442:[function(require,module,exports){
 'use strict';
 
 var clone = require('lodash.clonedeep');
@@ -11813,7 +12379,6 @@ function CoinbaseIntegration() {
     clientToken: this.configuration.gatewayConfiguration,
     integration: 'coinbase'
   });
-  // TODO: investigate whether API client needs to be torn down
 
   coinbaseIntegration = coinbase.create(coinbaseConfiguration);
   this.destructor.registerFunctionForTeardown(function (done) {
@@ -11837,7 +12402,7 @@ CoinbaseIntegration.prototype._onPaymentMethodGenerated = function (payload) {
 
 module.exports = CoinbaseIntegration;
 
-},{"./base-integration":400,"braintree-api":21,"braintree-bus":52,"braintree-coinbase":56,"braintree-utilities":373,"lodash.clonedeep":377,"lodash.create":389}],402:[function(require,module,exports){
+},{"./base-integration":441,"braintree-api":21,"braintree-bus":52,"braintree-coinbase":56,"braintree-utilities":372,"lodash.clonedeep":418,"lodash.create":430}],443:[function(require,module,exports){
 'use strict';
 
 var clone = require('lodash.clonedeep');
@@ -11846,15 +12411,26 @@ var form = require('braintree-form');
 var paypal = require('braintree-paypal');
 var coinbase = require('braintree-coinbase');
 var utils = require('braintree-utilities');
+var hostedFields = require('hosted-fields');
+var FormNapper = require('form-napper');
 var constants = require('../constants');
 var Bus = require('braintree-bus');
 var convertToLegacyShippingAddress = require('../compatibility').convertToLegacyShippingAddress;
 var BaseIntegration = require('./base-integration');
+var nodeType = require('../lib/node-type');
+var isJQueryElement = nodeType.isJQueryElement;
+var isHTMLElement = nodeType.isHTMLElement;
+var NonceManager = require('../lib/hosted-fields-nonce-manager');
 
 function CustomIntegration() {
   BaseIntegration.apply(this, arguments);
 
-  this._setupForm();
+  if (this.configuration.merchantConfiguration.hostedFields != null) {
+    this._setupHostedFields();
+  } else {
+    this._setupForm();
+  }
+
   this._setupPayPal();
   this._setupCoinbase();
 
@@ -11864,6 +12440,38 @@ function CustomIntegration() {
 CustomIntegration.prototype = create(BaseIntegration.prototype, {
   constructor: CustomIntegration
 });
+
+CustomIntegration.prototype._setupHostedFields = function () {
+  var submitRequestHandler;
+  var merchantConfiguration = this.configuration.merchantConfiguration;
+  var rootSuccessCallback = merchantConfiguration[constants.ROOT_SUCCESS_CALLBACK];
+  var formNapper = new FormNapper(merchantConfiguration.id);
+  var hostedFieldsIntegration = hostedFields.create(this.configuration);
+  var nonceManager = new NonceManager({
+    formNapper: formNapper,
+    rootCallback: rootSuccessCallback,
+    channel: this.configuration.channel
+  });
+
+  if (formNapper.htmlForm == null) {
+    this.bus.emit(Bus.events.ERROR, {
+      type: 'CONFIGURATION',
+      message: 'options.id does not reference a valid DOM element'
+    });
+    return;
+  }
+
+  submitRequestHandler = utils.bind(nonceManager.handleSubmitRequest, nonceManager);
+
+  formNapper.hijack(submitRequestHandler);
+  this.bus.on(Bus.events.USER_FORM_SUBMIT_REQUEST, submitRequestHandler);
+
+  this.destructor.registerFunctionForTeardown(utils.bind(function (done) {
+    nonceManager.teardown();
+    formNapper.detach();
+    hostedFieldsIntegration.teardown(done);
+  }, this));
+};
 
 CustomIntegration.prototype._setupForm = function () {
   var merchantConfiguration = this.configuration.merchantConfiguration;
@@ -11901,8 +12509,9 @@ CustomIntegration.prototype._setupPayPal = function () {
   if (!merchantConfiguration.paypal) { return; }
 
   paypalConfiguration = clone(merchantConfiguration.paypal, function (value) {
-    var isHtmlElement = value && value.nodeType === 1;
-    if (isHtmlElement) {
+    if (isJQueryElement(value)) {
+      return value[0];
+    } else if (isHTMLElement(value)) {
       return value;
     }
   });
@@ -11930,19 +12539,17 @@ CustomIntegration.prototype._setupPayPal = function () {
     legacyPaypalCancelledCallback();
   }, this);
 
-  // In a custom integration, paypal options are nested inside of the paypal object
-  // so the paypalConfiguration needs to be augmented with the value from the root
-  // merchantConfiguration object for CORS
-  // TODO: Update paypal create signature
   if (merchantConfiguration.enableCORS) {
     paypalConfiguration.enableCORS = true;
   }
 
   paypalIntegration = paypal.create(this.configuration.gatewayConfiguration, paypalConfiguration, this.configuration.channel);
 
-  this.destructor.registerFunctionForTeardown(function () {
-    paypalIntegration.teardown();
-  });
+  if (paypalIntegration != null) {
+    this.destructor.registerFunctionForTeardown(function () {
+      paypalIntegration.teardown();
+    });
+  }
 };
 
 CustomIntegration.prototype._setupCoinbase = function () {
@@ -11976,7 +12583,7 @@ function getIntegrationCallbackLookup(options, integration) {
 
 module.exports = CustomIntegration;
 
-},{"../compatibility":398,"../constants":399,"./base-integration":400,"braintree-bus":52,"braintree-coinbase":56,"braintree-form":246,"braintree-paypal":345,"braintree-utilities":373,"lodash.clonedeep":377,"lodash.create":389}],403:[function(require,module,exports){
+},{"../compatibility":439,"../constants":440,"../lib/hosted-fields-nonce-manager":448,"../lib/node-type":450,"./base-integration":441,"braintree-bus":52,"braintree-coinbase":56,"braintree-form":245,"braintree-paypal":344,"braintree-utilities":372,"form-napper":376,"hosted-fields":377,"lodash.clonedeep":418,"lodash.create":430}],444:[function(require,module,exports){
 'use strict';
 
 var create = require('lodash.create');
@@ -12032,7 +12639,7 @@ DropinIntegration.prototype = create(BaseIntegration.prototype, {
 
 module.exports = DropinIntegration;
 
-},{"../constants":399,"../lib/sanitize-payload":408,"./base-integration":400,"braintree-bus":52,"braintree-dropin":237,"braintree-utilities":373,"lodash.create":389}],404:[function(require,module,exports){
+},{"../constants":440,"../lib/sanitize-payload":451,"./base-integration":441,"braintree-bus":52,"braintree-dropin":236,"braintree-utilities":372,"lodash.create":430}],445:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -12042,7 +12649,7 @@ module.exports = {
   coinbase: require('./coinbase')
 };
 
-},{"./coinbase":401,"./custom":402,"./dropin":403,"./paypal":405}],405:[function(require,module,exports){
+},{"./coinbase":442,"./custom":443,"./dropin":444,"./paypal":446}],446:[function(require,module,exports){
 'use strict';
 
 var create = require('lodash.create');
@@ -12105,7 +12712,7 @@ PayPalIntegration.prototype = create(BaseIntegration.prototype, {
 
 module.exports = PayPalIntegration;
 
-},{"../compatibility":398,"../constants":399,"./base-integration":400,"braintree-bus":52,"braintree-paypal":345,"braintree-utilities":373,"lodash.create":389}],406:[function(require,module,exports){
+},{"../compatibility":439,"../constants":440,"./base-integration":441,"braintree-bus":52,"braintree-paypal":344,"braintree-utilities":372,"lodash.create":430}],447:[function(require,module,exports){
 'use strict';
 
 module.exports = function fallbackError(error) {
@@ -12118,7 +12725,87 @@ module.exports = function fallbackError(error) {
   }
 };
 
-},{}],407:[function(require,module,exports){
+},{}],448:[function(require,module,exports){
+'use strict';
+
+var Bus = require('braintree-bus');
+var hostedFields = require('hosted-fields');
+
+var ANALYTICS_STRING = 'web.custom.hosted-fields.via.';
+var INPUT_NAME = 'payment_method_nonce';
+
+function NonceManager(configuration) {
+  this.paymentMethod = null;
+  this.nonceInputElement = null;
+
+  this.bus = new Bus({channel: configuration.channel});
+  this.formNapper = configuration.formNapper;
+  this.rootCallback = configuration.rootCallback;
+
+  this._attachEvents();
+}
+
+NonceManager.prototype._clearNonce = function () {
+  this.paymentMethod = null;
+  this.nonceInputElement = this.formNapper.inject(INPUT_NAME, '');
+};
+
+NonceManager.prototype._attachEvents = function () {
+  var self = this;
+
+  this.bus.on(Bus.events.PAYMENT_METHOD_CANCELLED, function () {
+    self._clearNonce();
+  });
+
+  this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, function (payload) {
+    self.paymentMethod = payload;
+    self.nonceInputElement = self.formNapper.inject(INPUT_NAME, self.paymentMethod.nonce);
+  });
+};
+
+NonceManager.prototype.handleSubmitRequest = function () {
+  var self = this;
+
+  this.bus.emit(hostedFields.events.TOKENIZATION_REQUEST, function (args) {
+    var err = args[0];
+    var payload = args[1];
+
+    if (err) {
+      self.bus.emit(Bus.events.ERROR, err);
+      return;
+    }
+
+    self.paymentMethod = payload || self.paymentMethod;
+
+    if (self.paymentMethod == null) {
+      self.bus.emit(hostedFields.events.VALIDATE_STRICT);
+      self.bus.emit(Bus.events.ERROR, {
+        type: 'VALIDATION',
+        message: 'User did not enter a payment method'
+      });
+      return;
+    }
+
+    if (self.rootCallback) {
+      self.bus.emit(Bus.events.SEND_ANALYTICS_EVENTS, ANALYTICS_STRING + 'callback.success', function () {
+        self.rootCallback(self.paymentMethod);
+      });
+    } else {
+      self.bus.emit(Bus.events.SEND_ANALYTICS_EVENTS, ANALYTICS_STRING + 'formsubmit.success', function () {
+        self.nonceInputElement = self.formNapper.inject(INPUT_NAME, self.paymentMethod.nonce);
+        self.formNapper.submit();
+      });
+    }
+  });
+};
+
+NonceManager.prototype.teardown = function () {
+  this._clearNonce();
+};
+
+module.exports = NonceManager;
+
+},{"braintree-bus":52,"hosted-fields":377}],449:[function(require,module,exports){
 'use strict';
 
 var isFunction = require('braintree-utilities').isFunction;
@@ -12137,7 +12824,23 @@ module.exports = function lookupCallbackFor(model) {
   };
 };
 
-},{"braintree-utilities":373}],408:[function(require,module,exports){
+},{"braintree-utilities":372}],450:[function(require,module,exports){
+'use strict';
+
+function isJQueryElement(element) {
+  return typeof element === 'object' && 'jquery' in element && element.length !== 0;
+}
+
+function isHTMLElement(element) {
+  return element && element.nodeType === 1;
+}
+
+module.exports = {
+  isJQueryElement: isJQueryElement,
+  isHTMLElement: isHTMLElement
+};
+
+},{}],451:[function(require,module,exports){
 'use strict';
 
 module.exports = function sanitizePayload(payload) {
