@@ -2745,7 +2745,7 @@ window.Braintree = Braintree;
 'use strict';
 /* eslint no-console: 0 */
 
-var VERSION = "2.7.0";
+var VERSION = "2.7.1";
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
@@ -7913,6 +7913,7 @@ Form.prototype.writeNonceToDOM = function () {
 
 Form.prototype.onExternalNonceReceived = function (payload) {
   this.model.set(payload);
+  this.writeNonceToDOM();
 };
 
 Form.prototype.clearExternalNonce = function () {
