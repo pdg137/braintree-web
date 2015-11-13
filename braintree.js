@@ -2744,7 +2744,7 @@ window.Braintree = Braintree;
 (function (global){
 'use strict';
 
-var VERSION = "2.14.0";
+var VERSION = "2.14.1";
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
@@ -7871,7 +7871,7 @@ module.exports = PopupView;
 'use strict';
 
 var i;
-var version = "1.6.1";
+var version = "1.6.2";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
@@ -8547,7 +8547,7 @@ var APIProxyServer = require('./api-proxy-server');
 var MerchantFormManager = require('./merchant-form-manager');
 var FrameContainer = require('./frame-container');
 var constants = require('../shared/constants');
-var version = "1.9.1";
+var version = "1.9.2";
 var PayPalModalView = require('braintree-paypal/src/external/views/app-view');
 
 function getElementStyle(element, style) {
@@ -8843,7 +8843,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.9.1";
+var VERSION = "1.9.2";
 
 function create(options) {
   var client = new Client(options);
@@ -9797,7 +9797,7 @@ var constants = require('../shared/constants');
 var getLocale = require('../shared/get-locale');
 var isHermesConfiguration = require('../shared/util/util').isHermesConfiguration;
 var isOneTimeHermesConfiguration = require('../shared/util/util').isOneTimeHermesConfiguration;
-var VERSION = "1.6.1";
+var VERSION = "1.6.2";
 var braintreeUtil = require('braintree-utilities');
 var braintreeApi = require('braintree-api');
 
@@ -10834,12 +10834,12 @@ function isOneTimeHermesConfiguration(options) {
   return Boolean(options.singleUse) && Boolean(options.amount) && Boolean(options.currency);
 }
 
-function isBillingAgreementsHermesConfiguration(clientToken) {
-  return Boolean(clientToken.paypal.billingAgreementsEnabled);
+function isBillingAgreementsHermesConfiguration(clientToken, options) {
+  return Boolean(clientToken.paypal.billingAgreementsEnabled) && !isOneTimeHermesConfiguration(options);
 }
 
 function isHermesConfiguration(clientToken, options) {
-  return isBillingAgreementsHermesConfiguration(clientToken) || isOneTimeHermesConfiguration(options);
+  return isBillingAgreementsHermesConfiguration(clientToken, options) || isOneTimeHermesConfiguration(options);
 }
 
 module.exports = {
