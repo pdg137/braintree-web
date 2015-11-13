@@ -2745,7 +2745,7 @@ window.Braintree = Braintree;
 'use strict';
 /* eslint no-console: 0 */
 
-var VERSION = "2.9.0";
+var VERSION = "2.10.0";
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
@@ -2837,14 +2837,14 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./constants":294,"./integrations":298,"./lib/analytics-sender":300,"./lib/dependency-ready":301,"./lib/sanitize-payload":302,"braintree-api":16,"braintree-bus":37,"braintree-dropin":207,"braintree-form":217,"braintree-paypal":272,"braintree-utilities":292}],2:[function(require,module,exports){
+},{"./constants":342,"./integrations":346,"./lib/analytics-sender":348,"./lib/dependency-ready":349,"./lib/sanitize-payload":350,"braintree-api":20,"braintree-bus":49,"braintree-dropin":243,"braintree-form":253,"braintree-paypal":320,"braintree-utilities":340}],2:[function(require,module,exports){
 (function (global){
 'use strict';
 
 var braintreeUtils = require('braintree-utilities');
 var braintree3ds = require('braintree-3ds');
 var parseClientToken = require('./parse-client-token');
-var requestDriver = require('./request-driver');
+var requestDriver = require('./request');
 var util = require('./util');
 var SEPAMandate = require('./sepa-mandate');
 var EuropeBankAccount = require('./europe-bank-account');
@@ -2941,7 +2941,7 @@ Client.prototype.tokenizeCoinbase = function (attrs, callback) {
 };
 
 Client.prototype.tokenizePayPalAccount = function (attrs, callback) {
-  attrs.options = { validate: false };
+  attrs.options = {validate: false};
   this.addPayPalAccount(attrs, function (err, result) {
     if (err) {
       callback(err, null);
@@ -3059,17 +3059,6 @@ Client.prototype.addCreditCard = function (attrs, callback) {
   );
 };
 
-Client.prototype.unlockCreditCard = function (creditCard, params, callback) {
-  var attrs = util.mergeOptions(this.attrs, {challengeResponses: params});
-  this.driver.put(
-    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods/', creditCard.nonce]),
-    attrs,
-    function (d) { return new CreditCard(d.paymentMethods[0]); },
-    callback,
-    this.requestTimeout
-  );
-};
-
 Client.prototype.sendAnalyticsEvents = function (events, callback) {
   var attrs, event;
   var url = this.analyticsUrl;
@@ -3151,7 +3140,7 @@ Client.prototype.exchangePaypalTokenForConsentCode = function (tokensObj, callba
 module.exports = Client;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./coinbase-account":3,"./credit-card":4,"./europe-bank-account":5,"./normalize-api-fields":9,"./parse-client-token":10,"./paypal-account":11,"./request-driver":13,"./sepa-mandate":14,"./util":15,"braintree-3ds":24,"braintree-utilities":36}],3:[function(require,module,exports){
+},{"./coinbase-account":3,"./credit-card":5,"./europe-bank-account":6,"./normalize-api-fields":8,"./parse-client-token":9,"./paypal-account":10,"./request":13,"./sepa-mandate":18,"./util":19,"braintree-3ds":28,"braintree-utilities":40}],3:[function(require,module,exports){
 'use strict';
 
 var ATTRIBUTES = [
@@ -3173,6 +3162,14 @@ function CoinbaseAccount(attributes) {
 module.exports = CoinbaseAccount;
 
 },{}],4:[function(require,module,exports){
+module.exports={
+  "errors": {
+    "UNKNOWN_ERROR": "Unknown error",
+    "INVALID_TIMEOUT": "Timeout must be a number"
+  }
+};
+
+},{}],5:[function(require,module,exports){
 'use strict';
 
 var ATTRIBUTES = [
@@ -3203,7 +3200,7 @@ function CreditCard(attributes) {
 
 module.exports = CreditCard;
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 'use strict';
 
 function EuropeBankAccount(attributes) {
@@ -3224,11 +3221,11 @@ function EuropeBankAccount(attributes) {
 
 module.exports = EuropeBankAccount;
 
-},{}],6:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 'use strict';
 
 var parseClientToken = require('./parse-client-token');
-var requestDriver = require('./request-driver');
+var requestDriver = require('./request');
 var util = require('./util');
 
 function getConfiguration(clientToken, callback, timeout) {
@@ -3237,7 +3234,7 @@ function getConfiguration(clientToken, callback, timeout) {
     authorizationFingerprint: parsedClientToken.authorizationFingerprint
   };
 
-  requestDriver.post(
+  requestDriver.get(
     parsedClientToken.configUrl,
     attrs,
     function (d) {
@@ -3250,10 +3247,231 @@ function getConfiguration(clientToken, callback, timeout) {
 
 module.exports = getConfiguration;
 
-},{"./parse-client-token":10,"./request-driver":13,"./util":15}],7:[function(require,module,exports){
+},{"./parse-client-token":9,"./request":13,"./util":19}],8:[function(require,module,exports){
+'use strict';
+
+function normalizeCreditCardFields(attrs) {
+  var key;
+  var creditCard = {
+    billingAddress: attrs.billingAddress || {}
+  };
+
+  for (key in attrs) {
+    if (!attrs.hasOwnProperty(key)) { continue; }
+
+    switch (key.replace(/_/, '').toLowerCase()) {
+      case 'postalcode':
+      case 'countryname':
+      case 'countrycodenumeric':
+      case 'countrycodealpha2':
+      case 'countrycodealpha3':
+      case 'region':
+      case 'extendedaddress':
+      case 'locality':
+      case 'firstname':
+      case 'lastname':
+      case 'company':
+      case 'streetaddress':
+        creditCard.billingAddress[key] = attrs[key];
+        break;
+      default:
+        creditCard[key] = attrs[key];
+    }
+  }
+
+  return creditCard;
+}
+
+module.exports = {
+  normalizeCreditCardFields: normalizeCreditCardFields
+};
+
+},{}],9:[function(require,module,exports){
+'use strict';
+
+var braintreeUtils = require('braintree-utilities');
+require('./polyfill');
+
+function parseClientToken(rawClientToken) {
+  var clientToken;
+
+  if (!rawClientToken) {
+    throw new Error('Braintree API Client Misconfigured: clientToken required.');
+  }
+
+  if (typeof rawClientToken === 'object' && rawClientToken !== null) {
+    clientToken = rawClientToken;
+  } else {
+    try {
+      rawClientToken = window.atob(rawClientToken);
+    } catch (b64Error) {}
+
+    try {
+      clientToken = JSON.parse(rawClientToken);
+    } catch (jsonError) {
+      throw new Error('Braintree API Client Misconfigured: clientToken is not valid JSON.');
+    }
+  }
+
+  if (!clientToken.hasOwnProperty('clientApiUrl') || !braintreeUtils.isWhitelistedDomain(clientToken.clientApiUrl)) {
+    throw new Error('Braintree API Client Misconfigured: the clientApiUrl provided in the clientToken is invalid.');
+  }
+
+  return clientToken;
+}
+
+module.exports = parseClientToken;
+
+},{"./polyfill":11,"braintree-utilities":40}],10:[function(require,module,exports){
+'use strict';
+
+var ATTRIBUTES = [
+  'nonce',
+  'type',
+  'description',
+  'details'
+];
+
+function PayPalAccount(attributes) {
+  var i, attribute;
+
+  for (i = 0; i < ATTRIBUTES.length; i++) {
+    attribute = ATTRIBUTES[i];
+    this[attribute] = attributes[attribute];
+  }
+}
+
+module.exports = PayPalAccount;
+
+},{}],11:[function(require,module,exports){
+(function (global){
+'use strict';
+
+var atobPolyfill = function (base64String) {
+  var base64Matcher = new RegExp("^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{4})([=]{1,2})?$");
+  var characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+  var result = "";
+
+  if (!base64Matcher.test(base64String)) {
+    throw new Error("Non base64 encoded input passed to window.atob polyfill");
+  }
+
+  var i = 0;
+  do {
+    var b1 = characters.indexOf( base64String.charAt(i++) );
+    var b2 = characters.indexOf( base64String.charAt(i++) );
+    var b3 = characters.indexOf( base64String.charAt(i++) );
+    var b4 = characters.indexOf( base64String.charAt(i++) );
+
+    var a = ( ( b1 & 0x3F ) << 2 ) | ( ( b2 >> 4 ) & 0x3 );
+    var b = ( ( b2 & 0xF  ) << 4 ) | ( ( b3 >> 2 ) & 0xF );
+    var c = ( ( b3 & 0x3  ) << 6 ) | ( b4 & 0x3F );
+
+    result += String.fromCharCode(a) + (b?String.fromCharCode(b):"") + (c?String.fromCharCode(c):"");
+
+  } while( i < base64String.length );
+
+  return result;
+};
+
+global.atob = global.atob || atobPolyfill;
+
+module.exports = {
+  atobPolyfill: atobPolyfill
+};
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],12:[function(require,module,exports){
+(function (global){
+'use strict';
+
+var util = require('../util');
+var prepBody = require('./prep-body');
+var parseBody = require('./parse-body');
+var constants = require('../constants');
+var isXHRAvailable = global.XMLHttpRequest && 'withCredentials' in new global.XMLHttpRequest();
+
+function getRequestObject() {
+  return isXHRAvailable ? new XMLHttpRequest() : new XDomainRequest();
+}
+
+function get(url, attrs, deserializer, callback, timeout) {
+  var urlParams = util.createURLParams(url, attrs);
+  makeRequest('GET', urlParams, null, deserializer, callback, timeout);
+}
+
+function post(url, attrs, deserializer, callback, timeout) {
+  makeRequest('POST', url, attrs, deserializer, callback, timeout);
+}
+
+function makeRequest(method, url, body, deserializer, callback, timeout) {
+  var status, resBody;
+  var req = getRequestObject();
+
+  callback = callback || function () {};
+
+  if (isXHRAvailable) {
+    req.onreadystatechange = function () {
+      if (req.readyState !== 4) { return; }
+
+      status = req.status;
+      resBody = parseBody(req.responseText);
+
+      if (status >= 400 || status === 0) {
+        callback.call(null, resBody || {errors: constants.errors.UNKNOWN_ERROR}, null);
+      } else if (status > 0) {
+        callback.call(null, null, deserializer(resBody));
+      }
+    };
+  } else {
+    req.onload = function () {
+      callback.call(null, null, deserializer(parseBody(req.responseText)));
+    };
+
+    req.onerror = function () {
+      callback.call(null, req.responseText, null);
+    };
+
+    // This must remain for IE9 to work
+    req.onprogress = function() {};
+
+    req.ontimeout = function () {
+      callback.call(null, {errors: constants.errors.UNKNOWN_ERROR}, null);
+    };
+  }
+
+  req.open(method, url, true);
+  req.timeout = timeout == null ? 60000 : timeout;
+
+  if (isXHRAvailable && method === 'POST') {
+    req.setRequestHeader('Content-Type', 'application/json');
+  }
+
+  setTimeout(function () {
+    req.send(prepBody(method, body));
+  }, 0);
+}
+
+module.exports = {
+  get: get,
+  post: post
+};
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"../constants":4,"../util":19,"./parse-body":16,"./prep-body":17}],13:[function(require,module,exports){
+'use strict';
+
+var JSONPDriver = require('./jsonp-driver');
+var AJAXDriver = require('./ajax-driver');
+var shouldUseJSONP = require('../util').shouldUseJSONP;
+
+module.exports = shouldUseJSONP() ? JSONPDriver : AJAXDriver;
+
+},{"../util":19,"./ajax-driver":12,"./jsonp-driver":14}],14:[function(require,module,exports){
 'use strict';
 
 var JSONP = require('./jsonp');
+var constants = require('../constants');
 var timeoutWatchers = [];
 
 function deserialize(response, mapper) {
@@ -3285,10 +3503,10 @@ function requestWithTimeout(url, attrs, deserializer, method, callback, timeout)
   if (typeof timeout === 'number') {
     timeoutWatchers[uniqueName] = setTimeout(function () {
       timeoutWatchers[uniqueName] = null;
-      callback.apply(null, [{errors: 'Unknown error'}, null]);
+      callback.apply(null, [{errors: constants.errors.UNKNOWN_ERROR}, null]);
     }, timeout);
   } else {
-    callback.apply(null, [{errors: 'Timeout must be a number'}, null]);
+    callback.apply(null, [{errors: constants.errors.INVALID_TIMEOUT}, null]);
   }
 }
 
@@ -3301,22 +3519,16 @@ function get(url, attrs, deserializer, callback, timeout) {
   requestWithTimeout(url, attrs, deserializer, JSONP.get, callback, timeout);
 }
 
-function put(url, attrs, deserializer, callback, timeout) {
-  attrs._method = 'PUT';
-  requestWithTimeout(url, attrs, deserializer, JSONP.get, callback, timeout);
-}
-
 module.exports = {
   get: get,
-  post: post,
-  put: put
+  post: post
 };
 
-},{"./jsonp":8}],8:[function(require,module,exports){
+},{"../constants":4,"./jsonp":15}],15:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var util = require('./util');
+var util = require('../util');
 
 /*
 * Lightweight JSONP fetcher
@@ -3356,43 +3568,13 @@ function load(url, pfnError) {
   head.appendChild( script );
 }
 
-function encode(str) {
-  return encodeURIComponent(str);
-}
-
-function stringify(params, namespace) {
-  var query = [], k, v, p;
-  for(var p in params) {
-    if (!params.hasOwnProperty(p)) {
-      continue;
-    }
-
-    v = params[p];
-    if (namespace) {
-      if (util.isArray(params)) {
-        k = namespace + "[]";
-      } else {
-        k = namespace + "[" + p + "]";
-      }
-    } else {
-      k = p;
-    }
-    if (typeof v == "object") {
-      query.push(stringify(v, k));
-    } else {
-      query.push(encodeURIComponent(k) + "=" + encodeURIComponent(v));
-    }
-  }
-  return query.join("&");
-}
-
 function jsonp(url, params, callback, callbackName) {
-  var query = (url||'').indexOf('?') === -1 ? '?' : '&', key;
+  var urlParams, key, uniqueName;
 
   callbackName = (callbackName||config['callbackName']||'callback');
-  var uniqueName = callbackName + "_json" + util.generateUUID();
-
-  query += stringify(params);
+  uniqueName = callbackName + "_json" + util.generateUUID();
+  params[callbackName] = uniqueName;
+  urlParams = util.createURLParams(url, params)
 
   window[ uniqueName ] = function (data){
     callback(data, uniqueName);
@@ -3402,7 +3584,7 @@ function jsonp(url, params, callback, callbackName) {
     window[ uniqueName ] = null;
   };
 
-  load(url + query + '&' + callbackName + '=' + uniqueName);
+  load(urlParams);
   return uniqueName;
 }
 
@@ -3412,147 +3594,39 @@ function setDefaults(obj){
 
 module.exports = {
   get: jsonp,
-  init: setDefaults,
-  stringify: stringify
+  init: setDefaults
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./util":15}],9:[function(require,module,exports){
+},{"../util":19}],16:[function(require,module,exports){
 'use strict';
 
-function normalizeCreditCardFields(attrs) {
-  var key;
-  var creditCard = {
-    billingAddress: attrs.billingAddress || {}
-  };
+module.exports = function (body) {
+  try {
+    body = JSON.parse(body);
+  } catch (e) {}
 
-  for (key in attrs) {
-    if (!attrs.hasOwnProperty(key)) { continue; }
-
-    switch (key.replace(/_/, '').toLowerCase()) {
-      case 'postalcode':
-      case 'countryname':
-      case 'countrycodenumeric':
-      case 'countrycodealpha2':
-      case 'countrycodealpha3':
-      case 'region':
-      case 'extendedaddress':
-      case 'locality':
-      case 'firstname':
-      case 'lastname':
-      case 'company':
-      case 'streetaddress':
-        creditCard.billingAddress[key] = attrs[key];
-        break;
-      default:
-        creditCard[key] = attrs[key];
-    }
-  }
-
-  return creditCard;
-}
-
-module.exports = {
-  normalizeCreditCardFields: normalizeCreditCardFields
+  return body;
 };
 
-},{}],10:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 'use strict';
 
-var braintreeUtils = require('braintree-utilities');
-require('./polyfill');
+var isString = require('lodash.isstring');
 
-function parseClientToken(rawClientToken) {
-  var clientToken;
-
-  if (!rawClientToken) {
-    throw new Error('Braintree API Client Misconfigured: clientToken required.');
+module.exports = function (method, body) {
+  if (!isString(method)) {
+    throw new Error('Method must be a string');
   }
 
-  if (typeof rawClientToken === 'object' && rawClientToken !== null) {
-    clientToken = rawClientToken;
-  } else {
-    try {
-      rawClientToken = window.atob(rawClientToken);
-    } catch (b64Error) {}
-
-    try {
-      clientToken = JSON.parse(rawClientToken);
-    } catch (jsonError) {
-      throw new Error('Braintree API Client Misconfigured: clientToken is invalid.');
-    }
+  if (method.toLowerCase() !== 'get' && body != null) {
+    body = isString(body) ? body : JSON.stringify(body);
   }
 
-  if (!clientToken.hasOwnProperty('clientApiUrl') || !braintreeUtils.isWhitelistedDomain(clientToken.clientApiUrl)) {
-    throw new Error('Braintree API Client Misconfigured: clientToken is invalid.');
-  }
-
-  return clientToken;
-}
-
-module.exports = parseClientToken;
-
-},{"./polyfill":12,"braintree-utilities":36}],11:[function(require,module,exports){
-'use strict';
-
-var ATTRIBUTES = [
-  'nonce',
-  'type',
-  'description',
-  'details'
-];
-
-function PayPalAccount(attributes) {
-  var i, attribute;
-
-  for (i = 0; i < ATTRIBUTES.length; i++) {
-    attribute = ATTRIBUTES[i];
-    this[attribute] = attributes[attribute];
-  }
-}
-
-module.exports = PayPalAccount;
-
-},{}],12:[function(require,module,exports){
-(function (global){
-'use strict';
-
-global.atob = global.atob || function (base64String) {
-  var base64Matcher = new RegExp("^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{4})([=]{1,2})?$");
-  var characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-  var result = "";
-
-  if (!base64Matcher.test(base64String)) {
-    throw new Error("Braintree API Client Misconfigured: clientToken is invalid.");
-  }
-
-  var i = 0;
-  do {
-    var b1 = characters.indexOf( base64String.charAt(i++) );
-    var b2 = characters.indexOf( base64String.charAt(i++) );
-    var b3 = characters.indexOf( base64String.charAt(i++) );
-    var b4 = characters.indexOf( base64String.charAt(i++) );
-
-    var a = ( ( b1 & 0x3F ) << 2 ) | ( ( b2 >> 4 ) & 0x3 );
-    var b = ( ( b2 & 0xF  ) << 4 ) | ( ( b3 >> 2 ) & 0xF );
-    var c = ( ( b3 & 0x3  ) << 6 ) | ( b4 & 0x3F );
-
-    result += String.fromCharCode(a) + (b?String.fromCharCode(b):"") + (c?String.fromCharCode(c):"");
-
-  } while( i < base64String.length );
-
-  return result;
+  return body;
 };
 
-}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],13:[function(require,module,exports){
-'use strict';
-
-var JSONPDriver = require('./jsonp-driver');
-
-module.exports = JSONPDriver;
-
-},{"./jsonp-driver":7}],14:[function(require,module,exports){
+},{"lodash.isstring":48}],18:[function(require,module,exports){
 'use strict';
 
 function SEPAMandate(attributes) {
@@ -3575,8 +3649,12 @@ function SEPAMandate(attributes) {
 
 module.exports = SEPAMandate;
 
-},{}],15:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
+(function (global){
 'use strict';
+
+var isEmpty = require('lodash.isempty');
+var isObject = require('lodash.isobject');
 
 function joinUrlFragments(fragments) {
   var strippedFragments = [],
@@ -3627,19 +3705,69 @@ function mergeOptions(obj1, obj2) {
   return obj3;
 }
 
+function shouldUseJSONP() {
+  var ua = global.navigator.userAgent;
+  var isHttp = global.location.protocol === 'http:';
+
+  return /(MSIE\s(8|9))|(Phantom)/.test(ua) && isHttp;
+}
+
+function stringify(params, namespace) {
+  var query = [], k, v, p;
+
+  for (p in params) {
+    if (!params.hasOwnProperty(p)) {
+      continue;
+    }
+
+    v = params[p];
+
+    if (namespace) {
+      if (isArray(params)) {
+        k = namespace + '[]';
+      } else {
+        k = namespace + '[' + p + ']';
+      }
+    } else {
+      k = p;
+    }
+    if (typeof v === 'object') {
+      query.push(stringify(v, k));
+    } else {
+      query.push(encodeURIComponent(k) + '=' + encodeURIComponent(v));
+    }
+  }
+
+  return query.join('&');
+}
+
+function createURLParams(url, params) {
+  url = url || '';
+
+  if (!isEmpty(params) && isObject(params)) {
+    url += url.indexOf('?') === -1 ? '?' : '';
+    url += url.indexOf('=') !== -1 ? '&' : '';
+    url += stringify(params);
+  }
+
+  return url;
+}
+
 module.exports = {
   joinUrlFragments: joinUrlFragments,
   isArray: isArray,
   generateUUID: generateUUID,
-  mergeOptions: mergeOptions
+  mergeOptions: mergeOptions,
+  shouldUseJSONP: shouldUseJSONP,
+  stringify: stringify,
+  createURLParams: createURLParams
 };
 
-},{}],16:[function(require,module,exports){
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"lodash.isempty":41,"lodash.isobject":47}],20:[function(require,module,exports){
 'use strict';
 
 var Client = require('./lib/client');
-var JSONP = require('./lib/jsonp');
-var JSONPDriver = require('./lib/jsonp-driver');
 var util = require('./lib/util');
 var parseClientToken = require('./lib/parse-client-token');
 var getConfiguration = require('./lib/get-configuration');
@@ -3652,13 +3780,11 @@ module.exports = {
   Client: Client,
   configure: configure,
   util: util,
-  JSONP: JSONP,
-  JSONPDriver: JSONPDriver,
   parseClientToken: parseClientToken,
   getConfiguration: getConfiguration
 };
 
-},{"./lib/client":2,"./lib/get-configuration":6,"./lib/jsonp":8,"./lib/jsonp-driver":7,"./lib/parse-client-token":10,"./lib/util":15}],17:[function(require,module,exports){
+},{"./lib/client":2,"./lib/get-configuration":7,"./lib/parse-client-token":9,"./lib/util":19}],21:[function(require,module,exports){
 'use strict';
 
 function normalizeElement (element, errorMessage) {
@@ -3682,7 +3808,7 @@ module.exports = {
   normalizeElement: normalizeElement
 };
 
-},{}],18:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 'use strict';
 
 function addEventListener(element, type, listener, useCapture) {
@@ -3706,7 +3832,7 @@ module.exports = {
   removeEventListener: removeEventListener
 };
 
-},{}],19:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 'use strict';
 
 var toString = Object.prototype.toString;
@@ -3726,7 +3852,7 @@ module.exports = {
   isFunction: isFunction
 };
 
-},{}],20:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 'use strict';
 
 function isBrowserHttps() {
@@ -3798,7 +3924,7 @@ module.exports = {
   getParams: getParams
 };
 
-},{}],21:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 var dom = require('./lib/dom');
 var url = require('./lib/url');
 var fn = require('./lib/fn');
@@ -3816,7 +3942,7 @@ module.exports = {
   isFunction: fn.isFunction
 };
 
-},{"./lib/dom":17,"./lib/events":18,"./lib/fn":19,"./lib/url":20}],22:[function(require,module,exports){
+},{"./lib/dom":21,"./lib/events":22,"./lib/fn":23,"./lib/url":24}],26:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -3951,7 +4077,7 @@ AuthenticationService.prototype.constructAuthorizationURL = function (response) 
 
 module.exports = AuthenticationService;
 
-},{"../shared/receiver":29,"braintree-utilities":21}],23:[function(require,module,exports){
+},{"../shared/receiver":33,"braintree-utilities":25}],27:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -4110,7 +4236,7 @@ Client.prototype._onLookupComplete = function () {
 
 module.exports = Client;
 
-},{"./authorization_service":22,"./loader":25,"braintree-utilities":21}],24:[function(require,module,exports){
+},{"./authorization_service":26,"./loader":29,"braintree-utilities":25}],28:[function(require,module,exports){
 'use strict';
 
 var Client = require('./client');
@@ -4122,7 +4248,7 @@ module.exports = {
   }
 };
 
-},{"./client":23}],25:[function(require,module,exports){
+},{"./client":27}],29:[function(require,module,exports){
 'use strict';
 
 var LoaderDisplay = require('./loader_display');
@@ -4177,7 +4303,7 @@ Loader.prototype._initialize = function () {
 
 module.exports = Loader;
 
-},{"./loader_display":26,"./loader_message":27,"./loader_spinner":28}],26:[function(require,module,exports){
+},{"./loader_display":30,"./loader_message":31,"./loader_spinner":32}],30:[function(require,module,exports){
 'use strict';
 
 function LoaderDisplay(displayObject) {
@@ -4211,7 +4337,7 @@ LoaderDisplay.prototype._initialize = function () {
 
 module.exports = LoaderDisplay;
 
-},{}],27:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 'use strict';
 
 function LoaderMessage(text) {
@@ -4237,7 +4363,7 @@ LoaderMessage.prototype.dispose = function () {
 
 module.exports = LoaderMessage;
 
-},{}],28:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 'use strict';
 
 function LoaderSpinner() {
@@ -4281,7 +4407,7 @@ LoaderSpinner.prototype.dispose = function () {
 
 module.exports = LoaderSpinner;
 
-},{}],29:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -4337,7 +4463,7 @@ Receiver.prototype.stopListening = function () {
 
 module.exports = Receiver;
 
-},{"braintree-utilities":21}],30:[function(require,module,exports){
+},{"braintree-utilities":25}],34:[function(require,module,exports){
 'use strict';
 
 var nativeIndexOf = Array.prototype.indexOf;
@@ -4362,13 +4488,13 @@ module.exports = {
   indexOf: indexOf
 };
 
-},{}],31:[function(require,module,exports){
-arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],32:[function(require,module,exports){
-arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],33:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],34:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],36:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],37:[function(require,module,exports){
+arguments[4][23][0].apply(exports,arguments)
+},{"dup":23}],38:[function(require,module,exports){
 'use strict';
 
 function getMaxCharLength(width) {
@@ -4421,7 +4547,7 @@ module.exports = {
   getMaxCharLength: getMaxCharLength
 };
 
-},{}],35:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 'use strict';
 
 var array = require('./array');
@@ -4523,7 +4649,7 @@ module.exports = {
   isWhitelistedDomain: isWhitelistedDomain
 };
 
-},{"./array":30}],36:[function(require,module,exports){
+},{"./array":34}],40:[function(require,module,exports){
 var dom = require('./lib/dom');
 var url = require('./lib/url');
 var fn = require('./lib/fn');
@@ -4546,7 +4672,963 @@ module.exports = {
   isFunction: fn.isFunction
 };
 
-},{"./lib/array":30,"./lib/dom":31,"./lib/events":32,"./lib/fn":33,"./lib/string":34,"./lib/url":35}],37:[function(require,module,exports){
+},{"./lib/array":34,"./lib/dom":35,"./lib/events":36,"./lib/fn":37,"./lib/string":38,"./lib/url":39}],41:[function(require,module,exports){
+/**
+ * lodash 3.0.4 (Custom Build) <https://lodash.com/>
+ * Build: `lodash modern modularize exports="npm" -o ./`
+ * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <https://lodash.com/license>
+ */
+var isArguments = require('lodash.isarguments'),
+    isArray = require('lodash.isarray'),
+    isFunction = require('lodash.isfunction'),
+    isString = require('lodash.isstring'),
+    keys = require('lodash.keys');
+
+/**
+ * Checks if `value` is object-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ */
+function isObjectLike(value) {
+  return !!value && typeof value == 'object';
+}
+
+/**
+ * Used as the [maximum length](https://people.mozilla.org/~jorendorff/es6-draft.html#sec-number.max_safe_integer)
+ * of an array-like value.
+ */
+var MAX_SAFE_INTEGER = 9007199254740991;
+
+/**
+ * The base implementation of `_.property` without support for deep paths.
+ *
+ * @private
+ * @param {string} key The key of the property to get.
+ * @returns {Function} Returns the new function.
+ */
+function baseProperty(key) {
+  return function(object) {
+    return object == null ? undefined : object[key];
+  };
+}
+
+/**
+ * Gets the "length" property value of `object`.
+ *
+ * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
+ * that affects Safari on at least iOS 8.1-8.3 ARM64.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {*} Returns the "length" value.
+ */
+var getLength = baseProperty('length');
+
+/**
+ * Checks if `value` is array-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
+ */
+function isArrayLike(value) {
+  return value != null && isLength(getLength(value));
+}
+
+/**
+ * Checks if `value` is a valid array-like length.
+ *
+ * **Note:** This function is based on [`ToLength`](https://people.mozilla.org/~jorendorff/es6-draft.html#sec-tolength).
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
+ */
+function isLength(value) {
+  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+}
+
+/**
+ * Checks if `value` is empty. A value is considered empty unless it is an
+ * `arguments` object, array, string, or jQuery-like collection with a length
+ * greater than `0` or an object with own enumerable properties.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {Array|Object|string} value The value to inspect.
+ * @returns {boolean} Returns `true` if `value` is empty, else `false`.
+ * @example
+ *
+ * _.isEmpty(null);
+ * // => true
+ *
+ * _.isEmpty(true);
+ * // => true
+ *
+ * _.isEmpty(1);
+ * // => true
+ *
+ * _.isEmpty([1, 2, 3]);
+ * // => false
+ *
+ * _.isEmpty({ 'a': 1 });
+ * // => false
+ */
+function isEmpty(value) {
+  if (value == null) {
+    return true;
+  }
+  if (isArrayLike(value) && (isArray(value) || isString(value) || isArguments(value) ||
+      (isObjectLike(value) && isFunction(value.splice)))) {
+    return !value.length;
+  }
+  return !keys(value).length;
+}
+
+module.exports = isEmpty;
+
+},{"lodash.isarguments":42,"lodash.isarray":43,"lodash.isfunction":44,"lodash.isstring":48,"lodash.keys":45}],42:[function(require,module,exports){
+/**
+ * lodash 3.0.4 (Custom Build) <https://lodash.com/>
+ * Build: `lodash modern modularize exports="npm" -o ./`
+ * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <https://lodash.com/license>
+ */
+
+/**
+ * Checks if `value` is object-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ */
+function isObjectLike(value) {
+  return !!value && typeof value == 'object';
+}
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/** Native method references. */
+var propertyIsEnumerable = objectProto.propertyIsEnumerable;
+
+/**
+ * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
+ * of an array-like value.
+ */
+var MAX_SAFE_INTEGER = 9007199254740991;
+
+/**
+ * The base implementation of `_.property` without support for deep paths.
+ *
+ * @private
+ * @param {string} key The key of the property to get.
+ * @returns {Function} Returns the new function.
+ */
+function baseProperty(key) {
+  return function(object) {
+    return object == null ? undefined : object[key];
+  };
+}
+
+/**
+ * Gets the "length" property value of `object`.
+ *
+ * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
+ * that affects Safari on at least iOS 8.1-8.3 ARM64.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {*} Returns the "length" value.
+ */
+var getLength = baseProperty('length');
+
+/**
+ * Checks if `value` is array-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
+ */
+function isArrayLike(value) {
+  return value != null && isLength(getLength(value));
+}
+
+/**
+ * Checks if `value` is a valid array-like length.
+ *
+ * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
+ */
+function isLength(value) {
+  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+}
+
+/**
+ * Checks if `value` is classified as an `arguments` object.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @example
+ *
+ * _.isArguments(function() { return arguments; }());
+ * // => true
+ *
+ * _.isArguments([1, 2, 3]);
+ * // => false
+ */
+function isArguments(value) {
+  return isObjectLike(value) && isArrayLike(value) &&
+    hasOwnProperty.call(value, 'callee') && !propertyIsEnumerable.call(value, 'callee');
+}
+
+module.exports = isArguments;
+
+},{}],43:[function(require,module,exports){
+/**
+ * lodash 3.0.4 (Custom Build) <https://lodash.com/>
+ * Build: `lodash modern modularize exports="npm" -o ./`
+ * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <https://lodash.com/license>
+ */
+
+/** `Object#toString` result references. */
+var arrayTag = '[object Array]',
+    funcTag = '[object Function]';
+
+/** Used to detect host constructors (Safari > 5). */
+var reIsHostCtor = /^\[object .+?Constructor\]$/;
+
+/**
+ * Checks if `value` is object-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ */
+function isObjectLike(value) {
+  return !!value && typeof value == 'object';
+}
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/** Used to resolve the decompiled source of functions. */
+var fnToString = Function.prototype.toString;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/**
+ * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var objToString = objectProto.toString;
+
+/** Used to detect if a method is native. */
+var reIsNative = RegExp('^' +
+  fnToString.call(hasOwnProperty).replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
+  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
+);
+
+/* Native method references for those with the same name as other `lodash` methods. */
+var nativeIsArray = getNative(Array, 'isArray');
+
+/**
+ * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
+ * of an array-like value.
+ */
+var MAX_SAFE_INTEGER = 9007199254740991;
+
+/**
+ * Gets the native function at `key` of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @param {string} key The key of the method to get.
+ * @returns {*} Returns the function if it's native, else `undefined`.
+ */
+function getNative(object, key) {
+  var value = object == null ? undefined : object[key];
+  return isNative(value) ? value : undefined;
+}
+
+/**
+ * Checks if `value` is a valid array-like length.
+ *
+ * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
+ */
+function isLength(value) {
+  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+}
+
+/**
+ * Checks if `value` is classified as an `Array` object.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @example
+ *
+ * _.isArray([1, 2, 3]);
+ * // => true
+ *
+ * _.isArray(function() { return arguments; }());
+ * // => false
+ */
+var isArray = nativeIsArray || function(value) {
+  return isObjectLike(value) && isLength(value.length) && objToString.call(value) == arrayTag;
+};
+
+/**
+ * Checks if `value` is classified as a `Function` object.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @example
+ *
+ * _.isFunction(_);
+ * // => true
+ *
+ * _.isFunction(/abc/);
+ * // => false
+ */
+function isFunction(value) {
+  // The use of `Object#toString` avoids issues with the `typeof` operator
+  // in older versions of Chrome and Safari which return 'function' for regexes
+  // and Safari 8 equivalents which return 'object' for typed array constructors.
+  return isObject(value) && objToString.call(value) == funcTag;
+}
+
+/**
+ * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
+ * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(1);
+ * // => false
+ */
+function isObject(value) {
+  // Avoid a V8 JIT bug in Chrome 19-20.
+  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
+  var type = typeof value;
+  return !!value && (type == 'object' || type == 'function');
+}
+
+/**
+ * Checks if `value` is a native function.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a native function, else `false`.
+ * @example
+ *
+ * _.isNative(Array.prototype.push);
+ * // => true
+ *
+ * _.isNative(_);
+ * // => false
+ */
+function isNative(value) {
+  if (value == null) {
+    return false;
+  }
+  if (isFunction(value)) {
+    return reIsNative.test(fnToString.call(value));
+  }
+  return isObjectLike(value) && reIsHostCtor.test(value);
+}
+
+module.exports = isArray;
+
+},{}],44:[function(require,module,exports){
+/**
+ * lodash 3.0.6 (Custom Build) <https://lodash.com/>
+ * Build: `lodash modern modularize exports="npm" -o ./`
+ * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <https://lodash.com/license>
+ */
+
+/** `Object#toString` result references. */
+var funcTag = '[object Function]';
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/**
+ * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var objToString = objectProto.toString;
+
+/**
+ * Checks if `value` is classified as a `Function` object.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @example
+ *
+ * _.isFunction(_);
+ * // => true
+ *
+ * _.isFunction(/abc/);
+ * // => false
+ */
+function isFunction(value) {
+  // The use of `Object#toString` avoids issues with the `typeof` operator
+  // in older versions of Chrome and Safari which return 'function' for regexes
+  // and Safari 8 equivalents which return 'object' for typed array constructors.
+  return isObject(value) && objToString.call(value) == funcTag;
+}
+
+/**
+ * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
+ * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(1);
+ * // => false
+ */
+function isObject(value) {
+  // Avoid a V8 JIT bug in Chrome 19-20.
+  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
+  var type = typeof value;
+  return !!value && (type == 'object' || type == 'function');
+}
+
+module.exports = isFunction;
+
+},{}],45:[function(require,module,exports){
+/**
+ * lodash 3.1.2 (Custom Build) <https://lodash.com/>
+ * Build: `lodash modern modularize exports="npm" -o ./`
+ * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <https://lodash.com/license>
+ */
+var getNative = require('lodash._getnative'),
+    isArguments = require('lodash.isarguments'),
+    isArray = require('lodash.isarray');
+
+/** Used to detect unsigned integer values. */
+var reIsUint = /^\d+$/;
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/* Native method references for those with the same name as other `lodash` methods. */
+var nativeKeys = getNative(Object, 'keys');
+
+/**
+ * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
+ * of an array-like value.
+ */
+var MAX_SAFE_INTEGER = 9007199254740991;
+
+/**
+ * The base implementation of `_.property` without support for deep paths.
+ *
+ * @private
+ * @param {string} key The key of the property to get.
+ * @returns {Function} Returns the new function.
+ */
+function baseProperty(key) {
+  return function(object) {
+    return object == null ? undefined : object[key];
+  };
+}
+
+/**
+ * Gets the "length" property value of `object`.
+ *
+ * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
+ * that affects Safari on at least iOS 8.1-8.3 ARM64.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {*} Returns the "length" value.
+ */
+var getLength = baseProperty('length');
+
+/**
+ * Checks if `value` is array-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
+ */
+function isArrayLike(value) {
+  return value != null && isLength(getLength(value));
+}
+
+/**
+ * Checks if `value` is a valid array-like index.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @param {number} [length=MAX_SAFE_INTEGER] The upper bounds of a valid index.
+ * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.
+ */
+function isIndex(value, length) {
+  value = (typeof value == 'number' || reIsUint.test(value)) ? +value : -1;
+  length = length == null ? MAX_SAFE_INTEGER : length;
+  return value > -1 && value % 1 == 0 && value < length;
+}
+
+/**
+ * Checks if `value` is a valid array-like length.
+ *
+ * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
+ */
+function isLength(value) {
+  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+}
+
+/**
+ * A fallback implementation of `Object.keys` which creates an array of the
+ * own enumerable property names of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ */
+function shimKeys(object) {
+  var props = keysIn(object),
+      propsLength = props.length,
+      length = propsLength && object.length;
+
+  var allowIndexes = !!length && isLength(length) &&
+    (isArray(object) || isArguments(object));
+
+  var index = -1,
+      result = [];
+
+  while (++index < propsLength) {
+    var key = props[index];
+    if ((allowIndexes && isIndex(key, length)) || hasOwnProperty.call(object, key)) {
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+/**
+ * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
+ * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(1);
+ * // => false
+ */
+function isObject(value) {
+  // Avoid a V8 JIT bug in Chrome 19-20.
+  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
+  var type = typeof value;
+  return !!value && (type == 'object' || type == 'function');
+}
+
+/**
+ * Creates an array of the own enumerable property names of `object`.
+ *
+ * **Note:** Non-object values are coerced to objects. See the
+ * [ES spec](http://ecma-international.org/ecma-262/6.0/#sec-object.keys)
+ * for more details.
+ *
+ * @static
+ * @memberOf _
+ * @category Object
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ * @example
+ *
+ * function Foo() {
+ *   this.a = 1;
+ *   this.b = 2;
+ * }
+ *
+ * Foo.prototype.c = 3;
+ *
+ * _.keys(new Foo);
+ * // => ['a', 'b'] (iteration order is not guaranteed)
+ *
+ * _.keys('hi');
+ * // => ['0', '1']
+ */
+var keys = !nativeKeys ? shimKeys : function(object) {
+  var Ctor = object == null ? undefined : object.constructor;
+  if ((typeof Ctor == 'function' && Ctor.prototype === object) ||
+      (typeof object != 'function' && isArrayLike(object))) {
+    return shimKeys(object);
+  }
+  return isObject(object) ? nativeKeys(object) : [];
+};
+
+/**
+ * Creates an array of the own and inherited enumerable property names of `object`.
+ *
+ * **Note:** Non-object values are coerced to objects.
+ *
+ * @static
+ * @memberOf _
+ * @category Object
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ * @example
+ *
+ * function Foo() {
+ *   this.a = 1;
+ *   this.b = 2;
+ * }
+ *
+ * Foo.prototype.c = 3;
+ *
+ * _.keysIn(new Foo);
+ * // => ['a', 'b', 'c'] (iteration order is not guaranteed)
+ */
+function keysIn(object) {
+  if (object == null) {
+    return [];
+  }
+  if (!isObject(object)) {
+    object = Object(object);
+  }
+  var length = object.length;
+  length = (length && isLength(length) &&
+    (isArray(object) || isArguments(object)) && length) || 0;
+
+  var Ctor = object.constructor,
+      index = -1,
+      isProto = typeof Ctor == 'function' && Ctor.prototype === object,
+      result = Array(length),
+      skipIndexes = length > 0;
+
+  while (++index < length) {
+    result[index] = (index + '');
+  }
+  for (var key in object) {
+    if (!(skipIndexes && isIndex(key, length)) &&
+        !(key == 'constructor' && (isProto || !hasOwnProperty.call(object, key)))) {
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+module.exports = keys;
+
+},{"lodash._getnative":46,"lodash.isarguments":42,"lodash.isarray":43}],46:[function(require,module,exports){
+/**
+ * lodash 3.9.1 (Custom Build) <https://lodash.com/>
+ * Build: `lodash modern modularize exports="npm" -o ./`
+ * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <https://lodash.com/license>
+ */
+
+/** `Object#toString` result references. */
+var funcTag = '[object Function]';
+
+/** Used to detect host constructors (Safari > 5). */
+var reIsHostCtor = /^\[object .+?Constructor\]$/;
+
+/**
+ * Checks if `value` is object-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ */
+function isObjectLike(value) {
+  return !!value && typeof value == 'object';
+}
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/** Used to resolve the decompiled source of functions. */
+var fnToString = Function.prototype.toString;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/**
+ * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var objToString = objectProto.toString;
+
+/** Used to detect if a method is native. */
+var reIsNative = RegExp('^' +
+  fnToString.call(hasOwnProperty).replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
+  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
+);
+
+/**
+ * Gets the native function at `key` of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @param {string} key The key of the method to get.
+ * @returns {*} Returns the function if it's native, else `undefined`.
+ */
+function getNative(object, key) {
+  var value = object == null ? undefined : object[key];
+  return isNative(value) ? value : undefined;
+}
+
+/**
+ * Checks if `value` is classified as a `Function` object.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @example
+ *
+ * _.isFunction(_);
+ * // => true
+ *
+ * _.isFunction(/abc/);
+ * // => false
+ */
+function isFunction(value) {
+  // The use of `Object#toString` avoids issues with the `typeof` operator
+  // in older versions of Chrome and Safari which return 'function' for regexes
+  // and Safari 8 equivalents which return 'object' for typed array constructors.
+  return isObject(value) && objToString.call(value) == funcTag;
+}
+
+/**
+ * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
+ * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(1);
+ * // => false
+ */
+function isObject(value) {
+  // Avoid a V8 JIT bug in Chrome 19-20.
+  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
+  var type = typeof value;
+  return !!value && (type == 'object' || type == 'function');
+}
+
+/**
+ * Checks if `value` is a native function.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a native function, else `false`.
+ * @example
+ *
+ * _.isNative(Array.prototype.push);
+ * // => true
+ *
+ * _.isNative(_);
+ * // => false
+ */
+function isNative(value) {
+  if (value == null) {
+    return false;
+  }
+  if (isFunction(value)) {
+    return reIsNative.test(fnToString.call(value));
+  }
+  return isObjectLike(value) && reIsHostCtor.test(value);
+}
+
+module.exports = getNative;
+
+},{}],47:[function(require,module,exports){
+/**
+ * lodash 3.0.2 (Custom Build) <https://lodash.com/>
+ * Build: `lodash modern modularize exports="npm" -o ./`
+ * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <https://lodash.com/license>
+ */
+
+/**
+ * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
+ * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(1);
+ * // => false
+ */
+function isObject(value) {
+  // Avoid a V8 JIT bug in Chrome 19-20.
+  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
+  var type = typeof value;
+  return !!value && (type == 'object' || type == 'function');
+}
+
+module.exports = isObject;
+
+},{}],48:[function(require,module,exports){
+/**
+ * lodash 3.0.1 (Custom Build) <https://lodash.com/>
+ * Build: `lodash modern modularize exports="npm" -o ./`
+ * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.8.2 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <https://lodash.com/license>
+ */
+
+/** `Object#toString` result references. */
+var stringTag = '[object String]';
+
+/**
+ * Checks if `value` is object-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ */
+function isObjectLike(value) {
+  return !!value && typeof value == 'object';
+}
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/**
+ * Used to resolve the [`toStringTag`](https://people.mozilla.org/~jorendorff/es6-draft.html#sec-object.prototype.tostring)
+ * of values.
+ */
+var objToString = objectProto.toString;
+
+/**
+ * Checks if `value` is classified as a `String` primitive or object.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @example
+ *
+ * _.isString('abc');
+ * // => true
+ *
+ * _.isString(1);
+ * // => false
+ */
+function isString(value) {
+  return typeof value == 'string' || (isObjectLike(value) && objToString.call(value) == stringTag);
+}
+
+module.exports = isString;
+
+},{}],49:[function(require,module,exports){
 'use strict';
 
 var bus = require('framebus');
@@ -4554,7 +5636,7 @@ bus.events = require('./lib/events');
 
 module.exports = bus;
 
-},{"./lib/events":38,"framebus":39}],38:[function(require,module,exports){
+},{"./lib/events":50,"framebus":51}],50:[function(require,module,exports){
 'use strict';
 
 var eventList = [
@@ -4585,7 +5667,7 @@ for (var i = 0; i < eventList.length; i++) {
 
 module.exports = eventEnum;
 
-},{}],39:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 'use strict';
 (function (root, factory) {
   if (typeof exports === 'object' && typeof module !== 'undefined') {
@@ -4837,7 +5919,7 @@ module.exports = eventEnum;
   return framebus;
 });
 
-},{}],40:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
 'use strict';
 
 var Coinbase = require('./lib/coinbase');
@@ -4878,7 +5960,7 @@ function create(options) {
 
 module.exports = {create: create};
 
-},{"./lib/coinbase":43,"./lib/detector":45,"braintree-bus":51}],41:[function(require,module,exports){
+},{"./lib/coinbase":55,"./lib/detector":57,"braintree-bus":63}],53:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -4924,7 +6006,7 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],42:[function(require,module,exports){
+},{}],54:[function(require,module,exports){
 'use strict';
 
 var bus = require('braintree-bus');
@@ -4943,7 +6025,7 @@ function tokenize(err, payload, coinbase) {
 
 module.exports = { tokenize: tokenize };
 
-},{"braintree-bus":51}],43:[function(require,module,exports){
+},{"braintree-bus":63}],55:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -5117,7 +6199,7 @@ Coinbase.prototype._handleButtonClick = function (event) {
 module.exports = Coinbase;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./callbacks":42,"./constants":44,"./detector":45,"./dom/composer":47,"./url-composer":50,"braintree-bus":51,"braintree-utilities":60}],44:[function(require,module,exports){
+},{"./callbacks":54,"./constants":56,"./detector":57,"./dom/composer":59,"./url-composer":62,"braintree-bus":63,"braintree-utilities":72}],56:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -5128,11 +6210,11 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "0.1.0",
+  VERSION: "0.1.1",
   INTEGRATION_NAME: 'Coinbase'
 };
 
-},{}],45:[function(require,module,exports){
+},{}],57:[function(require,module,exports){
 'use strict';
 
 var browser = require('./browser');
@@ -5167,7 +6249,7 @@ module.exports = {
   shouldDisplayLollipopClose: shouldDisplayLollipopClose
 };
 
-},{"./browser":41}],46:[function(require,module,exports){
+},{"./browser":53}],58:[function(require,module,exports){
 'use strict';
 
 function createButton(config) {
@@ -5188,7 +6270,7 @@ function createButton(config) {
 
 module.exports = { create: createButton };
 
-},{}],47:[function(require,module,exports){
+},{}],59:[function(require,module,exports){
 'use strict';
 
 var popup = require('./popup');
@@ -5201,7 +6283,7 @@ module.exports = {
   createFrame: frame.create
 };
 
-},{"./button":46,"./frame":48,"./popup":49}],48:[function(require,module,exports){
+},{"./button":58,"./frame":60,"./popup":61}],60:[function(require,module,exports){
 'use strict';
 
 var constants = require('../constants');
@@ -5224,7 +6306,7 @@ function createFrame(config) {
 
 module.exports = { create: createFrame };
 
-},{"../constants":44,"iframer":61}],49:[function(require,module,exports){
+},{"../constants":56,"iframer":73}],61:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -5261,7 +6343,7 @@ function createPopup(url) {
 module.exports = { create: createPopup };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../constants":44}],50:[function(require,module,exports){
+},{"../constants":56}],62:[function(require,module,exports){
 'use strict';
 
 var constants = require('./constants');
@@ -5297,27 +6379,27 @@ module.exports = {
   getQueryString: getQueryString
 };
 
-},{"./constants":44}],51:[function(require,module,exports){
-arguments[4][37][0].apply(exports,arguments)
-},{"./lib/events":52,"dup":37,"framebus":53}],52:[function(require,module,exports){
-arguments[4][38][0].apply(exports,arguments)
-},{"dup":38}],53:[function(require,module,exports){
-arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],54:[function(require,module,exports){
-arguments[4][30][0].apply(exports,arguments)
-},{"dup":30}],55:[function(require,module,exports){
-arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],56:[function(require,module,exports){
-arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],57:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],58:[function(require,module,exports){
+},{"./constants":56}],63:[function(require,module,exports){
+arguments[4][49][0].apply(exports,arguments)
+},{"./lib/events":64,"dup":49,"framebus":65}],64:[function(require,module,exports){
+arguments[4][50][0].apply(exports,arguments)
+},{"dup":50}],65:[function(require,module,exports){
+arguments[4][51][0].apply(exports,arguments)
+},{"dup":51}],66:[function(require,module,exports){
 arguments[4][34][0].apply(exports,arguments)
-},{"dup":34}],59:[function(require,module,exports){
-arguments[4][35][0].apply(exports,arguments)
-},{"./array":54,"dup":35}],60:[function(require,module,exports){
-arguments[4][36][0].apply(exports,arguments)
-},{"./lib/array":54,"./lib/dom":55,"./lib/events":56,"./lib/fn":57,"./lib/string":58,"./lib/url":59,"dup":36}],61:[function(require,module,exports){
+},{"dup":34}],67:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],68:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],69:[function(require,module,exports){
+arguments[4][23][0].apply(exports,arguments)
+},{"dup":23}],70:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"dup":38}],71:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"./array":66,"dup":39}],72:[function(require,module,exports){
+arguments[4][40][0].apply(exports,arguments)
+},{"./lib/array":66,"./lib/dom":67,"./lib/events":68,"./lib/fn":69,"./lib/string":70,"./lib/url":71,"dup":40}],73:[function(require,module,exports){
 'use strict';
 
 var assign = require('lodash.assign');
@@ -5346,13 +6428,13 @@ module.exports = function createFrame(options) {
   return iframe;
 };
 
-},{"./lib/default-attributes":62,"lodash.assign":63,"lodash.isstring":74}],62:[function(require,module,exports){
+},{"./lib/default-attributes":74,"lodash.assign":75,"lodash.isstring":86}],74:[function(require,module,exports){
 module.exports={
   "frameBorder": 0,
   "allowtransparency": true
 }
 
-},{}],63:[function(require,module,exports){
+},{}],75:[function(require,module,exports){
 /**
  * lodash 3.2.0 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -5434,7 +6516,7 @@ var assign = createAssigner(function(object, source, customizer) {
 
 module.exports = assign;
 
-},{"lodash._baseassign":64,"lodash._createassigner":66,"lodash.keys":70}],64:[function(require,module,exports){
+},{"lodash._baseassign":76,"lodash._createassigner":78,"lodash.keys":82}],76:[function(require,module,exports){
 /**
  * lodash 3.2.0 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -5463,7 +6545,7 @@ function baseAssign(object, source) {
 
 module.exports = baseAssign;
 
-},{"lodash._basecopy":65,"lodash.keys":70}],65:[function(require,module,exports){
+},{"lodash._basecopy":77,"lodash.keys":82}],77:[function(require,module,exports){
 /**
  * lodash 3.0.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -5497,7 +6579,7 @@ function baseCopy(source, props, object) {
 
 module.exports = baseCopy;
 
-},{}],66:[function(require,module,exports){
+},{}],78:[function(require,module,exports){
 /**
  * lodash 3.1.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -5551,7 +6633,7 @@ function createAssigner(assigner) {
 
 module.exports = createAssigner;
 
-},{"lodash._bindcallback":67,"lodash._isiterateecall":68,"lodash.restparam":69}],67:[function(require,module,exports){
+},{"lodash._bindcallback":79,"lodash._isiterateecall":80,"lodash.restparam":81}],79:[function(require,module,exports){
 /**
  * lodash 3.0.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -5618,7 +6700,7 @@ function identity(value) {
 
 module.exports = bindCallback;
 
-},{}],68:[function(require,module,exports){
+},{}],80:[function(require,module,exports){
 /**
  * lodash 3.0.9 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -5752,7 +6834,7 @@ function isObject(value) {
 
 module.exports = isIterateeCall;
 
-},{}],69:[function(require,module,exports){
+},{}],81:[function(require,module,exports){
 /**
  * lodash 3.6.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -5821,1206 +6903,231 @@ function restParam(func, start) {
 
 module.exports = restParam;
 
-},{}],70:[function(require,module,exports){
-/**
- * lodash 3.1.2 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-var getNative = require('lodash._getnative'),
-    isArguments = require('lodash.isarguments'),
-    isArray = require('lodash.isarray');
-
-/** Used to detect unsigned integer values. */
-var reIsUint = /^\d+$/;
-
-/** Used for native method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/* Native method references for those with the same name as other `lodash` methods. */
-var nativeKeys = getNative(Object, 'keys');
-
-/**
- * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
- * of an array-like value.
- */
-var MAX_SAFE_INTEGER = 9007199254740991;
-
-/**
- * The base implementation of `_.property` without support for deep paths.
- *
- * @private
- * @param {string} key The key of the property to get.
- * @returns {Function} Returns the new function.
- */
-function baseProperty(key) {
-  return function(object) {
-    return object == null ? undefined : object[key];
-  };
-}
-
-/**
- * Gets the "length" property value of `object`.
- *
- * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
- * that affects Safari on at least iOS 8.1-8.3 ARM64.
- *
- * @private
- * @param {Object} object The object to query.
- * @returns {*} Returns the "length" value.
- */
-var getLength = baseProperty('length');
-
-/**
- * Checks if `value` is array-like.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
- */
-function isArrayLike(value) {
-  return value != null && isLength(getLength(value));
-}
-
-/**
- * Checks if `value` is a valid array-like index.
- *
- * @private
- * @param {*} value The value to check.
- * @param {number} [length=MAX_SAFE_INTEGER] The upper bounds of a valid index.
- * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.
- */
-function isIndex(value, length) {
-  value = (typeof value == 'number' || reIsUint.test(value)) ? +value : -1;
-  length = length == null ? MAX_SAFE_INTEGER : length;
-  return value > -1 && value % 1 == 0 && value < length;
-}
-
-/**
- * Checks if `value` is a valid array-like length.
- *
- * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
- */
-function isLength(value) {
-  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
-}
-
-/**
- * A fallback implementation of `Object.keys` which creates an array of the
- * own enumerable property names of `object`.
- *
- * @private
- * @param {Object} object The object to query.
- * @returns {Array} Returns the array of property names.
- */
-function shimKeys(object) {
-  var props = keysIn(object),
-      propsLength = props.length,
-      length = propsLength && object.length;
-
-  var allowIndexes = !!length && isLength(length) &&
-    (isArray(object) || isArguments(object));
-
-  var index = -1,
-      result = [];
-
-  while (++index < propsLength) {
-    var key = props[index];
-    if ((allowIndexes && isIndex(key, length)) || hasOwnProperty.call(object, key)) {
-      result.push(key);
-    }
-  }
-  return result;
-}
-
-/**
- * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
- * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an object, else `false`.
- * @example
- *
- * _.isObject({});
- * // => true
- *
- * _.isObject([1, 2, 3]);
- * // => true
- *
- * _.isObject(1);
- * // => false
- */
-function isObject(value) {
-  // Avoid a V8 JIT bug in Chrome 19-20.
-  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
-  var type = typeof value;
-  return !!value && (type == 'object' || type == 'function');
-}
-
-/**
- * Creates an array of the own enumerable property names of `object`.
- *
- * **Note:** Non-object values are coerced to objects. See the
- * [ES spec](http://ecma-international.org/ecma-262/6.0/#sec-object.keys)
- * for more details.
- *
- * @static
- * @memberOf _
- * @category Object
- * @param {Object} object The object to query.
- * @returns {Array} Returns the array of property names.
- * @example
- *
- * function Foo() {
- *   this.a = 1;
- *   this.b = 2;
- * }
- *
- * Foo.prototype.c = 3;
- *
- * _.keys(new Foo);
- * // => ['a', 'b'] (iteration order is not guaranteed)
- *
- * _.keys('hi');
- * // => ['0', '1']
- */
-var keys = !nativeKeys ? shimKeys : function(object) {
-  var Ctor = object == null ? undefined : object.constructor;
-  if ((typeof Ctor == 'function' && Ctor.prototype === object) ||
-      (typeof object != 'function' && isArrayLike(object))) {
-    return shimKeys(object);
-  }
-  return isObject(object) ? nativeKeys(object) : [];
-};
-
-/**
- * Creates an array of the own and inherited enumerable property names of `object`.
- *
- * **Note:** Non-object values are coerced to objects.
- *
- * @static
- * @memberOf _
- * @category Object
- * @param {Object} object The object to query.
- * @returns {Array} Returns the array of property names.
- * @example
- *
- * function Foo() {
- *   this.a = 1;
- *   this.b = 2;
- * }
- *
- * Foo.prototype.c = 3;
- *
- * _.keysIn(new Foo);
- * // => ['a', 'b', 'c'] (iteration order is not guaranteed)
- */
-function keysIn(object) {
-  if (object == null) {
-    return [];
-  }
-  if (!isObject(object)) {
-    object = Object(object);
-  }
-  var length = object.length;
-  length = (length && isLength(length) &&
-    (isArray(object) || isArguments(object)) && length) || 0;
-
-  var Ctor = object.constructor,
-      index = -1,
-      isProto = typeof Ctor == 'function' && Ctor.prototype === object,
-      result = Array(length),
-      skipIndexes = length > 0;
-
-  while (++index < length) {
-    result[index] = (index + '');
-  }
-  for (var key in object) {
-    if (!(skipIndexes && isIndex(key, length)) &&
-        !(key == 'constructor' && (isProto || !hasOwnProperty.call(object, key)))) {
-      result.push(key);
-    }
-  }
-  return result;
-}
-
-module.exports = keys;
-
-},{"lodash._getnative":71,"lodash.isarguments":72,"lodash.isarray":73}],71:[function(require,module,exports){
-/**
- * lodash 3.9.1 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-
-/** `Object#toString` result references. */
-var funcTag = '[object Function]';
-
-/** Used to detect host constructors (Safari > 5). */
-var reIsHostCtor = /^\[object .+?Constructor\]$/;
-
-/**
- * Checks if `value` is object-like.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
- */
-function isObjectLike(value) {
-  return !!value && typeof value == 'object';
-}
-
-/** Used for native method references. */
-var objectProto = Object.prototype;
-
-/** Used to resolve the decompiled source of functions. */
-var fnToString = Function.prototype.toString;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/**
- * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
- * of values.
- */
-var objToString = objectProto.toString;
-
-/** Used to detect if a method is native. */
-var reIsNative = RegExp('^' +
-  fnToString.call(hasOwnProperty).replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
-  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
-);
-
-/**
- * Gets the native function at `key` of `object`.
- *
- * @private
- * @param {Object} object The object to query.
- * @param {string} key The key of the method to get.
- * @returns {*} Returns the function if it's native, else `undefined`.
- */
-function getNative(object, key) {
-  var value = object == null ? undefined : object[key];
-  return isNative(value) ? value : undefined;
-}
-
-/**
- * Checks if `value` is classified as a `Function` object.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
- * @example
- *
- * _.isFunction(_);
- * // => true
- *
- * _.isFunction(/abc/);
- * // => false
- */
-function isFunction(value) {
-  // The use of `Object#toString` avoids issues with the `typeof` operator
-  // in older versions of Chrome and Safari which return 'function' for regexes
-  // and Safari 8 equivalents which return 'object' for typed array constructors.
-  return isObject(value) && objToString.call(value) == funcTag;
-}
-
-/**
- * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
- * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an object, else `false`.
- * @example
- *
- * _.isObject({});
- * // => true
- *
- * _.isObject([1, 2, 3]);
- * // => true
- *
- * _.isObject(1);
- * // => false
- */
-function isObject(value) {
-  // Avoid a V8 JIT bug in Chrome 19-20.
-  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
-  var type = typeof value;
-  return !!value && (type == 'object' || type == 'function');
-}
-
-/**
- * Checks if `value` is a native function.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a native function, else `false`.
- * @example
- *
- * _.isNative(Array.prototype.push);
- * // => true
- *
- * _.isNative(_);
- * // => false
- */
-function isNative(value) {
-  if (value == null) {
-    return false;
-  }
-  if (isFunction(value)) {
-    return reIsNative.test(fnToString.call(value));
-  }
-  return isObjectLike(value) && reIsHostCtor.test(value);
-}
-
-module.exports = getNative;
-
-},{}],72:[function(require,module,exports){
-/**
- * lodash 3.0.4 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-
-/**
- * Checks if `value` is object-like.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
- */
-function isObjectLike(value) {
-  return !!value && typeof value == 'object';
-}
-
-/** Used for native method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/** Native method references. */
-var propertyIsEnumerable = objectProto.propertyIsEnumerable;
-
-/**
- * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
- * of an array-like value.
- */
-var MAX_SAFE_INTEGER = 9007199254740991;
-
-/**
- * The base implementation of `_.property` without support for deep paths.
- *
- * @private
- * @param {string} key The key of the property to get.
- * @returns {Function} Returns the new function.
- */
-function baseProperty(key) {
-  return function(object) {
-    return object == null ? undefined : object[key];
-  };
-}
-
-/**
- * Gets the "length" property value of `object`.
- *
- * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
- * that affects Safari on at least iOS 8.1-8.3 ARM64.
- *
- * @private
- * @param {Object} object The object to query.
- * @returns {*} Returns the "length" value.
- */
-var getLength = baseProperty('length');
-
-/**
- * Checks if `value` is array-like.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
- */
-function isArrayLike(value) {
-  return value != null && isLength(getLength(value));
-}
-
-/**
- * Checks if `value` is a valid array-like length.
- *
- * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
- */
-function isLength(value) {
-  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
-}
-
-/**
- * Checks if `value` is classified as an `arguments` object.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
- * @example
- *
- * _.isArguments(function() { return arguments; }());
- * // => true
- *
- * _.isArguments([1, 2, 3]);
- * // => false
- */
-function isArguments(value) {
-  return isObjectLike(value) && isArrayLike(value) &&
-    hasOwnProperty.call(value, 'callee') && !propertyIsEnumerable.call(value, 'callee');
-}
-
-module.exports = isArguments;
-
-},{}],73:[function(require,module,exports){
-/**
- * lodash 3.0.4 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-
-/** `Object#toString` result references. */
-var arrayTag = '[object Array]',
-    funcTag = '[object Function]';
-
-/** Used to detect host constructors (Safari > 5). */
-var reIsHostCtor = /^\[object .+?Constructor\]$/;
-
-/**
- * Checks if `value` is object-like.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
- */
-function isObjectLike(value) {
-  return !!value && typeof value == 'object';
-}
-
-/** Used for native method references. */
-var objectProto = Object.prototype;
-
-/** Used to resolve the decompiled source of functions. */
-var fnToString = Function.prototype.toString;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/**
- * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
- * of values.
- */
-var objToString = objectProto.toString;
-
-/** Used to detect if a method is native. */
-var reIsNative = RegExp('^' +
-  fnToString.call(hasOwnProperty).replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
-  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
-);
-
-/* Native method references for those with the same name as other `lodash` methods. */
-var nativeIsArray = getNative(Array, 'isArray');
-
-/**
- * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
- * of an array-like value.
- */
-var MAX_SAFE_INTEGER = 9007199254740991;
-
-/**
- * Gets the native function at `key` of `object`.
- *
- * @private
- * @param {Object} object The object to query.
- * @param {string} key The key of the method to get.
- * @returns {*} Returns the function if it's native, else `undefined`.
- */
-function getNative(object, key) {
-  var value = object == null ? undefined : object[key];
-  return isNative(value) ? value : undefined;
-}
-
-/**
- * Checks if `value` is a valid array-like length.
- *
- * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
- */
-function isLength(value) {
-  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
-}
-
-/**
- * Checks if `value` is classified as an `Array` object.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
- * @example
- *
- * _.isArray([1, 2, 3]);
- * // => true
- *
- * _.isArray(function() { return arguments; }());
- * // => false
- */
-var isArray = nativeIsArray || function(value) {
-  return isObjectLike(value) && isLength(value.length) && objToString.call(value) == arrayTag;
-};
-
-/**
- * Checks if `value` is classified as a `Function` object.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
- * @example
- *
- * _.isFunction(_);
- * // => true
- *
- * _.isFunction(/abc/);
- * // => false
- */
-function isFunction(value) {
-  // The use of `Object#toString` avoids issues with the `typeof` operator
-  // in older versions of Chrome and Safari which return 'function' for regexes
-  // and Safari 8 equivalents which return 'object' for typed array constructors.
-  return isObject(value) && objToString.call(value) == funcTag;
-}
-
-/**
- * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
- * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an object, else `false`.
- * @example
- *
- * _.isObject({});
- * // => true
- *
- * _.isObject([1, 2, 3]);
- * // => true
- *
- * _.isObject(1);
- * // => false
- */
-function isObject(value) {
-  // Avoid a V8 JIT bug in Chrome 19-20.
-  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
-  var type = typeof value;
-  return !!value && (type == 'object' || type == 'function');
-}
-
-/**
- * Checks if `value` is a native function.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a native function, else `false`.
- * @example
- *
- * _.isNative(Array.prototype.push);
- * // => true
- *
- * _.isNative(_);
- * // => false
- */
-function isNative(value) {
-  if (value == null) {
-    return false;
-  }
-  if (isFunction(value)) {
-    return reIsNative.test(fnToString.call(value));
-  }
-  return isObjectLike(value) && reIsHostCtor.test(value);
-}
-
-module.exports = isArray;
-
-},{}],74:[function(require,module,exports){
-/**
- * lodash 3.0.1 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.2 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-
-/** `Object#toString` result references. */
-var stringTag = '[object String]';
-
-/**
- * Checks if `value` is object-like.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
- */
-function isObjectLike(value) {
-  return !!value && typeof value == 'object';
-}
-
-/** Used for native method references. */
-var objectProto = Object.prototype;
-
-/**
- * Used to resolve the [`toStringTag`](https://people.mozilla.org/~jorendorff/es6-draft.html#sec-object.prototype.tostring)
- * of values.
- */
-var objToString = objectProto.toString;
-
-/**
- * Checks if `value` is classified as a `String` primitive or object.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
- * @example
- *
- * _.isString('abc');
- * // => true
- *
- * _.isString(1);
- * // => false
- */
-function isString(value) {
-  return typeof value == 'string' || (isObjectLike(value) && objToString.call(value) == stringTag);
-}
-
-module.exports = isString;
-
-},{}],75:[function(require,module,exports){
+},{}],82:[function(require,module,exports){
+arguments[4][45][0].apply(exports,arguments)
+},{"dup":45,"lodash._getnative":83,"lodash.isarguments":84,"lodash.isarray":85}],83:[function(require,module,exports){
+arguments[4][46][0].apply(exports,arguments)
+},{"dup":46}],84:[function(require,module,exports){
+arguments[4][42][0].apply(exports,arguments)
+},{"dup":42}],85:[function(require,module,exports){
+arguments[4][43][0].apply(exports,arguments)
+},{"dup":43}],86:[function(require,module,exports){
+arguments[4][48][0].apply(exports,arguments)
+},{"dup":48}],87:[function(require,module,exports){
 arguments[4][2][0].apply(exports,arguments)
-},{"./coinbase-account":76,"./credit-card":77,"./europe-bank-account":78,"./normalize-api-fields":82,"./parse-client-token":83,"./paypal-account":84,"./request-driver":86,"./sepa-mandate":87,"./util":88,"braintree-3ds":97,"braintree-utilities":109,"dup":2}],76:[function(require,module,exports){
+},{"./coinbase-account":88,"./credit-card":90,"./europe-bank-account":91,"./normalize-api-fields":93,"./parse-client-token":94,"./paypal-account":95,"./request":98,"./sepa-mandate":103,"./util":104,"braintree-3ds":113,"braintree-utilities":125,"dup":2}],88:[function(require,module,exports){
 arguments[4][3][0].apply(exports,arguments)
-},{"dup":3}],77:[function(require,module,exports){
+},{"dup":3}],89:[function(require,module,exports){
 arguments[4][4][0].apply(exports,arguments)
-},{"dup":4}],78:[function(require,module,exports){
+},{"dup":4}],90:[function(require,module,exports){
 arguments[4][5][0].apply(exports,arguments)
-},{"dup":5}],79:[function(require,module,exports){
+},{"dup":5}],91:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"./parse-client-token":83,"./request-driver":86,"./util":88,"dup":6}],80:[function(require,module,exports){
+},{"dup":6}],92:[function(require,module,exports){
 arguments[4][7][0].apply(exports,arguments)
-},{"./jsonp":81,"dup":7}],81:[function(require,module,exports){
+},{"./parse-client-token":94,"./request":98,"./util":104,"dup":7}],93:[function(require,module,exports){
 arguments[4][8][0].apply(exports,arguments)
-},{"./util":88,"dup":8}],82:[function(require,module,exports){
+},{"dup":8}],94:[function(require,module,exports){
 arguments[4][9][0].apply(exports,arguments)
-},{"dup":9}],83:[function(require,module,exports){
+},{"./polyfill":96,"braintree-utilities":125,"dup":9}],95:[function(require,module,exports){
 arguments[4][10][0].apply(exports,arguments)
-},{"./polyfill":85,"braintree-utilities":109,"dup":10}],84:[function(require,module,exports){
+},{"dup":10}],96:[function(require,module,exports){
 arguments[4][11][0].apply(exports,arguments)
-},{"dup":11}],85:[function(require,module,exports){
+},{"dup":11}],97:[function(require,module,exports){
 arguments[4][12][0].apply(exports,arguments)
-},{"dup":12}],86:[function(require,module,exports){
+},{"../constants":89,"../util":104,"./parse-body":101,"./prep-body":102,"dup":12}],98:[function(require,module,exports){
 arguments[4][13][0].apply(exports,arguments)
-},{"./jsonp-driver":80,"dup":13}],87:[function(require,module,exports){
+},{"../util":104,"./ajax-driver":97,"./jsonp-driver":99,"dup":13}],99:[function(require,module,exports){
 arguments[4][14][0].apply(exports,arguments)
-},{"dup":14}],88:[function(require,module,exports){
+},{"../constants":89,"./jsonp":100,"dup":14}],100:[function(require,module,exports){
 arguments[4][15][0].apply(exports,arguments)
-},{"dup":15}],89:[function(require,module,exports){
+},{"../util":104,"dup":15}],101:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
-},{"./lib/client":75,"./lib/get-configuration":79,"./lib/jsonp":81,"./lib/jsonp-driver":80,"./lib/parse-client-token":83,"./lib/util":88,"dup":16}],90:[function(require,module,exports){
+},{"dup":16}],102:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],91:[function(require,module,exports){
+},{"dup":17,"lodash.isstring":133}],103:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],92:[function(require,module,exports){
+},{"dup":18}],104:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],93:[function(require,module,exports){
+},{"dup":19,"lodash.isempty":126,"lodash.isobject":132}],105:[function(require,module,exports){
 arguments[4][20][0].apply(exports,arguments)
-},{"dup":20}],94:[function(require,module,exports){
+},{"./lib/client":87,"./lib/get-configuration":92,"./lib/parse-client-token":94,"./lib/util":104,"dup":20}],106:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"./lib/dom":90,"./lib/events":91,"./lib/fn":92,"./lib/url":93,"dup":21}],95:[function(require,module,exports){
+},{"dup":21}],107:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"../shared/receiver":102,"braintree-utilities":94,"dup":22}],96:[function(require,module,exports){
+},{"dup":22}],108:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
-},{"./authorization_service":95,"./loader":98,"braintree-utilities":94,"dup":23}],97:[function(require,module,exports){
+},{"dup":23}],109:[function(require,module,exports){
 arguments[4][24][0].apply(exports,arguments)
-},{"./client":96,"dup":24}],98:[function(require,module,exports){
+},{"dup":24}],110:[function(require,module,exports){
 arguments[4][25][0].apply(exports,arguments)
-},{"./loader_display":99,"./loader_message":100,"./loader_spinner":101,"dup":25}],99:[function(require,module,exports){
+},{"./lib/dom":106,"./lib/events":107,"./lib/fn":108,"./lib/url":109,"dup":25}],111:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
-},{"dup":26}],100:[function(require,module,exports){
+},{"../shared/receiver":118,"braintree-utilities":110,"dup":26}],112:[function(require,module,exports){
 arguments[4][27][0].apply(exports,arguments)
-},{"dup":27}],101:[function(require,module,exports){
+},{"./authorization_service":111,"./loader":114,"braintree-utilities":110,"dup":27}],113:[function(require,module,exports){
 arguments[4][28][0].apply(exports,arguments)
-},{"dup":28}],102:[function(require,module,exports){
+},{"./client":112,"dup":28}],114:[function(require,module,exports){
 arguments[4][29][0].apply(exports,arguments)
-},{"braintree-utilities":94,"dup":29}],103:[function(require,module,exports){
+},{"./loader_display":115,"./loader_message":116,"./loader_spinner":117,"dup":29}],115:[function(require,module,exports){
 arguments[4][30][0].apply(exports,arguments)
-},{"dup":30}],104:[function(require,module,exports){
-arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],105:[function(require,module,exports){
-arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],106:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],107:[function(require,module,exports){
+},{"dup":30}],116:[function(require,module,exports){
+arguments[4][31][0].apply(exports,arguments)
+},{"dup":31}],117:[function(require,module,exports){
+arguments[4][32][0].apply(exports,arguments)
+},{"dup":32}],118:[function(require,module,exports){
+arguments[4][33][0].apply(exports,arguments)
+},{"braintree-utilities":110,"dup":33}],119:[function(require,module,exports){
 arguments[4][34][0].apply(exports,arguments)
-},{"dup":34}],108:[function(require,module,exports){
-arguments[4][35][0].apply(exports,arguments)
-},{"./array":103,"dup":35}],109:[function(require,module,exports){
-arguments[4][36][0].apply(exports,arguments)
-},{"./lib/array":103,"./lib/dom":104,"./lib/events":105,"./lib/fn":106,"./lib/string":107,"./lib/url":108,"dup":36}],110:[function(require,module,exports){
-arguments[4][37][0].apply(exports,arguments)
-},{"./lib/events":111,"dup":37,"framebus":112}],111:[function(require,module,exports){
+},{"dup":34}],120:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],121:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],122:[function(require,module,exports){
+arguments[4][23][0].apply(exports,arguments)
+},{"dup":23}],123:[function(require,module,exports){
 arguments[4][38][0].apply(exports,arguments)
-},{"dup":38}],112:[function(require,module,exports){
+},{"dup":38}],124:[function(require,module,exports){
 arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],113:[function(require,module,exports){
-(function (global){
-'use strict';
-
-var braintreeUtils = require('braintree-utilities');
-var braintree3ds = require('braintree-3ds');
-var parseClientToken = require('./parse-client-token');
-var requestDriver = require('./request-driver');
-var util = require('./util');
-var SEPAMandate = require('./sepa-mandate');
-var EuropeBankAccount = require('./europe-bank-account');
-var CreditCard = require('./credit-card');
-var CoinbaseAccount = require('./coinbase-account');
-var PayPalAccount = require('./paypal-account');
-var normalizeCreditCardFields = require('./normalize-api-fields').normalizeCreditCardFields;
-
-function getSdkVersion(parsedClientToken) {
-  var sdkVersion = parsedClientToken.sdkVersion;
-
-  if (!sdkVersion) {
-    if (global.braintree && global.braintree.VERSION) {
-      sdkVersion = 'braintree/web/' + global.braintree.VERSION;
-    } else {
-      sdkVersion = '';
-    }
-  }
-
-  return sdkVersion;
-}
-
-function Client(options) {
-  var parsedClientToken, secure3d;
-
-  this.attrs = {};
-
-  if (options.hasOwnProperty('sharedCustomerIdentifier')) {
-    this.attrs.sharedCustomerIdentifier = options.sharedCustomerIdentifier;
-  }
-
-  parsedClientToken = parseClientToken(options.clientToken);
-
-  this.driver = options.driver || requestDriver;
-  this.analyticsUrl = parsedClientToken.analytics ? parsedClientToken.analytics.url : undefined;
-  this.clientApiUrl = parsedClientToken.clientApiUrl;
-  this.customerId = options.customerId;
-  this.challenges = parsedClientToken.challenges;
-  this.integration = options.integration || '';
-  this.sdkVersion = getSdkVersion(parsedClientToken);
-  this.merchantAppId = parsedClientToken.merchantAppId || global.location.host;
-
-  secure3d = braintree3ds.create(this, {
-    container: options.container,
-    clientToken: parsedClientToken
-  });
-  this.verify3DS = braintreeUtils.bind(secure3d.verify, secure3d);
-
-  this.attrs.authorizationFingerprint = parsedClientToken.authorizationFingerprint;
-  this.attrs.sharedCustomerIdentifierType = options.sharedCustomerIdentifierType;
-
-  if (parsedClientToken.merchantAccountId) {
-    this.attrs.merchantAccountId = parsedClientToken.merchantAccountId;
-  }
-
-  if (options.hasOwnProperty('timeout')) {
-    this.requestTimeout = options.timeout;
-  } else {
-    this.requestTimeout = 60000;
-  }
-}
-
-Client.prototype.getCreditCards = function (callback) {
-  this.driver.get(
-    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods']),
-    this.attrs,
-    function (d) {
-      var i = 0;
-      var len = d.paymentMethods.length;
-      var creditCards = [];
-
-      for (i; i < len; i++) {
-        creditCards.push(new CreditCard(d.paymentMethods[i]));
-      }
-
-      return creditCards;
-    },
-    callback,
-    this.requestTimeout
-  );
-};
-
-Client.prototype.tokenizeCoinbase = function (attrs, callback) {
-  attrs.options = { validate: false };
-  this.addCoinbase(attrs, function (err, result) {
-    if (err) {
-      callback(err, null);
-    } else if (result && result.nonce) {
-      callback(err, result);
-    } else {
-      callback('Unable to tokenize coinbase account.', null);
-    }
-  });
-};
-
-Client.prototype.tokenizePayPalAccount = function (attrs, callback) {
-  this.addPayPalAccount(attrs, function (err, result) {
-    if (err) {
-      callback(err, null);
-    } else if (result && result.nonce) {
-      callback(null, result);
-    } else {
-      callback('Unable to tokenize paypal account.', null);
-    }
-  });
-};
-
-Client.prototype.tokenizeCard = function (attrs, callback) {
-  attrs.options = { validate: false };
-  this.addCreditCard(attrs, function (err, result) {
-    if (result && result.nonce) {
-      callback(err, result.nonce, {type: result.type, details: result.details});
-    } else {
-      callback('Unable to tokenize card.', null);
-    }
-  });
-};
-
-Client.prototype.lookup3DS = function (attrs, callback) {
-  var url = util.joinUrlFragments([this.clientApiUrl, 'v1/payment_methods', attrs.nonce, 'three_d_secure/lookup']);
-  var mergedAttrs = util.mergeOptions(this.attrs, {amount: attrs.amount});
-  this.driver.post(url, mergedAttrs, function (d) {
-      return d;
-    },
-    callback,
-    this.requestTimeout
-  );
-};
-
-Client.prototype.createSEPAMandate = function (attrs, callback) {
-  var mergedAttrs = util.mergeOptions(this.attrs, {sepaMandate: attrs});
-  this.driver.post(
-    util.joinUrlFragments([this.clientApiUrl, 'v1', 'sepa_mandates.json']),
-    mergedAttrs,
-    function (d) { return {sepaMandate: new SEPAMandate(d.europeBankAccounts[0].sepaMandates[0]), sepaBankAccount: new EuropeBankAccount(d.europeBankAccounts[0])}; },
-    callback,
-    this.requestTimeout
-  );
-};
-
-Client.prototype.addCoinbase = function (attrs, callback) {
-  var mergedAttrs;
-  delete attrs.share;
-
-  mergedAttrs = util.mergeOptions(this.attrs, {
-    coinbaseAccount: attrs,
-    _meta: {
-      integration: this.integration || 'custom',
-      source: 'coinbase'
-    }
-  });
-
-  this.driver.post(
-    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods/coinbase_accounts']),
-    mergedAttrs,
-    function (d) {
-      return new CoinbaseAccount(d.coinbaseAccounts[0]);
-    },
-    callback,
-    this.requestTimeout
-  );
-};
-
-Client.prototype.addPayPalAccount = function (attrs, callback) {
-  var mergedAttrs;
-  delete attrs.share;
-
-  mergedAttrs = util.mergeOptions(this.attrs, {
-    paypalAccount: attrs,
-    _meta: {
-      integration: this.integration || 'paypal',
-      source: 'paypal'
-    }
-  });
-
-  this.driver.post(
-    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods', 'paypal_accounts']),
-    mergedAttrs,
-    function (d) {
-      return new PayPalAccount(d.paypalAccounts[0]);
-    },
-    callback,
-    this.requestTimeout
-  );
-};
-
-Client.prototype.addCreditCard = function (attrs, callback) {
-  var mergedAttrs, creditCard;
-  var share = attrs.share;
-  delete attrs.share;
-
-  creditCard = normalizeCreditCardFields(attrs);
-
-  mergedAttrs = util.mergeOptions(this.attrs, {
-    share: share,
-    creditCard: creditCard,
-    _meta: {
-      integration: this.integration || 'custom',
-      source: 'form'
-    }
-  });
-
-  this.driver.post(
-    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods/credit_cards']),
-    mergedAttrs,
-    function (d) {
-      return new CreditCard(d.creditCards[0]);
-    },
-    callback,
-    this.requestTimeout
-  );
-};
-
-Client.prototype.unlockCreditCard = function (creditCard, params, callback) {
-  var attrs = util.mergeOptions(this.attrs, {challengeResponses: params});
-  this.driver.put(
-    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods/', creditCard.nonce]),
-    attrs,
-    function (d) { return new CreditCard(d.paymentMethods[0]); },
-    callback,
-    this.requestTimeout
-  );
-};
-
-Client.prototype.sendAnalyticsEvents = function (events, callback) {
-  var attrs, event;
-  var url = this.analyticsUrl;
-  var eventObjects = [];
-  events = util.isArray(events) ? events : [events];
-
-  if (!url) {
-    if (callback) {
-      callback.apply(null, [null, {}]);
-    }
-    return;
-  }
-
-  for (event in events) {
-    if (events.hasOwnProperty(event)) {
-      eventObjects.push({ kind: events[event] });
-    }
-  }
-
-  attrs = util.mergeOptions(this.attrs, {
-    /*eslint-disable */
-    braintree_library_version: this.sdkVersion,
-    /*eslint-ensable */
-    analytics: eventObjects,
-    _meta: {
-      merchantAppId: this.merchantAppId,
-      platform: 'web',
-      platformVersion: global.navigator.userAgent,
-      integrationType: this.integration,
-      sdkVersion: this.sdkVersion
-    }
-  });
-
-  this.driver.post(url, attrs, function (d) { return d; }, callback, this.requestTimeout);
-};
-
-Client.prototype.decryptBrowserswitchPayload = function (encryptedPayload, callback) {
-  var attrs = util.mergeOptions(this.attrs, {asymmetric_encrypted_payload: encryptedPayload});
-  var url = util.joinUrlFragments([this.clientApiUrl, '/v1/paypal_browser_switch/decrypt']);
-  this.driver.post(
-    url,
-    attrs,
-    function (d) { return d; },
-    callback,
-    this.requestTimeout
-  );
-};
-
-Client.prototype.encryptBrowserswitchReturnPayload = function(payload, aesKey, callback) {
-  var attrs = util.mergeOptions(this.attrs, {
-    payload: payload,
-    aesKey: aesKey
-  });
-  var url = util.joinUrlFragments([this.clientApiUrl, '/v1/paypal_browser_switch/encrypt']);
-  this.driver.post(
-    url,
-    attrs,
-    function (d) { return d; },
-    callback,
-    this.requestTimeout
-  );
-};
-
-Client.prototype.exchangePaypalTokenForConsentCode = function (tokensObj, callback) {
-  var attrs = util.mergeOptions(this.attrs, tokensObj);
-  if (this.attrs.merchantAccountId) {
-    attrs.merchant_account_id = this.attrs.merchantAccountId;
-  }
-  var url = util.joinUrlFragments([this.clientApiUrl, '/v1/paypal_account_service/merchant_consent']);
-  this.driver.post(
-    url,
-    attrs,
-    function (d) { return d; },
-    callback,
-    this.requestTimeout
-  );
-};
-
-module.exports = Client;
-
-}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./coinbase-account":114,"./credit-card":115,"./europe-bank-account":116,"./normalize-api-fields":120,"./parse-client-token":121,"./paypal-account":122,"./request-driver":124,"./sepa-mandate":125,"./util":126,"braintree-3ds":135,"braintree-utilities":147}],114:[function(require,module,exports){
+},{"./array":119,"dup":39}],125:[function(require,module,exports){
+arguments[4][40][0].apply(exports,arguments)
+},{"./lib/array":119,"./lib/dom":120,"./lib/events":121,"./lib/fn":122,"./lib/string":123,"./lib/url":124,"dup":40}],126:[function(require,module,exports){
+arguments[4][41][0].apply(exports,arguments)
+},{"dup":41,"lodash.isarguments":127,"lodash.isarray":128,"lodash.isfunction":129,"lodash.isstring":133,"lodash.keys":130}],127:[function(require,module,exports){
+arguments[4][42][0].apply(exports,arguments)
+},{"dup":42}],128:[function(require,module,exports){
+arguments[4][43][0].apply(exports,arguments)
+},{"dup":43}],129:[function(require,module,exports){
+arguments[4][44][0].apply(exports,arguments)
+},{"dup":44}],130:[function(require,module,exports){
+arguments[4][45][0].apply(exports,arguments)
+},{"dup":45,"lodash._getnative":131,"lodash.isarguments":127,"lodash.isarray":128}],131:[function(require,module,exports){
+arguments[4][46][0].apply(exports,arguments)
+},{"dup":46}],132:[function(require,module,exports){
+arguments[4][47][0].apply(exports,arguments)
+},{"dup":47}],133:[function(require,module,exports){
+arguments[4][48][0].apply(exports,arguments)
+},{"dup":48}],134:[function(require,module,exports){
+arguments[4][49][0].apply(exports,arguments)
+},{"./lib/events":135,"dup":49,"framebus":136}],135:[function(require,module,exports){
+arguments[4][50][0].apply(exports,arguments)
+},{"dup":50}],136:[function(require,module,exports){
+arguments[4][51][0].apply(exports,arguments)
+},{"dup":51}],137:[function(require,module,exports){
+arguments[4][2][0].apply(exports,arguments)
+},{"./coinbase-account":138,"./credit-card":140,"./europe-bank-account":141,"./normalize-api-fields":143,"./parse-client-token":144,"./paypal-account":145,"./request":148,"./sepa-mandate":153,"./util":154,"braintree-3ds":163,"braintree-utilities":175,"dup":2}],138:[function(require,module,exports){
 arguments[4][3][0].apply(exports,arguments)
-},{"dup":3}],115:[function(require,module,exports){
+},{"dup":3}],139:[function(require,module,exports){
 arguments[4][4][0].apply(exports,arguments)
-},{"dup":4}],116:[function(require,module,exports){
+},{"dup":4}],140:[function(require,module,exports){
 arguments[4][5][0].apply(exports,arguments)
-},{"dup":5}],117:[function(require,module,exports){
+},{"dup":5}],141:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"./parse-client-token":121,"./request-driver":124,"./util":126,"dup":6}],118:[function(require,module,exports){
+},{"dup":6}],142:[function(require,module,exports){
 arguments[4][7][0].apply(exports,arguments)
-},{"./jsonp":119,"dup":7}],119:[function(require,module,exports){
+},{"./parse-client-token":144,"./request":148,"./util":154,"dup":7}],143:[function(require,module,exports){
 arguments[4][8][0].apply(exports,arguments)
-},{"./util":126,"dup":8}],120:[function(require,module,exports){
+},{"dup":8}],144:[function(require,module,exports){
 arguments[4][9][0].apply(exports,arguments)
-},{"dup":9}],121:[function(require,module,exports){
+},{"./polyfill":146,"braintree-utilities":175,"dup":9}],145:[function(require,module,exports){
 arguments[4][10][0].apply(exports,arguments)
-},{"./polyfill":123,"braintree-utilities":147,"dup":10}],122:[function(require,module,exports){
+},{"dup":10}],146:[function(require,module,exports){
 arguments[4][11][0].apply(exports,arguments)
-},{"dup":11}],123:[function(require,module,exports){
+},{"dup":11}],147:[function(require,module,exports){
 arguments[4][12][0].apply(exports,arguments)
-},{"dup":12}],124:[function(require,module,exports){
+},{"../constants":139,"../util":154,"./parse-body":151,"./prep-body":152,"dup":12}],148:[function(require,module,exports){
 arguments[4][13][0].apply(exports,arguments)
-},{"./jsonp-driver":118,"dup":13}],125:[function(require,module,exports){
+},{"../util":154,"./ajax-driver":147,"./jsonp-driver":149,"dup":13}],149:[function(require,module,exports){
 arguments[4][14][0].apply(exports,arguments)
-},{"dup":14}],126:[function(require,module,exports){
+},{"../constants":139,"./jsonp":150,"dup":14}],150:[function(require,module,exports){
 arguments[4][15][0].apply(exports,arguments)
-},{"dup":15}],127:[function(require,module,exports){
+},{"../util":154,"dup":15}],151:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
-},{"./lib/client":113,"./lib/get-configuration":117,"./lib/jsonp":119,"./lib/jsonp-driver":118,"./lib/parse-client-token":121,"./lib/util":126,"dup":16}],128:[function(require,module,exports){
+},{"dup":16}],152:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],129:[function(require,module,exports){
-arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],130:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],131:[function(require,module,exports){
-arguments[4][20][0].apply(exports,arguments)
-},{"dup":20}],132:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"./lib/dom":128,"./lib/events":129,"./lib/fn":130,"./lib/url":131,"dup":21}],133:[function(require,module,exports){
-arguments[4][22][0].apply(exports,arguments)
-},{"../shared/receiver":140,"braintree-utilities":132,"dup":22}],134:[function(require,module,exports){
-arguments[4][23][0].apply(exports,arguments)
-},{"./authorization_service":133,"./loader":136,"braintree-utilities":132,"dup":23}],135:[function(require,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"./client":134,"dup":24}],136:[function(require,module,exports){
-arguments[4][25][0].apply(exports,arguments)
-},{"./loader_display":137,"./loader_message":138,"./loader_spinner":139,"dup":25}],137:[function(require,module,exports){
-arguments[4][26][0].apply(exports,arguments)
-},{"dup":26}],138:[function(require,module,exports){
-arguments[4][27][0].apply(exports,arguments)
-},{"dup":27}],139:[function(require,module,exports){
-arguments[4][28][0].apply(exports,arguments)
-},{"dup":28}],140:[function(require,module,exports){
-arguments[4][29][0].apply(exports,arguments)
-},{"braintree-utilities":132,"dup":29}],141:[function(require,module,exports){
-arguments[4][30][0].apply(exports,arguments)
-},{"dup":30}],142:[function(require,module,exports){
-arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],143:[function(require,module,exports){
-arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],144:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],145:[function(require,module,exports){
-arguments[4][34][0].apply(exports,arguments)
-},{"dup":34}],146:[function(require,module,exports){
-arguments[4][35][0].apply(exports,arguments)
-},{"./array":141,"dup":35}],147:[function(require,module,exports){
-arguments[4][36][0].apply(exports,arguments)
-},{"./lib/array":141,"./lib/dom":142,"./lib/events":143,"./lib/fn":144,"./lib/string":145,"./lib/url":146,"dup":36}],148:[function(require,module,exports){
-arguments[4][37][0].apply(exports,arguments)
-},{"./lib/events":149,"dup":37,"framebus":150}],149:[function(require,module,exports){
-arguments[4][38][0].apply(exports,arguments)
-},{"dup":38}],150:[function(require,module,exports){
-arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],151:[function(require,module,exports){
-arguments[4][30][0].apply(exports,arguments)
-},{"dup":30}],152:[function(require,module,exports){
-arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],153:[function(require,module,exports){
+},{"dup":17,"lodash.isstring":183}],153:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
 },{"dup":18}],154:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],155:[function(require,module,exports){
+},{"dup":19,"lodash.isempty":176,"lodash.isobject":182}],155:[function(require,module,exports){
+arguments[4][20][0].apply(exports,arguments)
+},{"./lib/client":137,"./lib/get-configuration":142,"./lib/parse-client-token":144,"./lib/util":154,"dup":20}],156:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],157:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],158:[function(require,module,exports){
+arguments[4][23][0].apply(exports,arguments)
+},{"dup":23}],159:[function(require,module,exports){
+arguments[4][24][0].apply(exports,arguments)
+},{"dup":24}],160:[function(require,module,exports){
+arguments[4][25][0].apply(exports,arguments)
+},{"./lib/dom":156,"./lib/events":157,"./lib/fn":158,"./lib/url":159,"dup":25}],161:[function(require,module,exports){
+arguments[4][26][0].apply(exports,arguments)
+},{"../shared/receiver":168,"braintree-utilities":160,"dup":26}],162:[function(require,module,exports){
+arguments[4][27][0].apply(exports,arguments)
+},{"./authorization_service":161,"./loader":164,"braintree-utilities":160,"dup":27}],163:[function(require,module,exports){
+arguments[4][28][0].apply(exports,arguments)
+},{"./client":162,"dup":28}],164:[function(require,module,exports){
+arguments[4][29][0].apply(exports,arguments)
+},{"./loader_display":165,"./loader_message":166,"./loader_spinner":167,"dup":29}],165:[function(require,module,exports){
+arguments[4][30][0].apply(exports,arguments)
+},{"dup":30}],166:[function(require,module,exports){
+arguments[4][31][0].apply(exports,arguments)
+},{"dup":31}],167:[function(require,module,exports){
+arguments[4][32][0].apply(exports,arguments)
+},{"dup":32}],168:[function(require,module,exports){
+arguments[4][33][0].apply(exports,arguments)
+},{"braintree-utilities":160,"dup":33}],169:[function(require,module,exports){
 arguments[4][34][0].apply(exports,arguments)
-},{"dup":34}],156:[function(require,module,exports){
-arguments[4][35][0].apply(exports,arguments)
-},{"./array":151,"dup":35}],157:[function(require,module,exports){
-arguments[4][36][0].apply(exports,arguments)
-},{"./lib/array":151,"./lib/dom":152,"./lib/events":153,"./lib/fn":154,"./lib/string":155,"./lib/url":156,"dup":36}],158:[function(require,module,exports){
+},{"dup":34}],170:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],171:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],172:[function(require,module,exports){
+arguments[4][23][0].apply(exports,arguments)
+},{"dup":23}],173:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"dup":38}],174:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"./array":169,"dup":39}],175:[function(require,module,exports){
+arguments[4][40][0].apply(exports,arguments)
+},{"./lib/array":169,"./lib/dom":170,"./lib/events":171,"./lib/fn":172,"./lib/string":173,"./lib/url":174,"dup":40}],176:[function(require,module,exports){
+arguments[4][41][0].apply(exports,arguments)
+},{"dup":41,"lodash.isarguments":177,"lodash.isarray":178,"lodash.isfunction":179,"lodash.isstring":183,"lodash.keys":180}],177:[function(require,module,exports){
+arguments[4][42][0].apply(exports,arguments)
+},{"dup":42}],178:[function(require,module,exports){
+arguments[4][43][0].apply(exports,arguments)
+},{"dup":43}],179:[function(require,module,exports){
+arguments[4][44][0].apply(exports,arguments)
+},{"dup":44}],180:[function(require,module,exports){
+arguments[4][45][0].apply(exports,arguments)
+},{"dup":45,"lodash._getnative":181,"lodash.isarguments":177,"lodash.isarray":178}],181:[function(require,module,exports){
+arguments[4][46][0].apply(exports,arguments)
+},{"dup":46}],182:[function(require,module,exports){
+arguments[4][47][0].apply(exports,arguments)
+},{"dup":47}],183:[function(require,module,exports){
+arguments[4][48][0].apply(exports,arguments)
+},{"dup":48}],184:[function(require,module,exports){
+arguments[4][49][0].apply(exports,arguments)
+},{"./lib/events":185,"dup":49,"framebus":186}],185:[function(require,module,exports){
+arguments[4][50][0].apply(exports,arguments)
+},{"dup":50}],186:[function(require,module,exports){
+arguments[4][51][0].apply(exports,arguments)
+},{"dup":51}],187:[function(require,module,exports){
+arguments[4][34][0].apply(exports,arguments)
+},{"dup":34}],188:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],189:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],190:[function(require,module,exports){
+arguments[4][23][0].apply(exports,arguments)
+},{"dup":23}],191:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"dup":38}],192:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"./array":187,"dup":39}],193:[function(require,module,exports){
+arguments[4][40][0].apply(exports,arguments)
+},{"./lib/array":187,"./lib/dom":188,"./lib/events":189,"./lib/fn":190,"./lib/string":191,"./lib/url":192,"dup":40}],194:[function(require,module,exports){
 var braintreeApi = require('braintree-api');
 var bus = require('braintree-bus');
 var braintreeUtil = require('braintree-utilities');
@@ -7527,7 +7634,7 @@ Client.prototype._setNonceInputValue = function (value) {
 
 module.exports = Client;
 
-},{"../shared/constants":162,"../shared/get-locale":164,"../shared/util/browser":169,"../shared/util/dom":170,"../shared/util/util":171,"./logged-in-view":159,"./logged-out-view":160,"./overlay-view":161,"braintree-api":127,"braintree-bus":148,"braintree-utilities":157}],159:[function(require,module,exports){
+},{"../shared/constants":198,"../shared/get-locale":200,"../shared/util/browser":205,"../shared/util/dom":206,"../shared/util/util":207,"./logged-in-view":195,"./logged-out-view":196,"./overlay-view":197,"braintree-api":155,"braintree-bus":184,"braintree-utilities":193}],195:[function(require,module,exports){
 var constants = require('../shared/constants');
 
 function LoggedInView (options) {
@@ -7631,7 +7738,7 @@ LoggedInView.prototype.hide = function () {
 
 module.exports = LoggedInView;
 
-},{"../shared/constants":162}],160:[function(require,module,exports){
+},{"../shared/constants":198}],196:[function(require,module,exports){
 var util = require('braintree-utilities');
 var constants = require('../shared/constants');
 var getLocale = require('../shared/get-locale');
@@ -7711,7 +7818,7 @@ LoggedOutView.prototype.hide = function () {
 
 module.exports = LoggedOutView;
 
-},{"../shared/constants":162,"../shared/get-locale":164,"braintree-utilities":157}],161:[function(require,module,exports){
+},{"../shared/constants":198,"../shared/get-locale":200,"braintree-utilities":193}],197:[function(require,module,exports){
 var util = require('braintree-utilities');
 var constants = require('../shared/constants');
 
@@ -7870,8 +7977,8 @@ OverlayView.prototype._pollForPopup = function () {
 
 module.exports = OverlayView;
 
-},{"../shared/constants":162,"braintree-utilities":157}],162:[function(require,module,exports){
-var version = "1.4.0";
+},{"../shared/constants":198,"braintree-utilities":193}],198:[function(require,module,exports){
+var version = "1.4.1";
 
 exports.VERSION = version;
 exports.POPUP_NAME = 'braintree_paypal_popup';
@@ -7890,7 +7997,7 @@ exports.ARIES_SUPPORTED_COUNTRIES = ['US', 'GB', 'AU', 'CA', 'ES', 'FR', 'DE', '
 exports.NONCE_TYPE = 'PayPalAccount';
 exports.ILLEGAL_XHR_ERROR = 'Illegal XHR request attempted';
 
-},{}],163:[function(require,module,exports){
+},{}],199:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -7922,7 +8029,7 @@ module.exports = {
   ru: 'ru_ru'
 };
 
-},{}],164:[function(require,module,exports){
+},{}],200:[function(require,module,exports){
 'use strict';
 
 var countryCodeLookupTable = require('../shared/data/country-code-lookup');
@@ -7965,7 +8072,7 @@ function getLocale(code) {
 
 module.exports = getLocale;
 
-},{"../shared/data/country-code-lookup":163}],165:[function(require,module,exports){
+},{"../shared/data/country-code-lookup":199}],201:[function(require,module,exports){
 var userAgent = require('./useragent');
 var platform = require('./platform');
 
@@ -8020,7 +8127,7 @@ module.exports = {
   isAndroidWebView: isAndroidWebView
 };
 
-},{"./platform":167,"./useragent":168}],166:[function(require,module,exports){
+},{"./platform":203,"./useragent":204}],202:[function(require,module,exports){
 var userAgent = require('./useragent');
 var platform = require('./platform');
 
@@ -8045,7 +8152,7 @@ module.exports = {
   isDesktop: isDesktop
 };
 
-},{"./platform":167,"./useragent":168}],167:[function(require,module,exports){
+},{"./platform":203,"./useragent":204}],203:[function(require,module,exports){
 var userAgent = require('./useragent');
 
 function isAndroid() {
@@ -8076,7 +8183,7 @@ module.exports = {
   isIos: isIos
 };
 
-},{"./useragent":168}],168:[function(require,module,exports){
+},{"./useragent":204}],204:[function(require,module,exports){
 var nativeUserAgent = window.navigator.userAgent;
 
 function getNativeUserAgent() {
@@ -8095,7 +8202,7 @@ function matchUserAgent(pattern) {
 exports.getNativeUserAgent = getNativeUserAgent;
 exports.matchUserAgent = matchUserAgent;
 
-},{}],169:[function(require,module,exports){
+},{}],205:[function(require,module,exports){
 var browser = require('../useragent/browser');
 var device = require('../useragent/device');
 var platform = require('../useragent/platform');
@@ -8197,7 +8304,7 @@ module.exports = {
   isProxyFrameRequired: isProxyFrameRequired
 };
 
-},{"../useragent/browser":165,"../useragent/device":166,"../useragent/platform":167,"../useragent/useragent":168}],170:[function(require,module,exports){
+},{"../useragent/browser":201,"../useragent/device":202,"../useragent/platform":203,"../useragent/useragent":204}],206:[function(require,module,exports){
 function setTextContent(element, content) {
   var property = 'innerText';
   if (document && document.body) {
@@ -8212,7 +8319,7 @@ module.exports = {
   setTextContent: setTextContent
 };
 
-},{}],171:[function(require,module,exports){
+},{}],207:[function(require,module,exports){
 var trim = typeof String.prototype.trim === 'function' ?
   function (str) { return str.trim(); } :
   function (str) { return str.replace(/^\s+|\s+$/, ''); };
@@ -8323,7 +8430,7 @@ module.exports = {
   preventDefault: preventDefault
 };
 
-},{}],172:[function(require,module,exports){
+},{}],208:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -8388,7 +8495,7 @@ MessageBus.Message.prototype.reply = function (type, data) {
 
 module.exports = MessageBus;
 
-},{"braintree-utilities":182}],173:[function(require,module,exports){
+},{"braintree-utilities":218}],209:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -8437,7 +8544,7 @@ PubsubClient.prototype.unsubscribe = function (channel, handler) {
 
 module.exports = PubsubClient;
 
-},{"braintree-utilities":182}],174:[function(require,module,exports){
+},{"braintree-utilities":218}],210:[function(require,module,exports){
 'use strict';
 
 function PubsubServer(bus) {
@@ -8496,7 +8603,7 @@ PubsubServer.prototype.unsubscribe = function (channel, handler) {
 
 module.exports = PubsubServer;
 
-},{}],175:[function(require,module,exports){
+},{}],211:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -8529,7 +8636,7 @@ RPCClient.prototype.invoke = function (method, args, callback) {
 
 module.exports = RPCClient;
 
-},{"braintree-utilities":182}],176:[function(require,module,exports){
+},{"braintree-utilities":218}],212:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -8567,7 +8674,7 @@ RPCServer.prototype.define = function (method, handler) {
 
 module.exports = RPCServer;
 
-},{"braintree-utilities":182}],177:[function(require,module,exports){
+},{"braintree-utilities":218}],213:[function(require,module,exports){
 var MessageBus = require('./lib/message-bus');
 var PubsubClient = require('./lib/pubsub-client');
 var PubsubServer = require('./lib/pubsub-server');
@@ -8582,7 +8689,7 @@ module.exports = {
   RPCServer: RPCServer
 };
 
-},{"./lib/message-bus":172,"./lib/pubsub-client":173,"./lib/pubsub-server":174,"./lib/rpc-client":175,"./lib/rpc-server":176}],178:[function(require,module,exports){
+},{"./lib/message-bus":208,"./lib/pubsub-client":209,"./lib/pubsub-server":210,"./lib/rpc-client":211,"./lib/rpc-server":212}],214:[function(require,module,exports){
 'use strict';
 
 function normalizeElement (element, errorMessage) {
@@ -8606,7 +8713,7 @@ module.exports = {
   normalizeElement: normalizeElement
 };
 
-},{}],179:[function(require,module,exports){
+},{}],215:[function(require,module,exports){
 'use strict';
 
 function addEventListener(context, event, handler) {
@@ -8630,7 +8737,7 @@ module.exports = {
   addEventListener: addEventListener
 };
 
-},{}],180:[function(require,module,exports){
+},{}],216:[function(require,module,exports){
 'use strict';
 
 function isFunction(func) {
@@ -8648,25 +8755,25 @@ module.exports = {
   isFunction: isFunction
 };
 
-},{}],181:[function(require,module,exports){
-arguments[4][20][0].apply(exports,arguments)
-},{"dup":20}],182:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"./lib/dom":178,"./lib/events":179,"./lib/fn":180,"./lib/url":181,"dup":21}],183:[function(require,module,exports){
-arguments[4][30][0].apply(exports,arguments)
-},{"dup":30}],184:[function(require,module,exports){
-arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],185:[function(require,module,exports){
-arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],186:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],187:[function(require,module,exports){
+},{}],217:[function(require,module,exports){
+arguments[4][24][0].apply(exports,arguments)
+},{"dup":24}],218:[function(require,module,exports){
+arguments[4][25][0].apply(exports,arguments)
+},{"./lib/dom":214,"./lib/events":215,"./lib/fn":216,"./lib/url":217,"dup":25}],219:[function(require,module,exports){
 arguments[4][34][0].apply(exports,arguments)
-},{"dup":34}],188:[function(require,module,exports){
-arguments[4][35][0].apply(exports,arguments)
-},{"./array":183,"dup":35}],189:[function(require,module,exports){
-arguments[4][36][0].apply(exports,arguments)
-},{"./lib/array":183,"./lib/dom":184,"./lib/events":185,"./lib/fn":186,"./lib/string":187,"./lib/url":188,"dup":36}],190:[function(require,module,exports){
+},{"dup":34}],220:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],221:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],222:[function(require,module,exports){
+arguments[4][23][0].apply(exports,arguments)
+},{"dup":23}],223:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"dup":38}],224:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"./array":219,"dup":39}],225:[function(require,module,exports){
+arguments[4][40][0].apply(exports,arguments)
+},{"./lib/array":219,"./lib/dom":220,"./lib/events":221,"./lib/fn":222,"./lib/string":223,"./lib/url":224,"dup":40}],226:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -8722,35 +8829,35 @@ FormNapper.prototype.submit = function () {
 module.exports = FormNapper;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],191:[function(require,module,exports){
-arguments[4][61][0].apply(exports,arguments)
-},{"./lib/default-attributes":192,"dup":61,"lodash.assign":193,"lodash.isstring":204}],192:[function(require,module,exports){
-arguments[4][62][0].apply(exports,arguments)
-},{"dup":62}],193:[function(require,module,exports){
-arguments[4][63][0].apply(exports,arguments)
-},{"dup":63,"lodash._baseassign":194,"lodash._createassigner":196,"lodash.keys":200}],194:[function(require,module,exports){
-arguments[4][64][0].apply(exports,arguments)
-},{"dup":64,"lodash._basecopy":195,"lodash.keys":200}],195:[function(require,module,exports){
-arguments[4][65][0].apply(exports,arguments)
-},{"dup":65}],196:[function(require,module,exports){
-arguments[4][66][0].apply(exports,arguments)
-},{"dup":66,"lodash._bindcallback":197,"lodash._isiterateecall":198,"lodash.restparam":199}],197:[function(require,module,exports){
-arguments[4][67][0].apply(exports,arguments)
-},{"dup":67}],198:[function(require,module,exports){
-arguments[4][68][0].apply(exports,arguments)
-},{"dup":68}],199:[function(require,module,exports){
-arguments[4][69][0].apply(exports,arguments)
-},{"dup":69}],200:[function(require,module,exports){
-arguments[4][70][0].apply(exports,arguments)
-},{"dup":70,"lodash._getnative":201,"lodash.isarguments":202,"lodash.isarray":203}],201:[function(require,module,exports){
-arguments[4][71][0].apply(exports,arguments)
-},{"dup":71}],202:[function(require,module,exports){
-arguments[4][72][0].apply(exports,arguments)
-},{"dup":72}],203:[function(require,module,exports){
+},{}],227:[function(require,module,exports){
 arguments[4][73][0].apply(exports,arguments)
-},{"dup":73}],204:[function(require,module,exports){
+},{"./lib/default-attributes":228,"dup":73,"lodash.assign":229,"lodash.isstring":240}],228:[function(require,module,exports){
 arguments[4][74][0].apply(exports,arguments)
-},{"dup":74}],205:[function(require,module,exports){
+},{"dup":74}],229:[function(require,module,exports){
+arguments[4][75][0].apply(exports,arguments)
+},{"dup":75,"lodash._baseassign":230,"lodash._createassigner":232,"lodash.keys":236}],230:[function(require,module,exports){
+arguments[4][76][0].apply(exports,arguments)
+},{"dup":76,"lodash._basecopy":231,"lodash.keys":236}],231:[function(require,module,exports){
+arguments[4][77][0].apply(exports,arguments)
+},{"dup":77}],232:[function(require,module,exports){
+arguments[4][78][0].apply(exports,arguments)
+},{"dup":78,"lodash._bindcallback":233,"lodash._isiterateecall":234,"lodash.restparam":235}],233:[function(require,module,exports){
+arguments[4][79][0].apply(exports,arguments)
+},{"dup":79}],234:[function(require,module,exports){
+arguments[4][80][0].apply(exports,arguments)
+},{"dup":80}],235:[function(require,module,exports){
+arguments[4][81][0].apply(exports,arguments)
+},{"dup":81}],236:[function(require,module,exports){
+arguments[4][45][0].apply(exports,arguments)
+},{"dup":45,"lodash._getnative":237,"lodash.isarguments":238,"lodash.isarray":239}],237:[function(require,module,exports){
+arguments[4][46][0].apply(exports,arguments)
+},{"dup":46}],238:[function(require,module,exports){
+arguments[4][42][0].apply(exports,arguments)
+},{"dup":42}],239:[function(require,module,exports){
+arguments[4][43][0].apply(exports,arguments)
+},{"dup":43}],240:[function(require,module,exports){
+arguments[4][48][0].apply(exports,arguments)
+},{"dup":48}],241:[function(require,module,exports){
 'use strict';
 
 var RPC_METHOD_NAMES = ['getCreditCards', 'unlockCreditCard', 'sendAnalyticsEvents'];
@@ -8777,7 +8884,7 @@ APIProxyServer.prototype.attach = function (rpcServer) {
 
 module.exports = APIProxyServer;
 
-},{}],206:[function(require,module,exports){
+},{}],242:[function(require,module,exports){
 'use strict';
 
 var htmlNode, bodyNode;
@@ -8791,7 +8898,7 @@ var FrameContainer = require('./frame-container');
 var PayPalService = require('../shared/paypal-service');
 var constants = require('../shared/constants');
 var paypalBrowser = require('braintree-paypal/src/shared/util/browser');
-var version = "1.7.0";
+var version = "1.7.1";
 
 function getElementStyle(element, style) {
   var computedStyle = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
@@ -9033,11 +9140,11 @@ Client.prototype._findClosest = function (node, tagName) {
 
 module.exports = Client;
 
-},{"../shared/constants":210,"../shared/paypal-service":211,"./api-proxy-server":205,"./frame-container":208,"./merchant-form-manager":209,"braintree-api":89,"braintree-bus":110,"braintree-paypal/src/shared/util/browser":169,"braintree-rpc":177,"braintree-utilities":189}],207:[function(require,module,exports){
+},{"../shared/constants":246,"../shared/paypal-service":247,"./api-proxy-server":241,"./frame-container":244,"./merchant-form-manager":245,"braintree-api":105,"braintree-bus":134,"braintree-paypal/src/shared/util/browser":205,"braintree-rpc":213,"braintree-utilities":225}],243:[function(require,module,exports){
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.7.0";
+var VERSION = "1.7.1";
 
 function create(clientToken, options) {
   var client;
@@ -9054,7 +9161,7 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"./client":206}],208:[function(require,module,exports){
+},{"./client":242}],244:[function(require,module,exports){
 'use strict';
 
 var bus = require('braintree-bus');
@@ -9126,7 +9233,7 @@ function FrameContainer(endpoint, name) {
 
 module.exports = FrameContainer;
 
-},{"../shared/constants":210,"braintree-bus":110,"iframer":191}],209:[function(require,module,exports){
+},{"../shared/constants":246,"braintree-bus":134,"iframer":227}],245:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -9213,7 +9320,7 @@ MerchantFormManager.prototype._triggerFormSubmission = function () {
 
 module.exports = MerchantFormManager;
 
-},{"braintree-utilities":189,"form-napper":190}],210:[function(require,module,exports){
+},{"braintree-utilities":225,"form-napper":226}],246:[function(require,module,exports){
 module.exports={
   "PAYPAL_INTEGRATION_NAME": "PayPal",
   "INLINE_FRAME_NAME": "braintree-dropin-frame",
@@ -9235,7 +9342,7 @@ module.exports={
   }
 }
 
-},{}],211:[function(require,module,exports){
+},{}],247:[function(require,module,exports){
 'use strict';
 
 var PaypalClient = require('braintree-paypal/src/external/client');
@@ -9264,7 +9371,7 @@ function PayPalService(options) {
 
 module.exports = PayPalService;
 
-},{"braintree-paypal/src/external/client":158}],212:[function(require,module,exports){
+},{"braintree-paypal/src/external/client":194}],248:[function(require,module,exports){
 (function (global){
 'use strict';
 var ELEMENT_NODE = global.Node ? global.Node.ELEMENT_NODE : 1;
@@ -9320,7 +9427,7 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],213:[function(require,module,exports){
+},{}],249:[function(require,module,exports){
 'use strict';
 
 var util = require('braintree-utilities');
@@ -9424,7 +9531,7 @@ Form.prototype.onNonceReceived = function (err) {
 
 module.exports = Form;
 
-},{"./fields":212,"./models/payment-method-model":215,"braintree-bus":218,"braintree-utilities":225}],214:[function(require,module,exports){
+},{"./fields":248,"./models/payment-method-model":251,"braintree-bus":254,"braintree-utilities":261}],250:[function(require,module,exports){
 'use strict';
 
 module.exports = function getNonceInput(paymentMethodNonceInputField) {
@@ -9447,7 +9554,7 @@ module.exports = function getNonceInput(paymentMethodNonceInputField) {
   return nonceInput;
 };
 
-},{}],215:[function(require,module,exports){
+},{}],251:[function(require,module,exports){
 'use strict';
 
 function PaymentMethodModel() {
@@ -9468,7 +9575,7 @@ PaymentMethodModel.prototype.reset = function () {
 
 module.exports = PaymentMethodModel;
 
-},{}],216:[function(require,module,exports){
+},{}],252:[function(require,module,exports){
 'use strict';
 
 module.exports = function validateAnnotations(htmlForm) {
@@ -9503,7 +9610,7 @@ module.exports = function validateAnnotations(htmlForm) {
   }
 };
 
-},{}],217:[function(require,module,exports){
+},{}],253:[function(require,module,exports){
 'use strict';
 
 var Form = require('./lib/form');
@@ -9533,118 +9640,142 @@ function setup(client, options) {
 
 module.exports = {setup: setup};
 
-},{"./lib/form":213,"./lib/get-nonce-input":214,"./lib/validate-annotations":216}],218:[function(require,module,exports){
-arguments[4][37][0].apply(exports,arguments)
-},{"./lib/events":219,"dup":37,"framebus":220}],219:[function(require,module,exports){
-arguments[4][38][0].apply(exports,arguments)
-},{"dup":38}],220:[function(require,module,exports){
-arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],221:[function(require,module,exports){
-arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],222:[function(require,module,exports){
-arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],223:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],224:[function(require,module,exports){
-arguments[4][20][0].apply(exports,arguments)
-},{"dup":20}],225:[function(require,module,exports){
+},{"./lib/form":249,"./lib/get-nonce-input":250,"./lib/validate-annotations":252}],254:[function(require,module,exports){
+arguments[4][49][0].apply(exports,arguments)
+},{"./lib/events":255,"dup":49,"framebus":256}],255:[function(require,module,exports){
+arguments[4][50][0].apply(exports,arguments)
+},{"dup":50}],256:[function(require,module,exports){
+arguments[4][51][0].apply(exports,arguments)
+},{"dup":51}],257:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"./lib/dom":221,"./lib/events":222,"./lib/fn":223,"./lib/url":224,"dup":21}],226:[function(require,module,exports){
-arguments[4][113][0].apply(exports,arguments)
-},{"./coinbase-account":227,"./credit-card":228,"./europe-bank-account":229,"./normalize-api-fields":233,"./parse-client-token":234,"./paypal-account":235,"./request-driver":237,"./sepa-mandate":238,"./util":239,"braintree-3ds":248,"braintree-utilities":260,"dup":113}],227:[function(require,module,exports){
-arguments[4][3][0].apply(exports,arguments)
-},{"dup":3}],228:[function(require,module,exports){
-arguments[4][4][0].apply(exports,arguments)
-},{"dup":4}],229:[function(require,module,exports){
-arguments[4][5][0].apply(exports,arguments)
-},{"dup":5}],230:[function(require,module,exports){
-arguments[4][6][0].apply(exports,arguments)
-},{"./parse-client-token":234,"./request-driver":237,"./util":239,"dup":6}],231:[function(require,module,exports){
-arguments[4][7][0].apply(exports,arguments)
-},{"./jsonp":232,"dup":7}],232:[function(require,module,exports){
-arguments[4][8][0].apply(exports,arguments)
-},{"./util":239,"dup":8}],233:[function(require,module,exports){
-arguments[4][9][0].apply(exports,arguments)
-},{"dup":9}],234:[function(require,module,exports){
-arguments[4][10][0].apply(exports,arguments)
-},{"./polyfill":236,"braintree-utilities":260,"dup":10}],235:[function(require,module,exports){
-arguments[4][11][0].apply(exports,arguments)
-},{"dup":11}],236:[function(require,module,exports){
-arguments[4][12][0].apply(exports,arguments)
-},{"dup":12}],237:[function(require,module,exports){
-arguments[4][13][0].apply(exports,arguments)
-},{"./jsonp-driver":231,"dup":13}],238:[function(require,module,exports){
-arguments[4][14][0].apply(exports,arguments)
-},{"dup":14}],239:[function(require,module,exports){
-arguments[4][15][0].apply(exports,arguments)
-},{"dup":15}],240:[function(require,module,exports){
-arguments[4][16][0].apply(exports,arguments)
-},{"./lib/client":226,"./lib/get-configuration":230,"./lib/jsonp":232,"./lib/jsonp-driver":231,"./lib/parse-client-token":234,"./lib/util":239,"dup":16}],241:[function(require,module,exports){
-arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],242:[function(require,module,exports){
-arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],243:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],244:[function(require,module,exports){
-arguments[4][20][0].apply(exports,arguments)
-},{"dup":20}],245:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"./lib/dom":241,"./lib/events":242,"./lib/fn":243,"./lib/url":244,"dup":21}],246:[function(require,module,exports){
+},{"dup":21}],258:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"../shared/receiver":253,"braintree-utilities":245,"dup":22}],247:[function(require,module,exports){
+},{"dup":22}],259:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
-},{"./authorization_service":246,"./loader":249,"braintree-utilities":245,"dup":23}],248:[function(require,module,exports){
+},{"dup":23}],260:[function(require,module,exports){
 arguments[4][24][0].apply(exports,arguments)
-},{"./client":247,"dup":24}],249:[function(require,module,exports){
+},{"dup":24}],261:[function(require,module,exports){
 arguments[4][25][0].apply(exports,arguments)
-},{"./loader_display":250,"./loader_message":251,"./loader_spinner":252,"dup":25}],250:[function(require,module,exports){
+},{"./lib/dom":257,"./lib/events":258,"./lib/fn":259,"./lib/url":260,"dup":25}],262:[function(require,module,exports){
+arguments[4][2][0].apply(exports,arguments)
+},{"./coinbase-account":263,"./credit-card":265,"./europe-bank-account":266,"./normalize-api-fields":268,"./parse-client-token":269,"./paypal-account":270,"./request":273,"./sepa-mandate":278,"./util":279,"braintree-3ds":288,"braintree-utilities":300,"dup":2}],263:[function(require,module,exports){
+arguments[4][3][0].apply(exports,arguments)
+},{"dup":3}],264:[function(require,module,exports){
+arguments[4][4][0].apply(exports,arguments)
+},{"dup":4}],265:[function(require,module,exports){
+arguments[4][5][0].apply(exports,arguments)
+},{"dup":5}],266:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],267:[function(require,module,exports){
+arguments[4][7][0].apply(exports,arguments)
+},{"./parse-client-token":269,"./request":273,"./util":279,"dup":7}],268:[function(require,module,exports){
+arguments[4][8][0].apply(exports,arguments)
+},{"dup":8}],269:[function(require,module,exports){
+arguments[4][9][0].apply(exports,arguments)
+},{"./polyfill":271,"braintree-utilities":300,"dup":9}],270:[function(require,module,exports){
+arguments[4][10][0].apply(exports,arguments)
+},{"dup":10}],271:[function(require,module,exports){
+arguments[4][11][0].apply(exports,arguments)
+},{"dup":11}],272:[function(require,module,exports){
+arguments[4][12][0].apply(exports,arguments)
+},{"../constants":264,"../util":279,"./parse-body":276,"./prep-body":277,"dup":12}],273:[function(require,module,exports){
+arguments[4][13][0].apply(exports,arguments)
+},{"../util":279,"./ajax-driver":272,"./jsonp-driver":274,"dup":13}],274:[function(require,module,exports){
+arguments[4][14][0].apply(exports,arguments)
+},{"../constants":264,"./jsonp":275,"dup":14}],275:[function(require,module,exports){
+arguments[4][15][0].apply(exports,arguments)
+},{"../util":279,"dup":15}],276:[function(require,module,exports){
+arguments[4][16][0].apply(exports,arguments)
+},{"dup":16}],277:[function(require,module,exports){
+arguments[4][17][0].apply(exports,arguments)
+},{"dup":17,"lodash.isstring":308}],278:[function(require,module,exports){
+arguments[4][18][0].apply(exports,arguments)
+},{"dup":18}],279:[function(require,module,exports){
+arguments[4][19][0].apply(exports,arguments)
+},{"dup":19,"lodash.isempty":301,"lodash.isobject":307}],280:[function(require,module,exports){
+arguments[4][20][0].apply(exports,arguments)
+},{"./lib/client":262,"./lib/get-configuration":267,"./lib/parse-client-token":269,"./lib/util":279,"dup":20}],281:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],282:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],283:[function(require,module,exports){
+arguments[4][23][0].apply(exports,arguments)
+},{"dup":23}],284:[function(require,module,exports){
+arguments[4][24][0].apply(exports,arguments)
+},{"dup":24}],285:[function(require,module,exports){
+arguments[4][25][0].apply(exports,arguments)
+},{"./lib/dom":281,"./lib/events":282,"./lib/fn":283,"./lib/url":284,"dup":25}],286:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
-},{"dup":26}],251:[function(require,module,exports){
+},{"../shared/receiver":293,"braintree-utilities":285,"dup":26}],287:[function(require,module,exports){
 arguments[4][27][0].apply(exports,arguments)
-},{"dup":27}],252:[function(require,module,exports){
+},{"./authorization_service":286,"./loader":289,"braintree-utilities":285,"dup":27}],288:[function(require,module,exports){
 arguments[4][28][0].apply(exports,arguments)
-},{"dup":28}],253:[function(require,module,exports){
+},{"./client":287,"dup":28}],289:[function(require,module,exports){
 arguments[4][29][0].apply(exports,arguments)
-},{"braintree-utilities":245,"dup":29}],254:[function(require,module,exports){
+},{"./loader_display":290,"./loader_message":291,"./loader_spinner":292,"dup":29}],290:[function(require,module,exports){
 arguments[4][30][0].apply(exports,arguments)
-},{"dup":30}],255:[function(require,module,exports){
-arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],256:[function(require,module,exports){
-arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],257:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],258:[function(require,module,exports){
+},{"dup":30}],291:[function(require,module,exports){
+arguments[4][31][0].apply(exports,arguments)
+},{"dup":31}],292:[function(require,module,exports){
+arguments[4][32][0].apply(exports,arguments)
+},{"dup":32}],293:[function(require,module,exports){
+arguments[4][33][0].apply(exports,arguments)
+},{"braintree-utilities":285,"dup":33}],294:[function(require,module,exports){
 arguments[4][34][0].apply(exports,arguments)
-},{"dup":34}],259:[function(require,module,exports){
-arguments[4][35][0].apply(exports,arguments)
-},{"./array":254,"dup":35}],260:[function(require,module,exports){
-arguments[4][36][0].apply(exports,arguments)
-},{"./lib/array":254,"./lib/dom":255,"./lib/events":256,"./lib/fn":257,"./lib/string":258,"./lib/url":259,"dup":36}],261:[function(require,module,exports){
-arguments[4][37][0].apply(exports,arguments)
-},{"./lib/events":262,"dup":37,"framebus":263}],262:[function(require,module,exports){
+},{"dup":34}],295:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],296:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],297:[function(require,module,exports){
+arguments[4][23][0].apply(exports,arguments)
+},{"dup":23}],298:[function(require,module,exports){
 arguments[4][38][0].apply(exports,arguments)
-},{"dup":38}],263:[function(require,module,exports){
+},{"dup":38}],299:[function(require,module,exports){
 arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],264:[function(require,module,exports){
-arguments[4][30][0].apply(exports,arguments)
-},{"dup":30}],265:[function(require,module,exports){
-arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],266:[function(require,module,exports){
-arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],267:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],268:[function(require,module,exports){
+},{"./array":294,"dup":39}],300:[function(require,module,exports){
+arguments[4][40][0].apply(exports,arguments)
+},{"./lib/array":294,"./lib/dom":295,"./lib/events":296,"./lib/fn":297,"./lib/string":298,"./lib/url":299,"dup":40}],301:[function(require,module,exports){
+arguments[4][41][0].apply(exports,arguments)
+},{"dup":41,"lodash.isarguments":302,"lodash.isarray":303,"lodash.isfunction":304,"lodash.isstring":308,"lodash.keys":305}],302:[function(require,module,exports){
+arguments[4][42][0].apply(exports,arguments)
+},{"dup":42}],303:[function(require,module,exports){
+arguments[4][43][0].apply(exports,arguments)
+},{"dup":43}],304:[function(require,module,exports){
+arguments[4][44][0].apply(exports,arguments)
+},{"dup":44}],305:[function(require,module,exports){
+arguments[4][45][0].apply(exports,arguments)
+},{"dup":45,"lodash._getnative":306,"lodash.isarguments":302,"lodash.isarray":303}],306:[function(require,module,exports){
+arguments[4][46][0].apply(exports,arguments)
+},{"dup":46}],307:[function(require,module,exports){
+arguments[4][47][0].apply(exports,arguments)
+},{"dup":47}],308:[function(require,module,exports){
+arguments[4][48][0].apply(exports,arguments)
+},{"dup":48}],309:[function(require,module,exports){
+arguments[4][49][0].apply(exports,arguments)
+},{"./lib/events":310,"dup":49,"framebus":311}],310:[function(require,module,exports){
+arguments[4][50][0].apply(exports,arguments)
+},{"dup":50}],311:[function(require,module,exports){
+arguments[4][51][0].apply(exports,arguments)
+},{"dup":51}],312:[function(require,module,exports){
 arguments[4][34][0].apply(exports,arguments)
-},{"dup":34}],269:[function(require,module,exports){
-arguments[4][35][0].apply(exports,arguments)
-},{"./array":264,"dup":35}],270:[function(require,module,exports){
-arguments[4][36][0].apply(exports,arguments)
-},{"./lib/array":264,"./lib/dom":265,"./lib/events":266,"./lib/fn":267,"./lib/string":268,"./lib/url":269,"dup":36}],271:[function(require,module,exports){
-arguments[4][158][0].apply(exports,arguments)
-},{"../shared/constants":276,"../shared/get-locale":278,"../shared/util/browser":283,"../shared/util/dom":284,"../shared/util/util":285,"./logged-in-view":273,"./logged-out-view":274,"./overlay-view":275,"braintree-api":240,"braintree-bus":261,"braintree-utilities":270,"dup":158}],272:[function(require,module,exports){
+},{"dup":34}],313:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],314:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],315:[function(require,module,exports){
+arguments[4][23][0].apply(exports,arguments)
+},{"dup":23}],316:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"dup":38}],317:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"./array":312,"dup":39}],318:[function(require,module,exports){
+arguments[4][40][0].apply(exports,arguments)
+},{"./lib/array":312,"./lib/dom":313,"./lib/events":314,"./lib/fn":315,"./lib/string":316,"./lib/url":317,"dup":40}],319:[function(require,module,exports){
+arguments[4][194][0].apply(exports,arguments)
+},{"../shared/constants":324,"../shared/get-locale":326,"../shared/util/browser":331,"../shared/util/dom":332,"../shared/util/util":333,"./logged-in-view":321,"./logged-out-view":322,"./overlay-view":323,"braintree-api":280,"braintree-bus":309,"braintree-utilities":318,"dup":194}],320:[function(require,module,exports){
 var Client = require('./client');
 var browser = require('../shared/util/browser');
-var VERSION = "1.4.0";
+var VERSION = "1.4.1";
 
 function create(clientToken, options) {
   if (!browser.detectedPostMessage()) {
@@ -9664,47 +9795,47 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"../shared/util/browser":283,"./client":271}],273:[function(require,module,exports){
-arguments[4][159][0].apply(exports,arguments)
-},{"../shared/constants":276,"dup":159}],274:[function(require,module,exports){
-arguments[4][160][0].apply(exports,arguments)
-},{"../shared/constants":276,"../shared/get-locale":278,"braintree-utilities":270,"dup":160}],275:[function(require,module,exports){
-arguments[4][161][0].apply(exports,arguments)
-},{"../shared/constants":276,"braintree-utilities":270,"dup":161}],276:[function(require,module,exports){
-arguments[4][162][0].apply(exports,arguments)
-},{"dup":162}],277:[function(require,module,exports){
-arguments[4][163][0].apply(exports,arguments)
-},{"dup":163}],278:[function(require,module,exports){
-arguments[4][164][0].apply(exports,arguments)
-},{"../shared/data/country-code-lookup":277,"dup":164}],279:[function(require,module,exports){
-arguments[4][165][0].apply(exports,arguments)
-},{"./platform":281,"./useragent":282,"dup":165}],280:[function(require,module,exports){
-arguments[4][166][0].apply(exports,arguments)
-},{"./platform":281,"./useragent":282,"dup":166}],281:[function(require,module,exports){
-arguments[4][167][0].apply(exports,arguments)
-},{"./useragent":282,"dup":167}],282:[function(require,module,exports){
-arguments[4][168][0].apply(exports,arguments)
-},{"dup":168}],283:[function(require,module,exports){
-arguments[4][169][0].apply(exports,arguments)
-},{"../useragent/browser":279,"../useragent/device":280,"../useragent/platform":281,"../useragent/useragent":282,"dup":169}],284:[function(require,module,exports){
-arguments[4][170][0].apply(exports,arguments)
-},{"dup":170}],285:[function(require,module,exports){
-arguments[4][171][0].apply(exports,arguments)
-},{"dup":171}],286:[function(require,module,exports){
-arguments[4][30][0].apply(exports,arguments)
-},{"dup":30}],287:[function(require,module,exports){
-arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],288:[function(require,module,exports){
-arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],289:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],290:[function(require,module,exports){
+},{"../shared/util/browser":331,"./client":319}],321:[function(require,module,exports){
+arguments[4][195][0].apply(exports,arguments)
+},{"../shared/constants":324,"dup":195}],322:[function(require,module,exports){
+arguments[4][196][0].apply(exports,arguments)
+},{"../shared/constants":324,"../shared/get-locale":326,"braintree-utilities":318,"dup":196}],323:[function(require,module,exports){
+arguments[4][197][0].apply(exports,arguments)
+},{"../shared/constants":324,"braintree-utilities":318,"dup":197}],324:[function(require,module,exports){
+arguments[4][198][0].apply(exports,arguments)
+},{"dup":198}],325:[function(require,module,exports){
+arguments[4][199][0].apply(exports,arguments)
+},{"dup":199}],326:[function(require,module,exports){
+arguments[4][200][0].apply(exports,arguments)
+},{"../shared/data/country-code-lookup":325,"dup":200}],327:[function(require,module,exports){
+arguments[4][201][0].apply(exports,arguments)
+},{"./platform":329,"./useragent":330,"dup":201}],328:[function(require,module,exports){
+arguments[4][202][0].apply(exports,arguments)
+},{"./platform":329,"./useragent":330,"dup":202}],329:[function(require,module,exports){
+arguments[4][203][0].apply(exports,arguments)
+},{"./useragent":330,"dup":203}],330:[function(require,module,exports){
+arguments[4][204][0].apply(exports,arguments)
+},{"dup":204}],331:[function(require,module,exports){
+arguments[4][205][0].apply(exports,arguments)
+},{"../useragent/browser":327,"../useragent/device":328,"../useragent/platform":329,"../useragent/useragent":330,"dup":205}],332:[function(require,module,exports){
+arguments[4][206][0].apply(exports,arguments)
+},{"dup":206}],333:[function(require,module,exports){
+arguments[4][207][0].apply(exports,arguments)
+},{"dup":207}],334:[function(require,module,exports){
 arguments[4][34][0].apply(exports,arguments)
-},{"dup":34}],291:[function(require,module,exports){
-arguments[4][35][0].apply(exports,arguments)
-},{"./array":286,"dup":35}],292:[function(require,module,exports){
-arguments[4][36][0].apply(exports,arguments)
-},{"./lib/array":286,"./lib/dom":287,"./lib/events":288,"./lib/fn":289,"./lib/string":290,"./lib/url":291,"dup":36}],293:[function(require,module,exports){
+},{"dup":34}],335:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"dup":21}],336:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],337:[function(require,module,exports){
+arguments[4][23][0].apply(exports,arguments)
+},{"dup":23}],338:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"dup":38}],339:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"./array":334,"dup":39}],340:[function(require,module,exports){
+arguments[4][40][0].apply(exports,arguments)
+},{"./lib/array":334,"./lib/dom":335,"./lib/events":336,"./lib/fn":337,"./lib/string":338,"./lib/url":339,"dup":40}],341:[function(require,module,exports){
 'use strict';
 /*eslint-disable consistent-return*/
 
@@ -9733,7 +9864,7 @@ function toSnakeCase (string) {
 
 module.exports = { convertToLegacyShippingAddress: convertToLegacyShippingAddress };
 
-},{}],294:[function(require,module,exports){
+},{}],342:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -9742,7 +9873,7 @@ module.exports = {
   ROOT_READY_CALLBACK: 'onReady'
 };
 
-},{}],295:[function(require,module,exports){
+},{}],343:[function(require,module,exports){
 'use strict';
 
 var api = require('braintree-api');
@@ -9765,7 +9896,7 @@ function initialize(clientToken, options) {
 
 module.exports = {initialize: initialize};
 
-},{"braintree-api":16,"braintree-bus":37,"braintree-coinbase":40}],296:[function(require,module,exports){
+},{"braintree-api":20,"braintree-bus":49,"braintree-coinbase":52}],344:[function(require,module,exports){
 'use strict';
 
 var api = require('braintree-api');
@@ -9865,7 +9996,7 @@ function getIntegrationCallbackLookup(options, integration) {
 
 module.exports = {initialize: initialize};
 
-},{"../compatibility":293,"../constants":294,"braintree-api":16,"braintree-bus":37,"braintree-coinbase":40,"braintree-form":217,"braintree-paypal":272,"braintree-utilities":292}],297:[function(require,module,exports){
+},{"../compatibility":341,"../constants":342,"braintree-api":20,"braintree-bus":49,"braintree-coinbase":52,"braintree-form":253,"braintree-paypal":320,"braintree-utilities":340}],345:[function(require,module,exports){
 'use strict';
 
 var dropin = require('braintree-dropin');
@@ -9906,7 +10037,7 @@ function initialize(clientToken, options) {
 
 module.exports = {initialize: initialize};
 
-},{"../constants":294,"../lib/sanitize-payload":302,"braintree-bus":37,"braintree-dropin":207,"braintree-utilities":292}],298:[function(require,module,exports){
+},{"../constants":342,"../lib/sanitize-payload":350,"braintree-bus":49,"braintree-dropin":243,"braintree-utilities":340}],346:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -9916,7 +10047,7 @@ module.exports = {
   coinbase: require('./coinbase')
 };
 
-},{"./coinbase":295,"./custom":296,"./dropin":297,"./paypal":299}],299:[function(require,module,exports){
+},{"./coinbase":343,"./custom":344,"./dropin":345,"./paypal":347}],347:[function(require,module,exports){
 'use strict';
 
 var paypal = require('braintree-paypal');
@@ -9962,7 +10093,7 @@ function initialize(clientToken, options) {
 
 module.exports = {initialize: initialize};
 
-},{"../compatibility":293,"../constants":294,"braintree-bus":37,"braintree-paypal":272,"braintree-utilities":292}],300:[function(require,module,exports){
+},{"../compatibility":341,"../constants":342,"braintree-bus":49,"braintree-paypal":320,"braintree-utilities":340}],348:[function(require,module,exports){
 'use strict';
 
 var api = require('braintree-api');
@@ -10000,7 +10131,7 @@ module.exports = {
   _createSender: _createSender
 };
 
-},{"braintree-api":16,"braintree-bus":37}],301:[function(require,module,exports){
+},{"braintree-api":20,"braintree-bus":49}],349:[function(require,module,exports){
 'use strict';
 var bus = require('braintree-bus');
 var util = require('braintree-utilities');
@@ -10041,7 +10172,7 @@ module.exports = function (cb) {
   return new Waiter(cb);
 };
 
-},{"braintree-bus":37,"braintree-utilities":292}],302:[function(require,module,exports){
+},{"braintree-bus":49,"braintree-utilities":340}],350:[function(require,module,exports){
 'use strict';
 
 module.exports = function sanitizePayload(payload) {
