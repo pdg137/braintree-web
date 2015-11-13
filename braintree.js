@@ -2744,15 +2744,15 @@ window.Braintree = Braintree;
 (function (global){
 'use strict';
 
-var VERSION = "2.12.1";
+var VERSION = "2.12.2";
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
-var Form = require('braintree-form');
 var integrations = require('./integrations');
 var constants = require('./constants');
 var fallbackErrorHandler = require('./lib/fallback-error-handler');
 var lookupCallbackFor = require('./lib/lookup-callback-for');
+var uuid = require('braintree-utilities').uuid;
 
 function setup(clientToken, integrationType, merchantConfiguration) {
   if (!integrations.hasOwnProperty(integrationType)) {
@@ -2774,6 +2774,7 @@ function setup(clientToken, integrationType, merchantConfiguration) {
     }
 
     new integrations[integrationType]({ // eslint-disable-line no-new
+      channel: uuid(),
       gatewayConfiguration: gatewayConfiguration,
       integrationType: integrationType,
       merchantConfiguration: merchantConfiguration,
@@ -2790,13 +2791,12 @@ module.exports = {
   cse: global.Braintree,
   paypal: paypal,
   dropin: dropin,
-  Form: Form,
   setup: setup,
   VERSION: VERSION
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./constants":353,"./integrations":358,"./lib/fallback-error-handler":360,"./lib/lookup-callback-for":361,"braintree-api":21,"braintree-dropin":211,"braintree-form":220,"braintree-paypal":304}],2:[function(require,module,exports){
+},{"./constants":377,"./integrations":382,"./lib/fallback-error-handler":384,"./lib/lookup-callback-for":385,"braintree-api":21,"braintree-dropin":224,"braintree-paypal":326,"braintree-utilities":354}],2:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -5781,11 +5781,156 @@ module.exports = isString;
 'use strict';
 
 var bus = require('framebus');
-bus.events = require('./lib/events');
+var events = require('./lib/events');
+var checkOrigin = require('./lib/check-origin').checkOrigin;
 
-module.exports = bus;
+function BraintreeBus(options) {
+  options = options || {};
 
-},{"./lib/events":53,"framebus":54}],53:[function(require,module,exports){
+  this.channel = options.channel;
+  if (!this.channel) {
+    throw new Error('Channel ID must be specified');
+  }
+
+  this.merchantUrl = options.merchantUrl;
+
+  this._isDestroyed = false;
+  this._isVerbose = false;
+
+  this._listeners = [];
+
+  this._log('new bus on channel ' + this.channel, [location.href]);
+}
+
+BraintreeBus.prototype.on = function (eventName, originalHandler) {
+  var namespacedEvent, args;
+  var handler = originalHandler;
+  var self = this;
+
+  if (this._isDestroyed) { return; }
+
+  if (this.merchantUrl) {
+    handler = function () {
+      if (checkOrigin(this.origin, self.merchantUrl)) {
+        originalHandler.apply(this, arguments);
+      }
+    };
+  }
+
+  namespacedEvent = this._namespaceEvent(eventName);
+  args = Array.prototype.slice.call(arguments);
+  args[0] = namespacedEvent;
+  args[1] = handler;
+
+  this._log('on', args);
+  bus.on.apply(bus, args);
+
+  this._listeners.push({
+    eventName: eventName,
+    handler: handler,
+    originalHandler: originalHandler
+  });
+};
+
+BraintreeBus.prototype.emit = function (eventName, payload, reply) {
+  var args;
+
+  if (this._isDestroyed) { return; }
+
+  args = Array.prototype.slice.call(arguments);
+  args[0] = this._namespaceEvent(eventName);
+
+  this._log('emit', args);
+  bus.emit.apply(bus, args);
+};
+
+BraintreeBus.prototype._offDirect = function (eventName, handler) {
+ var args = Array.prototype.slice.call(arguments);
+
+ if (this._isDestroyed) { return; }
+
+ args[0] = this._namespaceEvent(eventName);
+
+ this._log('off', args);
+ bus.off.apply(bus, args);
+};
+
+BraintreeBus.prototype.off = function (eventName, originalHandler) {
+  var i, listener;
+  var handler = originalHandler;
+
+  if (this._isDestroyed) { return; }
+
+  if (this.merchantUrl) {
+    for (i = 0; i < this._listeners.length; i++) {
+      listener = this._listeners[i];
+
+      if (listener.originalHandler === originalHandler) {
+        handler = listener.handler;
+      }
+    }
+  }
+
+  this._offDirect.call(this, eventName, handler);
+};
+
+BraintreeBus.prototype._namespaceEvent = function (eventName) {
+  return ['braintree', this.channel, eventName].join(':');
+};
+
+BraintreeBus.prototype.destroy = function () {
+  var listener, i;
+
+  for (i = 0; i < this._listeners.length; i++) {
+    listener = this._listeners[i];
+    this._offDirect(listener.eventName, listener.handler);
+  }
+
+  this._listeners.length = 0;
+
+  this._isDestroyed = true;
+};
+
+BraintreeBus.prototype._log = function (functionName, args) {
+  if (this._isVerbose) {
+    console.log(functionName, args);
+  }
+};
+
+BraintreeBus.events = events;
+
+module.exports = BraintreeBus;
+
+},{"./lib/check-origin":53,"./lib/events":54,"framebus":55}],53:[function(require,module,exports){
+'use strict';
+
+var BT_ORIGIN_REGEX = /^https:\/\/([a-zA-Z0-9-]+\.)*(braintreepayments|braintreegateway|paypal)\.com(:\d{1,5})?$/;
+
+function checkOrigin(postMessageOrigin, merchantUrl) {
+  var merchantOrigin;
+  var merchantHost;
+  var a = document.createElement('a');
+
+  a.href = merchantUrl;
+
+  if (a.protocol === 'https:') {
+    merchantHost = a.host.replace(/:443$/, '');
+  } else if (a.protocol === 'http:') {
+    merchantHost = a.host.replace(/:80$/, '');
+  } else {
+    merchantHost = a.host;
+  }
+
+  merchantOrigin = a.protocol + '//' + merchantHost;
+
+  return merchantOrigin === postMessageOrigin || BT_ORIGIN_REGEX.test(postMessageOrigin);
+}
+
+module.exports = {
+  checkOrigin: checkOrigin
+};
+
+},{}],54:[function(require,module,exports){
 'use strict';
 
 var eventList = [
@@ -5816,7 +5961,7 @@ for (var i = 0; i < eventList.length; i++) {
 
 module.exports = eventEnum;
 
-},{}],54:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 'use strict';
 (function (root, factory) {
   if (typeof exports === 'object' && typeof module !== 'undefined') {
@@ -6079,48 +6224,18 @@ module.exports = eventEnum;
   return framebus;
 });
 
-},{}],55:[function(require,module,exports){
+},{}],56:[function(require,module,exports){
 'use strict';
 
 var Coinbase = require('./lib/coinbase');
-var detector = require('./lib/detector');
-var bus = require('braintree-bus');
-var CONFIG_ERROR = 'CONFIGURATION';
-
-function error(message, type) {
-  bus.emit(bus.events.ERROR, {type: type, message: message});
-}
-
-function optionsAreValid(options) {
-  options = options || {};
-  var cbOptions = options.coinbase;
-
-  if (options.apiClient == null) {
-    error('settings.apiClient is required for coinbase', CONFIG_ERROR);
-  } else if (!options.configuration.coinbaseEnabled) {
-    error('Coinbase is not enabled for your merchant account', CONFIG_ERROR);
-  } else if (!cbOptions || (!cbOptions.container && !cbOptions.button)) {
-    error('Either options.coinbase.container or options.coinbase.button is required for Coinbase integrations', CONFIG_ERROR);
-  } else if (cbOptions.container && cbOptions.button) {
-    error('options.coinbase.container and options.coinbase.button are mutually exclusive', CONFIG_ERROR);
-  } else if (!detector.isSupportedBrowser()) {
-    error('Coinbase is not supported by your browser. Please consider upgrading', 'UNSUPPORTED_BROWSER');
-  } else {
-    return true;
-  }
-
-  return false;
-}
 
 function create(options) {
-  if (optionsAreValid(options)) {
-    return new Coinbase(options);
-  }
+  return new Coinbase(options);
 }
 
 module.exports = {create: create};
 
-},{"./lib/coinbase":58,"./lib/detector":60,"braintree-bus":66}],56:[function(require,module,exports){
+},{"./lib/coinbase":59}],57:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -6166,26 +6281,26 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],57:[function(require,module,exports){
+},{}],58:[function(require,module,exports){
 'use strict';
 
-var bus = require('braintree-bus');
+var busEvents = require('braintree-bus').events;
 
 function tokenize(err, payload, coinbase) {
   if (err) {
     // TODO: make payload in line with onError()
-    bus.emit(bus.events.ERROR, err.error);
+    coinbase.bus.emit(busEvents.ERROR, err.error);
     coinbase._sendAnalyticsEvent('generate.nonce.failed');
     return;
   }
 
-  bus.emit(bus.events.PAYMENT_METHOD_GENERATED, payload);
+  coinbase.bus.emit(busEvents.PAYMENT_METHOD_GENERATED, payload);
   coinbase._sendAnalyticsEvent('generate.nonce.succeeded');
 }
 
-module.exports = { tokenize: tokenize };
+module.exports = {tokenize: tokenize};
 
-},{"braintree-bus":66}],58:[function(require,module,exports){
+},{"braintree-bus":67}],59:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -6195,7 +6310,7 @@ var urlComposer = require('./url-composer');
 var callbacks = require('./callbacks');
 var constants = require('./constants');
 var detector = require('./detector');
-var bus = require('braintree-bus');
+var Bus = require('braintree-bus');
 
 function _getPopupParams(options) {
   return {
@@ -6208,8 +6323,50 @@ function _getPopupParams(options) {
   };
 }
 
+function _error(bus) {
+  return function (message, type) {
+    bus.emit(Bus.events.ERROR, {type: type, message: message});
+  }
+}
+
+function _optionsAreValid(options, bus) {
+  var cbOptions = (options || {}).coinbase;
+  var busError = _error(bus);
+
+  if (options.apiClient == null) {
+    busError('settings.apiClient is required for coinbase', constants.CONFIGURATION_ERROR);
+  } else if (!options.configuration.coinbaseEnabled) {
+    busError('Coinbase is not enabled for your merchant account', constants.CONFIGURATION_ERROR);
+  } else if (!cbOptions || (!cbOptions.container && !cbOptions.button)) {
+    busError('Either options.coinbase.container or options.coinbase.button is required for Coinbase integrations', constants.CONFIGURATION_ERROR);
+  } else if (cbOptions.container && cbOptions.button) {
+    busError('options.coinbase.container and options.coinbase.button are mutually exclusive', constants.CONFIGURATION_ERROR);
+  } else if (!detector.isSupportedBrowser()) {
+    busError('Coinbase is not supported by your browser. Please consider upgrading', constants.UNSUPPORTED_BROWSER_ERROR);
+  } else {
+    return true;
+  }
+
+  return false;
+}
+
 function Coinbase(options) {
-  var context;
+  var context, busOptions;
+
+  this.channel = options.channel;
+  busOptions = {channel: this.channel};
+
+  try {
+    if (options.coinbase.container) {
+      busOptions.merchantUrl =  global.location.href;
+    }
+  } catch (e) {}
+
+  this.bus = options.bus || new Bus(busOptions);
+
+  if (!_optionsAreValid(options, this.bus)) {
+    return;
+  }
 
   this.buttonId = options.coinbase.button || constants.BUTTON_ID;
   this.apiClient = options.apiClient;
@@ -6238,9 +6395,16 @@ Coinbase.prototype._sendAnalyticsEvent = function (eventName) {
 };
 
 Coinbase.prototype._insertFrame = function (container) {
-  var frame = DOMComposer.createFrame({ src: this.assetsUrl +'/coinbase/' + constants.VERSION + '/coinbase-frame.html' });
-  bus.emit(bus.events.ASYNC_DEPENDENCY_INITIALIZING);
+  var frame = DOMComposer.createFrame({channel: this.channel});
+
+  this.bus.emit(Bus.events.ASYNC_DEPENDENCY_INITIALIZING);
+
   container.appendChild(frame);
+
+  // Delayed to make sure browser caches are busted.
+  setTimeout(utils.bind(function () {
+    frame.src = this.assetsUrl + '/coinbase/' + constants.VERSION + '/coinbase-frame.html#' + this.channel
+  }, this), 0);
 };
 
 Coinbase.prototype._onOAuthSuccess = function (data) {
@@ -6250,7 +6414,7 @@ Coinbase.prototype._onOAuthSuccess = function (data) {
     return;
   }
 
-  bus.emit('coinbase:view:navigate', 'loading');
+  this.bus.emit('coinbase:view:navigate', 'loading');
   this._sendAnalyticsEvent('popup.authorized');
 
   this.apiClient.tokenizeCoinbase({ code: data.code, query: urlComposer.getQueryString() }, utils.bind(function (err, payload) {
@@ -6279,7 +6443,7 @@ Coinbase.prototype._closePopup = function (popup) {
 
 Coinbase.prototype._popupCleanup = function () {
   this._clearPollForRedirectDone();
-  bus.emit(bus.events.UI_POPUP_DID_CLOSE, {source: constants.INTEGRATION_NAME});
+  this.bus.emit(Bus.events.UI_POPUP_DID_CLOSE, {source: constants.INTEGRATION_NAME});
 };
 
 Coinbase.prototype._pollForRedirectDone = function (popup) {
@@ -6316,8 +6480,8 @@ Coinbase.prototype._openPopup = function () {
 
   this._pollForRedirectDone(popup);
 
-  bus.trigger(bus.events.UI_POPUP_DID_OPEN, {source: constants.INTEGRATION_NAME});
-  bus.on(bus.events.UI_POPUP_FORCE_CLOSE, function (payload) {
+  this.bus.emit(Bus.events.UI_POPUP_DID_OPEN, {source: constants.INTEGRATION_NAME});
+  this.bus.on(Bus.events.UI_POPUP_FORCE_CLOSE, function (payload) {
     if (payload.target === constants.INTEGRATION_NAME) {
       popup.close();
     }
@@ -6361,7 +6525,7 @@ Coinbase.prototype._handleButtonClick = function (event) {
 module.exports = Coinbase;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./callbacks":57,"./constants":59,"./detector":60,"./dom/composer":62,"./url-composer":65,"braintree-bus":66,"braintree-utilities":75}],59:[function(require,module,exports){
+},{"./callbacks":58,"./constants":60,"./detector":61,"./dom/composer":63,"./url-composer":66,"braintree-bus":67,"braintree-utilities":79}],60:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -6372,11 +6536,13 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "0.2.4",
-  INTEGRATION_NAME: 'Coinbase'
+  VERSION: "0.2.5",
+  INTEGRATION_NAME: 'Coinbase',
+  CONFIGURATION_ERROR: 'CONFIGURATION',
+  UNSUPPORTED_BROWSER_ERROR: 'UNSUPPORTED_BROWSER'
 };
 
-},{}],60:[function(require,module,exports){
+},{}],61:[function(require,module,exports){
 'use strict';
 
 var browser = require('./browser');
@@ -6411,7 +6577,7 @@ module.exports = {
   shouldDisplayLollipopClose: shouldDisplayLollipopClose
 };
 
-},{"./browser":56}],61:[function(require,module,exports){
+},{"./browser":57}],62:[function(require,module,exports){
 'use strict';
 
 function createButton(config) {
@@ -6432,7 +6598,7 @@ function createButton(config) {
 
 module.exports = { create: createButton };
 
-},{}],62:[function(require,module,exports){
+},{}],63:[function(require,module,exports){
 'use strict';
 
 var popup = require('./popup');
@@ -6445,7 +6611,7 @@ module.exports = {
   createFrame: frame.create
 };
 
-},{"./button":61,"./frame":63,"./popup":64}],63:[function(require,module,exports){
+},{"./button":62,"./frame":64,"./popup":65}],64:[function(require,module,exports){
 'use strict';
 
 var constants = require('../constants');
@@ -6453,7 +6619,6 @@ var iframer = require('iframer');
 
 function createFrame(config) {
   return iframer({
-    src: config.src,
     name: constants.FRAME_NAME,
     height: '70px',
     width: '100%',
@@ -6468,7 +6633,7 @@ function createFrame(config) {
 
 module.exports = { create: createFrame };
 
-},{"../constants":59,"iframer":76}],64:[function(require,module,exports){
+},{"../constants":60,"iframer":80}],65:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -6505,7 +6670,7 @@ function createPopup(url) {
 module.exports = { create: createPopup };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../constants":59}],65:[function(require,module,exports){
+},{"../constants":60}],66:[function(require,module,exports){
 'use strict';
 
 var constants = require('./constants');
@@ -6541,52 +6706,38 @@ module.exports = {
   getQueryString: getQueryString
 };
 
-},{"./constants":59}],66:[function(require,module,exports){
+},{"./constants":60}],67:[function(require,module,exports){
 arguments[4][52][0].apply(exports,arguments)
-},{"./lib/events":67,"dup":52,"framebus":68}],67:[function(require,module,exports){
+},{"./lib/check-origin":68,"./lib/events":69,"dup":52,"framebus":70}],68:[function(require,module,exports){
 arguments[4][53][0].apply(exports,arguments)
-},{"dup":53}],68:[function(require,module,exports){
+},{"dup":53}],69:[function(require,module,exports){
 arguments[4][54][0].apply(exports,arguments)
-},{"dup":54}],69:[function(require,module,exports){
+},{"dup":54}],70:[function(require,module,exports){
+arguments[4][55][0].apply(exports,arguments)
+},{"dup":55}],71:[function(require,module,exports){
 arguments[4][35][0].apply(exports,arguments)
-},{"dup":35}],70:[function(require,module,exports){
+},{"dup":35}],72:[function(require,module,exports){
+arguments[4][36][0].apply(exports,arguments)
+},{"dup":36}],73:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"dup":22}],71:[function(require,module,exports){
-arguments[4][23][0].apply(exports,arguments)
-},{"dup":23}],72:[function(require,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"dup":24}],73:[function(require,module,exports){
+},{"dup":22}],74:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"dup":38}],75:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"dup":39}],76:[function(require,module,exports){
 arguments[4][40][0].apply(exports,arguments)
-},{"dup":40}],74:[function(require,module,exports){
+},{"dup":40}],77:[function(require,module,exports){
 arguments[4][41][0].apply(exports,arguments)
-},{"./array":69,"dup":41}],75:[function(require,module,exports){
-var dom = require('./lib/dom');
-var url = require('./lib/url');
-var fn = require('./lib/fn');
-var events = require('./lib/events');
-var string = require('./lib/string');
-var array = require('./lib/array');
-
-module.exports = {
-  string: string,
-  array: array,
-  normalizeElement: dom.normalizeElement,
-  isBrowserHttps: url.isBrowserHttps,
-  makeQueryString: url.makeQueryString,
-  decodeQueryString: url.decodeQueryString,
-  getParams: url.getParams,
-  isWhitelistedDomain: url.isWhitelistedDomain,
-  removeEventListener: events.removeEventListener,
-  addEventListener: events.addEventListener,
-  bind: fn.bind,
-  isFunction: fn.isFunction
-};
-
-},{"./lib/array":69,"./lib/dom":70,"./lib/events":71,"./lib/fn":72,"./lib/string":73,"./lib/url":74}],76:[function(require,module,exports){
+},{"./array":71,"dup":41}],78:[function(require,module,exports){
+arguments[4][42][0].apply(exports,arguments)
+},{"dup":42}],79:[function(require,module,exports){
+arguments[4][43][0].apply(exports,arguments)
+},{"./lib/array":71,"./lib/base64":72,"./lib/dom":73,"./lib/events":74,"./lib/fn":75,"./lib/string":76,"./lib/url":77,"./lib/uuid":78,"dup":43}],80:[function(require,module,exports){
 'use strict';
 
 var assign = require('lodash.assign');
 var isString = require('lodash.isstring');
+var setAttributes = require('setattributes');
 var defaultAttributes = require('./lib/default-attributes');
 
 module.exports = function createFrame(options) {
@@ -6598,11 +6749,7 @@ module.exports = function createFrame(options) {
     delete config.style;
   }
 
-  for (var key in config) {
-    if (config.hasOwnProperty(key)) {
-      iframe.setAttribute(key, config[key]);
-    }
-  }
+  setAttributes(iframe, config);
 
   if (!iframe.getAttribute('id')) {
     iframe.id = iframe.name;
@@ -6611,13 +6758,15 @@ module.exports = function createFrame(options) {
   return iframe;
 };
 
-},{"./lib/default-attributes":77,"lodash.assign":78,"lodash.isstring":89}],77:[function(require,module,exports){
+},{"./lib/default-attributes":81,"lodash.assign":82,"lodash.isstring":93,"setattributes":94}],81:[function(require,module,exports){
 module.exports={
+  "src": "about:blank",
   "frameBorder": 0,
-  "allowtransparency": true
+  "allowtransparency": true,
+  "scrolling": "no"
 }
 
-},{}],78:[function(require,module,exports){
+},{}],82:[function(require,module,exports){
 /**
  * lodash 3.2.0 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -6699,7 +6848,7 @@ var assign = createAssigner(function(object, source, customizer) {
 
 module.exports = assign;
 
-},{"lodash._baseassign":79,"lodash._createassigner":81,"lodash.keys":85}],79:[function(require,module,exports){
+},{"lodash._baseassign":83,"lodash._createassigner":85,"lodash.keys":89}],83:[function(require,module,exports){
 /**
  * lodash 3.2.0 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -6728,7 +6877,7 @@ function baseAssign(object, source) {
 
 module.exports = baseAssign;
 
-},{"lodash._basecopy":80,"lodash.keys":85}],80:[function(require,module,exports){
+},{"lodash._basecopy":84,"lodash.keys":89}],84:[function(require,module,exports){
 /**
  * lodash 3.0.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -6762,7 +6911,7 @@ function baseCopy(source, props, object) {
 
 module.exports = baseCopy;
 
-},{}],81:[function(require,module,exports){
+},{}],85:[function(require,module,exports){
 /**
  * lodash 3.1.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -6816,7 +6965,7 @@ function createAssigner(assigner) {
 
 module.exports = createAssigner;
 
-},{"lodash._bindcallback":82,"lodash._isiterateecall":83,"lodash.restparam":84}],82:[function(require,module,exports){
+},{"lodash._bindcallback":86,"lodash._isiterateecall":87,"lodash.restparam":88}],86:[function(require,module,exports){
 /**
  * lodash 3.0.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -6883,7 +7032,7 @@ function identity(value) {
 
 module.exports = bindCallback;
 
-},{}],83:[function(require,module,exports){
+},{}],87:[function(require,module,exports){
 /**
  * lodash 3.0.9 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -7017,7 +7166,7 @@ function isObject(value) {
 
 module.exports = isIterateeCall;
 
-},{}],84:[function(require,module,exports){
+},{}],88:[function(require,module,exports){
 /**
  * lodash 3.6.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -7086,182 +7235,215 @@ function restParam(func, start) {
 
 module.exports = restParam;
 
-},{}],85:[function(require,module,exports){
+},{}],89:[function(require,module,exports){
 arguments[4][48][0].apply(exports,arguments)
-},{"dup":48,"lodash._getnative":86,"lodash.isarguments":87,"lodash.isarray":88}],86:[function(require,module,exports){
+},{"dup":48,"lodash._getnative":90,"lodash.isarguments":91,"lodash.isarray":92}],90:[function(require,module,exports){
 arguments[4][49][0].apply(exports,arguments)
-},{"dup":49}],87:[function(require,module,exports){
+},{"dup":49}],91:[function(require,module,exports){
 arguments[4][45][0].apply(exports,arguments)
-},{"dup":45}],88:[function(require,module,exports){
+},{"dup":45}],92:[function(require,module,exports){
 arguments[4][46][0].apply(exports,arguments)
-},{"dup":46}],89:[function(require,module,exports){
+},{"dup":46}],93:[function(require,module,exports){
 arguments[4][51][0].apply(exports,arguments)
-},{"dup":51}],90:[function(require,module,exports){
+},{"dup":51}],94:[function(require,module,exports){
+module.exports = function setAttributes(element, attributes) {
+  var value;
+
+  for (var key in attributes) {
+    if (attributes.hasOwnProperty(key)) {
+      value = attributes[key];
+
+      if (value == null) {
+        element.removeAttribute(key);
+      } else {
+        element.setAttribute(key, value);
+      }
+    }
+  }
+};
+
+},{}],95:[function(require,module,exports){
 arguments[4][2][0].apply(exports,arguments)
-},{"./coinbase-account":91,"./constants":92,"./credit-card":93,"./europe-bank-account":94,"./normalize-api-fields":96,"./parse-client-token":97,"./paypal-account":98,"./request/choose-driver":101,"./sepa-mandate":106,"./should-enable-cors":107,"./util":108,"braintree-3ds":117,"braintree-utilities":131,"dup":2}],91:[function(require,module,exports){
+},{"./coinbase-account":96,"./constants":97,"./credit-card":98,"./europe-bank-account":99,"./normalize-api-fields":101,"./parse-client-token":102,"./paypal-account":103,"./request/choose-driver":106,"./sepa-mandate":111,"./should-enable-cors":112,"./util":113,"braintree-3ds":122,"braintree-utilities":136,"dup":2}],96:[function(require,module,exports){
 arguments[4][3][0].apply(exports,arguments)
-},{"dup":3}],92:[function(require,module,exports){
+},{"dup":3}],97:[function(require,module,exports){
 arguments[4][4][0].apply(exports,arguments)
-},{"dup":4}],93:[function(require,module,exports){
+},{"dup":4}],98:[function(require,module,exports){
 arguments[4][5][0].apply(exports,arguments)
-},{"dup":5}],94:[function(require,module,exports){
+},{"dup":5}],99:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"dup":6}],95:[function(require,module,exports){
+},{"dup":6}],100:[function(require,module,exports){
 arguments[4][7][0].apply(exports,arguments)
-},{"./constants":92,"./parse-client-token":97,"./request/choose-driver":101,"./should-enable-cors":107,"./util":108,"dup":7}],96:[function(require,module,exports){
+},{"./constants":97,"./parse-client-token":102,"./request/choose-driver":106,"./should-enable-cors":112,"./util":113,"dup":7}],101:[function(require,module,exports){
 arguments[4][8][0].apply(exports,arguments)
-},{"dup":8}],97:[function(require,module,exports){
+},{"dup":8}],102:[function(require,module,exports){
 arguments[4][9][0].apply(exports,arguments)
-},{"./polyfill":99,"braintree-utilities":131,"dup":9}],98:[function(require,module,exports){
+},{"./polyfill":104,"braintree-utilities":136,"dup":9}],103:[function(require,module,exports){
 arguments[4][10][0].apply(exports,arguments)
-},{"dup":10}],99:[function(require,module,exports){
+},{"dup":10}],104:[function(require,module,exports){
 arguments[4][11][0].apply(exports,arguments)
-},{"dup":11}],100:[function(require,module,exports){
+},{"dup":11}],105:[function(require,module,exports){
 arguments[4][12][0].apply(exports,arguments)
-},{"../constants":92,"../util":108,"./parse-body":104,"./prep-body":105,"dup":12}],101:[function(require,module,exports){
+},{"../constants":97,"../util":113,"./parse-body":109,"./prep-body":110,"dup":12}],106:[function(require,module,exports){
 arguments[4][13][0].apply(exports,arguments)
-},{"../util":108,"./ajax-driver":100,"./jsonp-driver":102,"dup":13}],102:[function(require,module,exports){
+},{"../util":113,"./ajax-driver":105,"./jsonp-driver":107,"dup":13}],107:[function(require,module,exports){
 arguments[4][14][0].apply(exports,arguments)
-},{"../constants":92,"./jsonp":103,"dup":14}],103:[function(require,module,exports){
+},{"../constants":97,"./jsonp":108,"dup":14}],108:[function(require,module,exports){
 arguments[4][15][0].apply(exports,arguments)
-},{"../util":108,"dup":15}],104:[function(require,module,exports){
+},{"../util":113,"dup":15}],109:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
-},{"dup":16}],105:[function(require,module,exports){
+},{"dup":16}],110:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17,"lodash.isstring":139}],106:[function(require,module,exports){
+},{"dup":17,"lodash.isstring":144}],111:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],107:[function(require,module,exports){
+},{"dup":18}],112:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],108:[function(require,module,exports){
+},{"dup":19}],113:[function(require,module,exports){
 arguments[4][20][0].apply(exports,arguments)
-},{"dup":20,"lodash.isempty":132,"lodash.isobject":138}],109:[function(require,module,exports){
+},{"dup":20,"lodash.isempty":137,"lodash.isobject":143}],114:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"./lib/client":90,"./lib/get-configuration":95,"./lib/parse-client-token":97,"./lib/util":108,"dup":21}],110:[function(require,module,exports){
+},{"./lib/client":95,"./lib/get-configuration":100,"./lib/parse-client-token":102,"./lib/util":113,"dup":21}],115:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"dup":22}],111:[function(require,module,exports){
+},{"dup":22}],116:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
-},{"dup":23}],112:[function(require,module,exports){
+},{"dup":23}],117:[function(require,module,exports){
 arguments[4][24][0].apply(exports,arguments)
-},{"dup":24}],113:[function(require,module,exports){
+},{"dup":24}],118:[function(require,module,exports){
 arguments[4][25][0].apply(exports,arguments)
-},{"dup":25}],114:[function(require,module,exports){
+},{"dup":25}],119:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
-},{"./lib/dom":110,"./lib/events":111,"./lib/fn":112,"./lib/url":113,"dup":26}],115:[function(require,module,exports){
+},{"./lib/dom":115,"./lib/events":116,"./lib/fn":117,"./lib/url":118,"dup":26}],120:[function(require,module,exports){
 arguments[4][27][0].apply(exports,arguments)
-},{"../shared/receiver":122,"braintree-utilities":114,"dup":27}],116:[function(require,module,exports){
+},{"../shared/receiver":127,"braintree-utilities":119,"dup":27}],121:[function(require,module,exports){
 arguments[4][28][0].apply(exports,arguments)
-},{"./authorization_service":115,"./loader":118,"braintree-utilities":114,"dup":28}],117:[function(require,module,exports){
+},{"./authorization_service":120,"./loader":123,"braintree-utilities":119,"dup":28}],122:[function(require,module,exports){
 arguments[4][29][0].apply(exports,arguments)
-},{"./client":116,"dup":29}],118:[function(require,module,exports){
+},{"./client":121,"dup":29}],123:[function(require,module,exports){
 arguments[4][30][0].apply(exports,arguments)
-},{"./loader_display":119,"./loader_message":120,"./loader_spinner":121,"dup":30}],119:[function(require,module,exports){
+},{"./loader_display":124,"./loader_message":125,"./loader_spinner":126,"dup":30}],124:[function(require,module,exports){
 arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],120:[function(require,module,exports){
+},{"dup":31}],125:[function(require,module,exports){
 arguments[4][32][0].apply(exports,arguments)
-},{"dup":32}],121:[function(require,module,exports){
+},{"dup":32}],126:[function(require,module,exports){
 arguments[4][33][0].apply(exports,arguments)
-},{"dup":33}],122:[function(require,module,exports){
+},{"dup":33}],127:[function(require,module,exports){
 arguments[4][34][0].apply(exports,arguments)
-},{"braintree-utilities":114,"dup":34}],123:[function(require,module,exports){
+},{"braintree-utilities":119,"dup":34}],128:[function(require,module,exports){
 arguments[4][35][0].apply(exports,arguments)
-},{"dup":35}],124:[function(require,module,exports){
+},{"dup":35}],129:[function(require,module,exports){
 arguments[4][36][0].apply(exports,arguments)
-},{"dup":36}],125:[function(require,module,exports){
+},{"dup":36}],130:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"dup":22}],126:[function(require,module,exports){
+},{"dup":22}],131:[function(require,module,exports){
 arguments[4][38][0].apply(exports,arguments)
-},{"dup":38}],127:[function(require,module,exports){
+},{"dup":38}],132:[function(require,module,exports){
 arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],128:[function(require,module,exports){
+},{"dup":39}],133:[function(require,module,exports){
 arguments[4][40][0].apply(exports,arguments)
-},{"dup":40}],129:[function(require,module,exports){
+},{"dup":40}],134:[function(require,module,exports){
 arguments[4][41][0].apply(exports,arguments)
-},{"./array":123,"dup":41}],130:[function(require,module,exports){
+},{"./array":128,"dup":41}],135:[function(require,module,exports){
 arguments[4][42][0].apply(exports,arguments)
-},{"dup":42}],131:[function(require,module,exports){
+},{"dup":42}],136:[function(require,module,exports){
 arguments[4][43][0].apply(exports,arguments)
-},{"./lib/array":123,"./lib/base64":124,"./lib/dom":125,"./lib/events":126,"./lib/fn":127,"./lib/string":128,"./lib/url":129,"./lib/uuid":130,"dup":43}],132:[function(require,module,exports){
+},{"./lib/array":128,"./lib/base64":129,"./lib/dom":130,"./lib/events":131,"./lib/fn":132,"./lib/string":133,"./lib/url":134,"./lib/uuid":135,"dup":43}],137:[function(require,module,exports){
 arguments[4][44][0].apply(exports,arguments)
-},{"dup":44,"lodash.isarguments":133,"lodash.isarray":134,"lodash.isfunction":135,"lodash.isstring":139,"lodash.keys":136}],133:[function(require,module,exports){
+},{"dup":44,"lodash.isarguments":138,"lodash.isarray":139,"lodash.isfunction":140,"lodash.isstring":144,"lodash.keys":141}],138:[function(require,module,exports){
 arguments[4][45][0].apply(exports,arguments)
-},{"dup":45}],134:[function(require,module,exports){
+},{"dup":45}],139:[function(require,module,exports){
 arguments[4][46][0].apply(exports,arguments)
-},{"dup":46}],135:[function(require,module,exports){
+},{"dup":46}],140:[function(require,module,exports){
 arguments[4][47][0].apply(exports,arguments)
-},{"dup":47}],136:[function(require,module,exports){
+},{"dup":47}],141:[function(require,module,exports){
 arguments[4][48][0].apply(exports,arguments)
-},{"dup":48,"lodash._getnative":137,"lodash.isarguments":133,"lodash.isarray":134}],137:[function(require,module,exports){
+},{"dup":48,"lodash._getnative":142,"lodash.isarguments":138,"lodash.isarray":139}],142:[function(require,module,exports){
 arguments[4][49][0].apply(exports,arguments)
-},{"dup":49}],138:[function(require,module,exports){
+},{"dup":49}],143:[function(require,module,exports){
 arguments[4][50][0].apply(exports,arguments)
-},{"dup":50}],139:[function(require,module,exports){
+},{"dup":50}],144:[function(require,module,exports){
 arguments[4][51][0].apply(exports,arguments)
-},{"dup":51}],140:[function(require,module,exports){
+},{"dup":51}],145:[function(require,module,exports){
 arguments[4][52][0].apply(exports,arguments)
-},{"./lib/events":141,"dup":52,"framebus":142}],141:[function(require,module,exports){
+},{"./lib/check-origin":146,"./lib/events":147,"dup":52,"framebus":148}],146:[function(require,module,exports){
 arguments[4][53][0].apply(exports,arguments)
-},{"dup":53}],142:[function(require,module,exports){
+},{"dup":53}],147:[function(require,module,exports){
 arguments[4][54][0].apply(exports,arguments)
-},{"dup":54}],143:[function(require,module,exports){
+},{"dup":54}],148:[function(require,module,exports){
+arguments[4][55][0].apply(exports,arguments)
+},{"dup":55}],149:[function(require,module,exports){
 arguments[4][52][0].apply(exports,arguments)
-},{"./lib/events":144,"dup":52,"framebus":145}],144:[function(require,module,exports){
+},{"./lib/check-origin":150,"./lib/events":151,"dup":52,"framebus":152}],150:[function(require,module,exports){
 arguments[4][53][0].apply(exports,arguments)
-},{"dup":53}],145:[function(require,module,exports){
+},{"dup":53}],151:[function(require,module,exports){
 arguments[4][54][0].apply(exports,arguments)
-},{"dup":54}],146:[function(require,module,exports){
+},{"dup":54}],152:[function(require,module,exports){
+arguments[4][55][0].apply(exports,arguments)
+},{"dup":55}],153:[function(require,module,exports){
 arguments[4][35][0].apply(exports,arguments)
-},{"dup":35}],147:[function(require,module,exports){
+},{"dup":35}],154:[function(require,module,exports){
+arguments[4][36][0].apply(exports,arguments)
+},{"dup":36}],155:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"dup":22}],148:[function(require,module,exports){
-arguments[4][23][0].apply(exports,arguments)
-},{"dup":23}],149:[function(require,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"dup":24}],150:[function(require,module,exports){
+},{"dup":22}],156:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"dup":38}],157:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"dup":39}],158:[function(require,module,exports){
 arguments[4][40][0].apply(exports,arguments)
-},{"dup":40}],151:[function(require,module,exports){
+},{"dup":40}],159:[function(require,module,exports){
 arguments[4][41][0].apply(exports,arguments)
-},{"./array":146,"dup":41}],152:[function(require,module,exports){
-arguments[4][75][0].apply(exports,arguments)
-},{"./lib/array":146,"./lib/dom":147,"./lib/events":148,"./lib/fn":149,"./lib/string":150,"./lib/url":151,"dup":75}],153:[function(require,module,exports){
-arguments[4][76][0].apply(exports,arguments)
-},{"./lib/default-attributes":154,"dup":76,"lodash.assign":155,"lodash.isstring":166}],154:[function(require,module,exports){
-arguments[4][77][0].apply(exports,arguments)
-},{"dup":77}],155:[function(require,module,exports){
-arguments[4][78][0].apply(exports,arguments)
-},{"dup":78,"lodash._baseassign":156,"lodash._createassigner":158,"lodash.keys":162}],156:[function(require,module,exports){
-arguments[4][79][0].apply(exports,arguments)
-},{"dup":79,"lodash._basecopy":157,"lodash.keys":162}],157:[function(require,module,exports){
+},{"./array":153,"dup":41}],160:[function(require,module,exports){
+arguments[4][42][0].apply(exports,arguments)
+},{"dup":42}],161:[function(require,module,exports){
+arguments[4][43][0].apply(exports,arguments)
+},{"./lib/array":153,"./lib/base64":154,"./lib/dom":155,"./lib/events":156,"./lib/fn":157,"./lib/string":158,"./lib/url":159,"./lib/uuid":160,"dup":43}],162:[function(require,module,exports){
 arguments[4][80][0].apply(exports,arguments)
-},{"dup":80}],158:[function(require,module,exports){
+},{"./lib/default-attributes":163,"dup":80,"lodash.assign":164,"lodash.isstring":175,"setattributes":176}],163:[function(require,module,exports){
 arguments[4][81][0].apply(exports,arguments)
-},{"dup":81,"lodash._bindcallback":159,"lodash._isiterateecall":160,"lodash.restparam":161}],159:[function(require,module,exports){
+},{"dup":81}],164:[function(require,module,exports){
 arguments[4][82][0].apply(exports,arguments)
-},{"dup":82}],160:[function(require,module,exports){
+},{"dup":82,"lodash._baseassign":165,"lodash._createassigner":167,"lodash.keys":171}],165:[function(require,module,exports){
 arguments[4][83][0].apply(exports,arguments)
-},{"dup":83}],161:[function(require,module,exports){
+},{"dup":83,"lodash._basecopy":166,"lodash.keys":171}],166:[function(require,module,exports){
 arguments[4][84][0].apply(exports,arguments)
-},{"dup":84}],162:[function(require,module,exports){
+},{"dup":84}],167:[function(require,module,exports){
+arguments[4][85][0].apply(exports,arguments)
+},{"dup":85,"lodash._bindcallback":168,"lodash._isiterateecall":169,"lodash.restparam":170}],168:[function(require,module,exports){
+arguments[4][86][0].apply(exports,arguments)
+},{"dup":86}],169:[function(require,module,exports){
+arguments[4][87][0].apply(exports,arguments)
+},{"dup":87}],170:[function(require,module,exports){
+arguments[4][88][0].apply(exports,arguments)
+},{"dup":88}],171:[function(require,module,exports){
 arguments[4][48][0].apply(exports,arguments)
-},{"dup":48,"lodash._getnative":163,"lodash.isarguments":164,"lodash.isarray":165}],163:[function(require,module,exports){
+},{"dup":48,"lodash._getnative":172,"lodash.isarguments":173,"lodash.isarray":174}],172:[function(require,module,exports){
 arguments[4][49][0].apply(exports,arguments)
-},{"dup":49}],164:[function(require,module,exports){
+},{"dup":49}],173:[function(require,module,exports){
 arguments[4][45][0].apply(exports,arguments)
-},{"dup":45}],165:[function(require,module,exports){
+},{"dup":45}],174:[function(require,module,exports){
 arguments[4][46][0].apply(exports,arguments)
-},{"dup":46}],166:[function(require,module,exports){
+},{"dup":46}],175:[function(require,module,exports){
 arguments[4][51][0].apply(exports,arguments)
-},{"dup":51}],167:[function(require,module,exports){
+},{"dup":51}],176:[function(require,module,exports){
+arguments[4][94][0].apply(exports,arguments)
+},{"dup":94}],177:[function(require,module,exports){
+(function (global){
 'use strict';
 
 var braintreeUtil = require('braintree-utilities');
 var browser = require('../../shared/util/browser');
-var bus = require('braintree-bus');
+var Bus = require('braintree-bus');
 var constants = require('../../shared/constants');
 var PopupView = require('./popup-view');
 var ModalView = require('./modal-view');
 
 function AppView(options) {
   this.options = options || {};
+
+  this.bus = new Bus({
+    merchantUrl: global.location.href,
+    channel: this.options.channel
+  });
 
   this._initialize();
 }
@@ -7270,21 +7452,23 @@ AppView.prototype._initialize = function () {
   if (browser.isPopupSupported()) {
     this.app = new PopupView({
       src: this._buildUrl(),
-      isHermes: this.options.isHermes
+      isHermes: this.options.isHermes,
+      channel: this.options.channel
     });
   } else {
     this.app = new ModalView({
       src: this._buildUrl(),
       headless: this.options.headless,
       isHermes: this.options.isHermes,
-      insertFrameFunction: this.options.insertFrameFunction
+      insertFrameFunction: this.options.insertFrameFunction,
+      channel: this.options.channel
     });
   }
 
-  bus.subscribe(constants.events.CLOSE_APP, braintreeUtil.bind(this.close, this));
-  bus.subscribe(constants.events.FOCUS_APP, braintreeUtil.bind(this.focus, this));
-  bus.subscribe(bus.events.PAYMENT_METHOD_GENERATED, braintreeUtil.bind(this._handlePaymentMethodGenerated, this));
-  bus.subscribe(bus.events.UI_POPUP_FORCE_CLOSE, braintreeUtil.bind(this._handleForceClose, this));
+  this.bus.on(constants.events.CLOSE_APP, braintreeUtil.bind(this.close, this));
+  this.bus.on(constants.events.FOCUS_APP, braintreeUtil.bind(this.focus, this));
+  this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, braintreeUtil.bind(this._handlePaymentMethodGenerated, this));
+  this.bus.on(Bus.events.UI_POPUP_FORCE_CLOSE, braintreeUtil.bind(this._handleForceClose, this));
 };
 
 AppView.prototype._buildUrl = function () {
@@ -7292,6 +7476,7 @@ AppView.prototype._buildUrl = function () {
   url += '/pwpp/';
   url += constants.VERSION;
   url += '/html/braintree-frame.html';
+  url += '#' + this.options.channel;
 
   return url;
 };
@@ -7352,27 +7537,38 @@ AppView.prototype._handleClosed = function () {
 
 module.exports = AppView;
 
-},{"../../shared/constants":170,"../../shared/util/browser":175,"./modal-view":168,"./popup-view":169,"braintree-bus":143,"braintree-utilities":152}],168:[function(require,module,exports){
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"../../shared/constants":180,"../../shared/util/browser":185,"./modal-view":178,"./popup-view":179,"braintree-bus":149,"braintree-utilities":161}],178:[function(require,module,exports){
+(function (global){
 'use strict';
 
 var braintreeUtil = require('braintree-utilities');
 var browser = require('../../shared/util/browser');
 var constants = require('../../shared/constants');
-var bus = require('braintree-bus');
+var Bus = require('braintree-bus');
 var iframer = require('iframer');
 
 function ModalView(options) {
   this.options = options || {};
   this.container = document.body;
 
+  this.bus = new Bus({
+    merchantUrl: global.location.href,
+    channel: options.channel
+  });
+
   if (this.options.headless) {
     this._open = this._openHeadless;
   } else {
-    bus.on(constants.events.OPEN_MODAL, braintreeUtil.bind(this.open, this));
+    this._attachBusEvents();
   }
 
   this._initialize();
 }
+
+ModalView.prototype._attachBusEvents = function () {
+  this.bus.on(constants.events.OPEN_MODAL, braintreeUtil.bind(this.open, this));
+};
 
 ModalView.prototype._initialize = function () {
   var name = this.options.isHermes ? constants.HERMES_FRAME_NAME : constants.FRAME_NAME;
@@ -7402,7 +7598,7 @@ ModalView.prototype.isClosed = function () {
 };
 
 ModalView.prototype._openHeadless = function () {
-  bus.emit(constants.events.OPEN_MODAL);
+  this.bus.emit(constants.events.OPEN_MODAL);
 };
 
 ModalView.prototype._open = function () {
@@ -7412,7 +7608,7 @@ ModalView.prototype._open = function () {
     this.container.appendChild(this.el);
   }
 
-  bus.emit(constants.events.UI_MODAL_DID_OPEN, {source: constants.PAYPAL_INTEGRATION_NAME});
+  this.bus.emit(constants.events.UI_MODAL_DID_OPEN, {source: constants.PAYPAL_INTEGRATION_NAME});
 };
 
 ModalView.prototype.open = function () {
@@ -7425,20 +7621,27 @@ ModalView.prototype.close = function () {
   if (!this.isClosed()) {
     this.container.removeChild(this.el);
 
-    bus.emit(constants.events.UI_MODAL_DID_CLOSE, {source: constants.PAYPAL_INTEGRATION_NAME});
+    this.bus.emit(constants.events.UI_MODAL_DID_CLOSE, {source: constants.PAYPAL_INTEGRATION_NAME});
   }
 };
 
 module.exports = ModalView;
 
-},{"../../shared/constants":170,"../../shared/util/browser":175,"braintree-bus":143,"braintree-utilities":152,"iframer":153}],169:[function(require,module,exports){
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"../../shared/constants":180,"../../shared/util/browser":185,"braintree-bus":149,"braintree-utilities":161,"iframer":162}],179:[function(require,module,exports){
+(function (global){
 'use strict';
 
 var constants = require('../../shared/constants');
-var bus = require('braintree-bus');
+var Bus = require('braintree-bus');
 
 function PopupView(options) {
   this.options = options;
+
+  this.bus = new Bus({
+    merchantUrl: global.location.href,
+    channel: this.options.channel
+  });
 
   if (options.isHermes) {
     this.name = constants.HERMES_POPUP_NAME;
@@ -7490,7 +7693,7 @@ PopupView.prototype.open = function () {
     this.el = window.open(this.options.src, this.name, this._getPopupOptions());
     this.focus();
 
-    bus.emit(bus.events.UI_POPUP_DID_OPEN, {source: constants.PAYPAL_INTEGRATION_NAME});
+    this.bus.emit(Bus.events.UI_POPUP_DID_OPEN, {source: constants.PAYPAL_INTEGRATION_NAME});
   }
 };
 
@@ -7498,7 +7701,7 @@ PopupView.prototype.close = function () {
   if (this.el) {
     this.el.close();
 
-    bus.emit(bus.events.UI_POPUP_DID_CLOSE, {source: constants.PAYPAL_INTEGRATION_NAME});
+    this.bus.emit(Bus.events.UI_POPUP_DID_CLOSE, {source: constants.PAYPAL_INTEGRATION_NAME});
   }
 };
 
@@ -7510,11 +7713,12 @@ PopupView.prototype.focus = function () {
 
 module.exports = PopupView;
 
-},{"../../shared/constants":170,"braintree-bus":143}],170:[function(require,module,exports){
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"../../shared/constants":180,"braintree-bus":149}],180:[function(require,module,exports){
 'use strict';
 
 var i;
-var version = "1.5.7";
+var version = "1.5.8";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
@@ -7548,7 +7752,7 @@ for (i = 0; i < events.length; i++) {
   exports.events[events[i]] = 'paypal:' + events[i];
 }
 
-},{}],171:[function(require,module,exports){
+},{}],181:[function(require,module,exports){
 'use strict';
 
 var userAgent = require('./useragent');
@@ -7603,7 +7807,7 @@ module.exports = {
   isAndroidWebView: isAndroidWebView
 };
 
-},{"./platform":173,"./useragent":174}],172:[function(require,module,exports){
+},{"./platform":183,"./useragent":184}],182:[function(require,module,exports){
 'use strict';
 
 var userAgent = require('./useragent');
@@ -7630,7 +7834,7 @@ module.exports = {
   isDesktop: isDesktop
 };
 
-},{"./platform":173,"./useragent":174}],173:[function(require,module,exports){
+},{"./platform":183,"./useragent":184}],183:[function(require,module,exports){
 'use strict';
 
 var userAgent = require('./useragent');
@@ -7663,7 +7867,7 @@ module.exports = {
   isIos: isIos
 };
 
-},{"./useragent":174}],174:[function(require,module,exports){
+},{"./useragent":184}],184:[function(require,module,exports){
 'use strict';
 
 var nativeUserAgent = window.navigator.userAgent;
@@ -7684,7 +7888,7 @@ function matchUserAgent(pattern) {
 exports.getNativeUserAgent = getNativeUserAgent;
 exports.matchUserAgent = matchUserAgent;
 
-},{}],175:[function(require,module,exports){
+},{}],185:[function(require,module,exports){
 'use strict';
 
 var browser = require('../useragent/browser');
@@ -7800,7 +8004,7 @@ module.exports = {
   isMetroBrowser: isMetroBrowser
 };
 
-},{"../useragent/browser":171,"../useragent/device":172,"../useragent/platform":173,"../useragent/useragent":174}],176:[function(require,module,exports){
+},{"../useragent/browser":181,"../useragent/device":182,"../useragent/platform":183,"../useragent/useragent":184}],186:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -7865,7 +8069,7 @@ MessageBus.Message.prototype.reply = function (type, data) {
 
 module.exports = MessageBus;
 
-},{"braintree-utilities":186}],177:[function(require,module,exports){
+},{"braintree-utilities":196}],187:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -7914,7 +8118,7 @@ PubsubClient.prototype.unsubscribe = function (channel, handler) {
 
 module.exports = PubsubClient;
 
-},{"braintree-utilities":186}],178:[function(require,module,exports){
+},{"braintree-utilities":196}],188:[function(require,module,exports){
 'use strict';
 
 function PubsubServer(bus) {
@@ -7973,7 +8177,7 @@ PubsubServer.prototype.unsubscribe = function (channel, handler) {
 
 module.exports = PubsubServer;
 
-},{}],179:[function(require,module,exports){
+},{}],189:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -8006,7 +8210,7 @@ RPCClient.prototype.invoke = function (method, args, callback) {
 
 module.exports = RPCClient;
 
-},{"braintree-utilities":186}],180:[function(require,module,exports){
+},{"braintree-utilities":196}],190:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -8044,7 +8248,7 @@ RPCServer.prototype.define = function (method, handler) {
 
 module.exports = RPCServer;
 
-},{"braintree-utilities":186}],181:[function(require,module,exports){
+},{"braintree-utilities":196}],191:[function(require,module,exports){
 var MessageBus = require('./lib/message-bus');
 var PubsubClient = require('./lib/pubsub-client');
 var PubsubServer = require('./lib/pubsub-server');
@@ -8059,7 +8263,7 @@ module.exports = {
   RPCServer: RPCServer
 };
 
-},{"./lib/message-bus":176,"./lib/pubsub-client":177,"./lib/pubsub-server":178,"./lib/rpc-client":179,"./lib/rpc-server":180}],182:[function(require,module,exports){
+},{"./lib/message-bus":186,"./lib/pubsub-client":187,"./lib/pubsub-server":188,"./lib/rpc-client":189,"./lib/rpc-server":190}],192:[function(require,module,exports){
 'use strict';
 
 function normalizeElement (element, errorMessage) {
@@ -8083,7 +8287,7 @@ module.exports = {
   normalizeElement: normalizeElement
 };
 
-},{}],183:[function(require,module,exports){
+},{}],193:[function(require,module,exports){
 'use strict';
 
 function addEventListener(context, event, handler) {
@@ -8107,7 +8311,7 @@ module.exports = {
   addEventListener: addEventListener
 };
 
-},{}],184:[function(require,module,exports){
+},{}],194:[function(require,module,exports){
 'use strict';
 
 function isFunction(func) {
@@ -8125,25 +8329,29 @@ module.exports = {
   isFunction: isFunction
 };
 
-},{}],185:[function(require,module,exports){
+},{}],195:[function(require,module,exports){
 arguments[4][25][0].apply(exports,arguments)
-},{"dup":25}],186:[function(require,module,exports){
+},{"dup":25}],196:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
-},{"./lib/dom":182,"./lib/events":183,"./lib/fn":184,"./lib/url":185,"dup":26}],187:[function(require,module,exports){
+},{"./lib/dom":192,"./lib/events":193,"./lib/fn":194,"./lib/url":195,"dup":26}],197:[function(require,module,exports){
 arguments[4][35][0].apply(exports,arguments)
-},{"dup":35}],188:[function(require,module,exports){
+},{"dup":35}],198:[function(require,module,exports){
+arguments[4][36][0].apply(exports,arguments)
+},{"dup":36}],199:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"dup":22}],189:[function(require,module,exports){
-arguments[4][23][0].apply(exports,arguments)
-},{"dup":23}],190:[function(require,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"dup":24}],191:[function(require,module,exports){
+},{"dup":22}],200:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"dup":38}],201:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"dup":39}],202:[function(require,module,exports){
 arguments[4][40][0].apply(exports,arguments)
-},{"dup":40}],192:[function(require,module,exports){
+},{"dup":40}],203:[function(require,module,exports){
 arguments[4][41][0].apply(exports,arguments)
-},{"./array":187,"dup":41}],193:[function(require,module,exports){
-arguments[4][75][0].apply(exports,arguments)
-},{"./lib/array":187,"./lib/dom":188,"./lib/events":189,"./lib/fn":190,"./lib/string":191,"./lib/url":192,"dup":75}],194:[function(require,module,exports){
+},{"./array":197,"dup":41}],204:[function(require,module,exports){
+arguments[4][42][0].apply(exports,arguments)
+},{"dup":42}],205:[function(require,module,exports){
+arguments[4][43][0].apply(exports,arguments)
+},{"./lib/array":197,"./lib/base64":198,"./lib/dom":199,"./lib/events":200,"./lib/fn":201,"./lib/string":202,"./lib/url":203,"./lib/uuid":204,"dup":43}],206:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -8199,35 +8407,37 @@ FormNapper.prototype.submit = function () {
 module.exports = FormNapper;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],195:[function(require,module,exports){
-arguments[4][76][0].apply(exports,arguments)
-},{"./lib/default-attributes":196,"dup":76,"lodash.assign":197,"lodash.isstring":208}],196:[function(require,module,exports){
-arguments[4][77][0].apply(exports,arguments)
-},{"dup":77}],197:[function(require,module,exports){
-arguments[4][78][0].apply(exports,arguments)
-},{"dup":78,"lodash._baseassign":198,"lodash._createassigner":200,"lodash.keys":204}],198:[function(require,module,exports){
-arguments[4][79][0].apply(exports,arguments)
-},{"dup":79,"lodash._basecopy":199,"lodash.keys":204}],199:[function(require,module,exports){
+},{}],207:[function(require,module,exports){
 arguments[4][80][0].apply(exports,arguments)
-},{"dup":80}],200:[function(require,module,exports){
+},{"./lib/default-attributes":208,"dup":80,"lodash.assign":209,"lodash.isstring":220,"setattributes":221}],208:[function(require,module,exports){
 arguments[4][81][0].apply(exports,arguments)
-},{"dup":81,"lodash._bindcallback":201,"lodash._isiterateecall":202,"lodash.restparam":203}],201:[function(require,module,exports){
+},{"dup":81}],209:[function(require,module,exports){
 arguments[4][82][0].apply(exports,arguments)
-},{"dup":82}],202:[function(require,module,exports){
+},{"dup":82,"lodash._baseassign":210,"lodash._createassigner":212,"lodash.keys":216}],210:[function(require,module,exports){
 arguments[4][83][0].apply(exports,arguments)
-},{"dup":83}],203:[function(require,module,exports){
+},{"dup":83,"lodash._basecopy":211,"lodash.keys":216}],211:[function(require,module,exports){
 arguments[4][84][0].apply(exports,arguments)
-},{"dup":84}],204:[function(require,module,exports){
+},{"dup":84}],212:[function(require,module,exports){
+arguments[4][85][0].apply(exports,arguments)
+},{"dup":85,"lodash._bindcallback":213,"lodash._isiterateecall":214,"lodash.restparam":215}],213:[function(require,module,exports){
+arguments[4][86][0].apply(exports,arguments)
+},{"dup":86}],214:[function(require,module,exports){
+arguments[4][87][0].apply(exports,arguments)
+},{"dup":87}],215:[function(require,module,exports){
+arguments[4][88][0].apply(exports,arguments)
+},{"dup":88}],216:[function(require,module,exports){
 arguments[4][48][0].apply(exports,arguments)
-},{"dup":48,"lodash._getnative":205,"lodash.isarguments":206,"lodash.isarray":207}],205:[function(require,module,exports){
+},{"dup":48,"lodash._getnative":217,"lodash.isarguments":218,"lodash.isarray":219}],217:[function(require,module,exports){
 arguments[4][49][0].apply(exports,arguments)
-},{"dup":49}],206:[function(require,module,exports){
+},{"dup":49}],218:[function(require,module,exports){
 arguments[4][45][0].apply(exports,arguments)
-},{"dup":45}],207:[function(require,module,exports){
+},{"dup":45}],219:[function(require,module,exports){
 arguments[4][46][0].apply(exports,arguments)
-},{"dup":46}],208:[function(require,module,exports){
+},{"dup":46}],220:[function(require,module,exports){
 arguments[4][51][0].apply(exports,arguments)
-},{"dup":51}],209:[function(require,module,exports){
+},{"dup":51}],221:[function(require,module,exports){
+arguments[4][94][0].apply(exports,arguments)
+},{"dup":94}],222:[function(require,module,exports){
 'use strict';
 
 var RPC_METHOD_NAMES = ['getCreditCards', 'unlockCreditCard', 'sendAnalyticsEvents'];
@@ -8254,19 +8464,20 @@ APIProxyServer.prototype.attach = function (rpcServer) {
 
 module.exports = APIProxyServer;
 
-},{}],210:[function(require,module,exports){
+},{}],223:[function(require,module,exports){
+(function (global){
 'use strict';
 
 var htmlNode, bodyNode;
 var api = require('braintree-api');
-var bus = require('braintree-bus');
+var BraintreeBus = require('braintree-bus');
 var rpc = require('braintree-rpc');
 var utils = require('braintree-utilities');
 var APIProxyServer = require('./api-proxy-server');
 var MerchantFormManager = require('./merchant-form-manager');
 var FrameContainer = require('./frame-container');
 var constants = require('../shared/constants');
-var version = "1.8.7";
+var version = "1.8.8";
 var PayPalModalView = require('braintree-paypal/src/external/views/app-view');
 
 function getElementStyle(element, style) {
@@ -8297,6 +8508,7 @@ function isMobile() {
 function Client(settings) {
   var inlineFramePath, modalFramePath, formElement;
 
+  this.channel = settings.channel;
   this.merchantConfiguration = settings.merchantConfiguration;
   this.encodedClientToken = settings.gatewayConfiguration;
   this.analyticsConfiguration = settings.analyticsConfiguration;
@@ -8314,6 +8526,11 @@ function Client(settings) {
 
   this.paymentMethodNonceReceivedCallback = settings.merchantConfiguration.paymentMethodNonceReceived;
   this.clientToken = api.parseClientToken(settings.gatewayConfiguration);
+
+  this.braintreeBus = new BraintreeBus({
+    merchantUrl: global.location.href,
+    channel: settings.channel
+  });
 
   this.bus = new rpc.MessageBus(this.root);
   this.rpcServer = new rpc.RPCServer(this.bus);
@@ -8355,7 +8572,7 @@ Client.prototype.initialize = function () {
 
   this._initializeModal();
 
-  bus.emit(bus.events.ASYNC_DEPENDENCY_INITIALIZING);
+  this.braintreeBus.emit(BraintreeBus.events.ASYNC_DEPENDENCY_INITIALIZING);
   this.container.appendChild(this.frames.inline.element);
   bodyNode.appendChild(this.frames.modal.element);
 
@@ -8370,7 +8587,7 @@ Client.prototype.initialize = function () {
     self.configurationRequests = [];
   });
 
-  bus.on(bus.events.PAYMENT_METHOD_GENERATED, utils.bind(this._handleAltPayData, this));
+  this.braintreeBus.on(BraintreeBus.events.PAYMENT_METHOD_GENERATED, utils.bind(this._handleAltPayData, this));
 
   this.rpcServer.define('getConfiguration', function (reply) {
     reply({
@@ -8423,7 +8640,7 @@ Client.prototype.initialize = function () {
 };
 
 Client.prototype._createFrame = function (endpoint, name) {
-  return new FrameContainer(endpoint, name);
+  return new FrameContainer(endpoint, name, this.braintreeBus);
 };
 
 Client.prototype._initializeModal = function () {
@@ -8485,6 +8702,7 @@ Client.prototype._hideModal = function () {
 
 Client.prototype._configurePayPal = function () {
   this.paypalModalView = new PayPalModalView({
+    channel: this.channel,
     insertFrameFunction: this.paypalOptions.insertFrame,
     paypalBaseUrl: this.clientToken.paypal.baseUrl,
     isHermes: !!this.paypalOptions.singleUse && !!this.paypalOptions.amount && !!this.paypalOptions.currency
@@ -8511,11 +8729,12 @@ Client.prototype._findClosest = function (node, tagName) {
 
 module.exports = Client;
 
-},{"../shared/constants":214,"./api-proxy-server":209,"./frame-container":212,"./merchant-form-manager":213,"braintree-api":109,"braintree-bus":140,"braintree-paypal/src/external/views/app-view":167,"braintree-rpc":181,"braintree-utilities":193}],211:[function(require,module,exports){
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"../shared/constants":227,"./api-proxy-server":222,"./frame-container":225,"./merchant-form-manager":226,"braintree-api":114,"braintree-bus":145,"braintree-paypal/src/external/views/app-view":177,"braintree-rpc":191,"braintree-utilities":205}],224:[function(require,module,exports){
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.8.7";
+var VERSION = "1.8.8";
 
 function create(options) {
   var client = new Client(options);
@@ -8529,10 +8748,10 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"./client":210}],212:[function(require,module,exports){
+},{"./client":223}],225:[function(require,module,exports){
 'use strict';
 
-var bus = require('braintree-bus');
+var BraintreeBus = require('braintree-bus');
 var constants = require('../shared/constants');
 var iFramer = require('iframer');
 
@@ -8556,12 +8775,12 @@ function getTransitionEndEventName() {
   return null;
 }
 
-function listenForReady(el) {
+function listenForReady(el, braintreeBus) {
   var transitionEndEvent = getTransitionEndEventName();
 
   function handler(event) {
     if (event.target === el && event.propertyName === 'height') {
-      bus.emit(bus.events.ASYNC_DEPENDENCY_READY);
+      braintreeBus.emit(BraintreeBus.events.ASYNC_DEPENDENCY_READY);
       el.removeEventListener(transitionEndEvent, handler);
     }
   }
@@ -8570,15 +8789,14 @@ function listenForReady(el) {
     el.addEventListener(transitionEndEvent, handler);
   } else {
     setTimeout(function () {
-      bus.emit(bus.events.ASYNC_DEPENDENCY_READY);
+      braintreeBus.emit(BraintreeBus.events.ASYNC_DEPENDENCY_READY);
     }, 500);
   }
 }
 
-function FrameContainer(endpoint, name) {
+function FrameContainer(endpoint, name, braintreeBus) {
   var transition = 'height 210ms cubic-bezier(0.390, 0.575, 0.565, 1.000)';
-
-  this.element = iFramer({
+  var element = iFramer({
     name: name,
     width: '100%',
     height: '68',
@@ -8592,16 +8810,22 @@ function FrameContainer(endpoint, name) {
       zIndex: '9999'
     }
   });
-  this.element.src = endpoint;
+
+  this.element = element;
+
+  // Delayed so that browsers won't cache iframe URLs.
+  setTimeout(function () {
+    element.src = endpoint + '#' + braintreeBus.channel;
+  }, 0);
 
   if (name === constants.INLINE_FRAME_NAME) {
-    listenForReady(this.element);
+    listenForReady(element, braintreeBus);
   }
 }
 
 module.exports = FrameContainer;
 
-},{"../shared/constants":214,"braintree-bus":140,"iframer":195}],213:[function(require,module,exports){
+},{"../shared/constants":227,"braintree-bus":145,"iframer":207}],226:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -8688,7 +8912,7 @@ MerchantFormManager.prototype._triggerFormSubmission = function () {
 
 module.exports = MerchantFormManager;
 
-},{"braintree-utilities":193,"form-napper":194}],214:[function(require,module,exports){
+},{"braintree-utilities":205,"form-napper":206}],227:[function(require,module,exports){
 module.exports={
   "PAYPAL_INTEGRATION_NAME": "PayPal",
   "INLINE_FRAME_NAME": "braintree-dropin-frame",
@@ -8710,7 +8934,7 @@ module.exports={
   }
 }
 
-},{}],215:[function(require,module,exports){
+},{}],228:[function(require,module,exports){
 (function (global){
 'use strict';
 var ELEMENT_NODE = global.Node ? global.Node.ELEMENT_NODE : 1;
@@ -8766,24 +8990,29 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],216:[function(require,module,exports){
+},{}],229:[function(require,module,exports){
+(function (global){
 'use strict';
 
 var util = require('braintree-utilities');
 var fields = require('./fields');
-var bus = require('braintree-bus');
+var Bus = require('braintree-bus');
 var PaymentMethodModel = require('./models/payment-method-model');
 var ERROR_PAYLOAD = {
   message: 'Unable to process payments at this time',
   type: 'IMMEDIATE'
 };
 
-function Form(client, htmlForm, nonceInput, isCreditCardForm) {
+function Form(client, htmlForm, nonceInput, isCreditCardForm, channel) {
   this.client = client;
   this.htmlForm = htmlForm;
   this.isCreditCardForm = isCreditCardForm === false ? false : true;
   this.paymentMethodNonceInput = nonceInput;
   this.model = new PaymentMethodModel();
+  this.bus = new Bus({
+    merchantUrl: global.location.href,
+    channel: channel
+  });
   this.setEvents();
 }
 
@@ -8793,8 +9022,8 @@ Form.prototype.setEvents = function () {
   this.clearExternalNonce = util.bind(this.clearExternalNonce, this);
 
   util.addEventListener(this.htmlForm, 'submit', this.onSubmitHandler);
-  bus.on(bus.events.PAYMENT_METHOD_GENERATED, this.onExternalNonceReceived);
-  bus.on(bus.events.PAYMENT_METHOD_CANCELLED, this.clearExternalNonce);
+  this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, this.onExternalNonceReceived);
+  this.bus.on(Bus.events.PAYMENT_METHOD_CANCELLED, this.clearExternalNonce);
 };
 
 Form.prototype.handleSubmit = function (event) {
@@ -8851,7 +9080,7 @@ Form.prototype.onNonceReceived = function (err) {
   var form = this.htmlForm;
 
   if (err) {
-    bus.emit(bus.events.ERROR, ERROR_PAYLOAD);
+    this.bus.emit(Bus.events.ERROR, ERROR_PAYLOAD);
     return;
   }
 
@@ -8870,7 +9099,8 @@ Form.prototype.onNonceReceived = function (err) {
 
 module.exports = Form;
 
-},{"./fields":215,"./models/payment-method-model":218,"braintree-bus":221,"braintree-utilities":228}],217:[function(require,module,exports){
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./fields":228,"./models/payment-method-model":231,"braintree-bus":234,"braintree-utilities":246}],230:[function(require,module,exports){
 'use strict';
 
 module.exports = function getNonceInput(paymentMethodNonceInputField) {
@@ -8893,7 +9123,7 @@ module.exports = function getNonceInput(paymentMethodNonceInputField) {
   return nonceInput;
 };
 
-},{}],218:[function(require,module,exports){
+},{}],231:[function(require,module,exports){
 'use strict';
 
 function PaymentMethodModel() {
@@ -8914,7 +9144,7 @@ PaymentMethodModel.prototype.reset = function () {
 
 module.exports = PaymentMethodModel;
 
-},{}],219:[function(require,module,exports){
+},{}],232:[function(require,module,exports){
 'use strict';
 
 module.exports = function validateAnnotations(htmlForm) {
@@ -8949,205 +9179,225 @@ module.exports = function validateAnnotations(htmlForm) {
   }
 };
 
-},{}],220:[function(require,module,exports){
+},{}],233:[function(require,module,exports){
 'use strict';
 
 var Form = require('./lib/form');
 var validateAnnotations = require('./lib/validate-annotations');
 var getNonceInput = require('./lib/get-nonce-input');
 
-function setup(client, options) {
+function setup(apiClient, configuration) {
   var nonceInput, form;
-  var htmlForm = document.getElementById(options.id);
-  var isCreditCardForm = options && options.hasOwnProperty('useCreditCard') ? options.useCreditCard : true;
+  var merchantConfiguration = configuration.merchantConfiguration || {};
+  var htmlForm = document.getElementById(merchantConfiguration.id);
+  var isCreditCardForm = merchantConfiguration && merchantConfiguration.hasOwnProperty('useCreditCard') ? merchantConfiguration.useCreditCard : true;
 
   if (!htmlForm) {
-    throw new Error('Unable to find form with id: "' + options.id + '"');
+    throw new Error('Unable to find form with id: "' + merchantConfiguration.id + '"');
   }
 
   if (isCreditCardForm) {
     validateAnnotations(htmlForm);
   }
 
-  nonceInput = getNonceInput(options.paymentMethodNonceInputField);
+  nonceInput = getNonceInput(merchantConfiguration.paymentMethodNonceInputField);
   htmlForm.appendChild(nonceInput);
 
-  form = new Form(client, htmlForm, nonceInput, isCreditCardForm);
+  form = new Form(apiClient, htmlForm, nonceInput, isCreditCardForm, configuration.channel);
 
   return form;
 }
 
 module.exports = {setup: setup};
 
-},{"./lib/form":216,"./lib/get-nonce-input":217,"./lib/validate-annotations":219}],221:[function(require,module,exports){
+},{"./lib/form":229,"./lib/get-nonce-input":230,"./lib/validate-annotations":232}],234:[function(require,module,exports){
 arguments[4][52][0].apply(exports,arguments)
-},{"./lib/events":222,"dup":52,"framebus":223}],222:[function(require,module,exports){
+},{"./lib/check-origin":235,"./lib/events":236,"dup":52,"framebus":237}],235:[function(require,module,exports){
 arguments[4][53][0].apply(exports,arguments)
-},{"dup":53}],223:[function(require,module,exports){
+},{"dup":53}],236:[function(require,module,exports){
 arguments[4][54][0].apply(exports,arguments)
-},{"dup":54}],224:[function(require,module,exports){
-arguments[4][22][0].apply(exports,arguments)
-},{"dup":22}],225:[function(require,module,exports){
-arguments[4][23][0].apply(exports,arguments)
-},{"dup":23}],226:[function(require,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"dup":24}],227:[function(require,module,exports){
-arguments[4][25][0].apply(exports,arguments)
-},{"dup":25}],228:[function(require,module,exports){
-arguments[4][26][0].apply(exports,arguments)
-},{"./lib/dom":224,"./lib/events":225,"./lib/fn":226,"./lib/url":227,"dup":26}],229:[function(require,module,exports){
-arguments[4][2][0].apply(exports,arguments)
-},{"./coinbase-account":230,"./constants":231,"./credit-card":232,"./europe-bank-account":233,"./normalize-api-fields":235,"./parse-client-token":236,"./paypal-account":237,"./request/choose-driver":240,"./sepa-mandate":245,"./should-enable-cors":246,"./util":247,"braintree-3ds":256,"braintree-utilities":270,"dup":2}],230:[function(require,module,exports){
-arguments[4][3][0].apply(exports,arguments)
-},{"dup":3}],231:[function(require,module,exports){
-arguments[4][4][0].apply(exports,arguments)
-},{"dup":4}],232:[function(require,module,exports){
-arguments[4][5][0].apply(exports,arguments)
-},{"dup":5}],233:[function(require,module,exports){
-arguments[4][6][0].apply(exports,arguments)
-},{"dup":6}],234:[function(require,module,exports){
-arguments[4][7][0].apply(exports,arguments)
-},{"./constants":231,"./parse-client-token":236,"./request/choose-driver":240,"./should-enable-cors":246,"./util":247,"dup":7}],235:[function(require,module,exports){
-arguments[4][8][0].apply(exports,arguments)
-},{"dup":8}],236:[function(require,module,exports){
-arguments[4][9][0].apply(exports,arguments)
-},{"./polyfill":238,"braintree-utilities":270,"dup":9}],237:[function(require,module,exports){
-arguments[4][10][0].apply(exports,arguments)
-},{"dup":10}],238:[function(require,module,exports){
-arguments[4][11][0].apply(exports,arguments)
-},{"dup":11}],239:[function(require,module,exports){
-arguments[4][12][0].apply(exports,arguments)
-},{"../constants":231,"../util":247,"./parse-body":243,"./prep-body":244,"dup":12}],240:[function(require,module,exports){
-arguments[4][13][0].apply(exports,arguments)
-},{"../util":247,"./ajax-driver":239,"./jsonp-driver":241,"dup":13}],241:[function(require,module,exports){
-arguments[4][14][0].apply(exports,arguments)
-},{"../constants":231,"./jsonp":242,"dup":14}],242:[function(require,module,exports){
-arguments[4][15][0].apply(exports,arguments)
-},{"../util":247,"dup":15}],243:[function(require,module,exports){
-arguments[4][16][0].apply(exports,arguments)
-},{"dup":16}],244:[function(require,module,exports){
-arguments[4][17][0].apply(exports,arguments)
-},{"dup":17,"lodash.isstring":278}],245:[function(require,module,exports){
-arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],246:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],247:[function(require,module,exports){
-arguments[4][20][0].apply(exports,arguments)
-},{"dup":20,"lodash.isempty":271,"lodash.isobject":277}],248:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"./lib/client":229,"./lib/get-configuration":234,"./lib/parse-client-token":236,"./lib/util":247,"dup":21}],249:[function(require,module,exports){
-arguments[4][22][0].apply(exports,arguments)
-},{"dup":22}],250:[function(require,module,exports){
-arguments[4][23][0].apply(exports,arguments)
-},{"dup":23}],251:[function(require,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"dup":24}],252:[function(require,module,exports){
-arguments[4][25][0].apply(exports,arguments)
-},{"dup":25}],253:[function(require,module,exports){
-arguments[4][26][0].apply(exports,arguments)
-},{"./lib/dom":249,"./lib/events":250,"./lib/fn":251,"./lib/url":252,"dup":26}],254:[function(require,module,exports){
-arguments[4][27][0].apply(exports,arguments)
-},{"../shared/receiver":261,"braintree-utilities":253,"dup":27}],255:[function(require,module,exports){
-arguments[4][28][0].apply(exports,arguments)
-},{"./authorization_service":254,"./loader":257,"braintree-utilities":253,"dup":28}],256:[function(require,module,exports){
-arguments[4][29][0].apply(exports,arguments)
-},{"./client":255,"dup":29}],257:[function(require,module,exports){
-arguments[4][30][0].apply(exports,arguments)
-},{"./loader_display":258,"./loader_message":259,"./loader_spinner":260,"dup":30}],258:[function(require,module,exports){
-arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],259:[function(require,module,exports){
-arguments[4][32][0].apply(exports,arguments)
-},{"dup":32}],260:[function(require,module,exports){
-arguments[4][33][0].apply(exports,arguments)
-},{"dup":33}],261:[function(require,module,exports){
-arguments[4][34][0].apply(exports,arguments)
-},{"braintree-utilities":253,"dup":34}],262:[function(require,module,exports){
+},{"dup":54}],237:[function(require,module,exports){
+arguments[4][55][0].apply(exports,arguments)
+},{"dup":55}],238:[function(require,module,exports){
 arguments[4][35][0].apply(exports,arguments)
-},{"dup":35}],263:[function(require,module,exports){
+},{"dup":35}],239:[function(require,module,exports){
 arguments[4][36][0].apply(exports,arguments)
-},{"dup":36}],264:[function(require,module,exports){
+},{"dup":36}],240:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"dup":22}],265:[function(require,module,exports){
+},{"dup":22}],241:[function(require,module,exports){
 arguments[4][38][0].apply(exports,arguments)
-},{"dup":38}],266:[function(require,module,exports){
+},{"dup":38}],242:[function(require,module,exports){
 arguments[4][39][0].apply(exports,arguments)
-},{"dup":39}],267:[function(require,module,exports){
+},{"dup":39}],243:[function(require,module,exports){
 arguments[4][40][0].apply(exports,arguments)
-},{"dup":40}],268:[function(require,module,exports){
+},{"dup":40}],244:[function(require,module,exports){
 arguments[4][41][0].apply(exports,arguments)
-},{"./array":262,"dup":41}],269:[function(require,module,exports){
+},{"./array":238,"dup":41}],245:[function(require,module,exports){
 arguments[4][42][0].apply(exports,arguments)
-},{"dup":42}],270:[function(require,module,exports){
+},{"dup":42}],246:[function(require,module,exports){
 arguments[4][43][0].apply(exports,arguments)
-},{"./lib/array":262,"./lib/base64":263,"./lib/dom":264,"./lib/events":265,"./lib/fn":266,"./lib/string":267,"./lib/url":268,"./lib/uuid":269,"dup":43}],271:[function(require,module,exports){
-arguments[4][44][0].apply(exports,arguments)
-},{"dup":44,"lodash.isarguments":272,"lodash.isarray":273,"lodash.isfunction":274,"lodash.isstring":278,"lodash.keys":275}],272:[function(require,module,exports){
-arguments[4][45][0].apply(exports,arguments)
-},{"dup":45}],273:[function(require,module,exports){
-arguments[4][46][0].apply(exports,arguments)
-},{"dup":46}],274:[function(require,module,exports){
-arguments[4][47][0].apply(exports,arguments)
-},{"dup":47}],275:[function(require,module,exports){
-arguments[4][48][0].apply(exports,arguments)
-},{"dup":48,"lodash._getnative":276,"lodash.isarguments":272,"lodash.isarray":273}],276:[function(require,module,exports){
-arguments[4][49][0].apply(exports,arguments)
-},{"dup":49}],277:[function(require,module,exports){
-arguments[4][50][0].apply(exports,arguments)
-},{"dup":50}],278:[function(require,module,exports){
-arguments[4][51][0].apply(exports,arguments)
-},{"dup":51}],279:[function(require,module,exports){
-arguments[4][52][0].apply(exports,arguments)
-},{"./lib/events":280,"dup":52,"framebus":281}],280:[function(require,module,exports){
-arguments[4][53][0].apply(exports,arguments)
-},{"dup":53}],281:[function(require,module,exports){
-arguments[4][54][0].apply(exports,arguments)
-},{"dup":54}],282:[function(require,module,exports){
-arguments[4][35][0].apply(exports,arguments)
-},{"dup":35}],283:[function(require,module,exports){
+},{"./lib/array":238,"./lib/base64":239,"./lib/dom":240,"./lib/events":241,"./lib/fn":242,"./lib/string":243,"./lib/url":244,"./lib/uuid":245,"dup":43}],247:[function(require,module,exports){
+arguments[4][2][0].apply(exports,arguments)
+},{"./coinbase-account":248,"./constants":249,"./credit-card":250,"./europe-bank-account":251,"./normalize-api-fields":253,"./parse-client-token":254,"./paypal-account":255,"./request/choose-driver":258,"./sepa-mandate":263,"./should-enable-cors":264,"./util":265,"braintree-3ds":274,"braintree-utilities":288,"dup":2}],248:[function(require,module,exports){
+arguments[4][3][0].apply(exports,arguments)
+},{"dup":3}],249:[function(require,module,exports){
+arguments[4][4][0].apply(exports,arguments)
+},{"dup":4}],250:[function(require,module,exports){
+arguments[4][5][0].apply(exports,arguments)
+},{"dup":5}],251:[function(require,module,exports){
+arguments[4][6][0].apply(exports,arguments)
+},{"dup":6}],252:[function(require,module,exports){
+arguments[4][7][0].apply(exports,arguments)
+},{"./constants":249,"./parse-client-token":254,"./request/choose-driver":258,"./should-enable-cors":264,"./util":265,"dup":7}],253:[function(require,module,exports){
+arguments[4][8][0].apply(exports,arguments)
+},{"dup":8}],254:[function(require,module,exports){
+arguments[4][9][0].apply(exports,arguments)
+},{"./polyfill":256,"braintree-utilities":288,"dup":9}],255:[function(require,module,exports){
+arguments[4][10][0].apply(exports,arguments)
+},{"dup":10}],256:[function(require,module,exports){
+arguments[4][11][0].apply(exports,arguments)
+},{"dup":11}],257:[function(require,module,exports){
+arguments[4][12][0].apply(exports,arguments)
+},{"../constants":249,"../util":265,"./parse-body":261,"./prep-body":262,"dup":12}],258:[function(require,module,exports){
+arguments[4][13][0].apply(exports,arguments)
+},{"../util":265,"./ajax-driver":257,"./jsonp-driver":259,"dup":13}],259:[function(require,module,exports){
+arguments[4][14][0].apply(exports,arguments)
+},{"../constants":249,"./jsonp":260,"dup":14}],260:[function(require,module,exports){
+arguments[4][15][0].apply(exports,arguments)
+},{"../util":265,"dup":15}],261:[function(require,module,exports){
+arguments[4][16][0].apply(exports,arguments)
+},{"dup":16}],262:[function(require,module,exports){
+arguments[4][17][0].apply(exports,arguments)
+},{"dup":17,"lodash.isstring":296}],263:[function(require,module,exports){
+arguments[4][18][0].apply(exports,arguments)
+},{"dup":18}],264:[function(require,module,exports){
+arguments[4][19][0].apply(exports,arguments)
+},{"dup":19}],265:[function(require,module,exports){
+arguments[4][20][0].apply(exports,arguments)
+},{"dup":20,"lodash.isempty":289,"lodash.isobject":295}],266:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"./lib/client":247,"./lib/get-configuration":252,"./lib/parse-client-token":254,"./lib/util":265,"dup":21}],267:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"dup":22}],284:[function(require,module,exports){
+},{"dup":22}],268:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
-},{"dup":23}],285:[function(require,module,exports){
+},{"dup":23}],269:[function(require,module,exports){
 arguments[4][24][0].apply(exports,arguments)
-},{"dup":24}],286:[function(require,module,exports){
+},{"dup":24}],270:[function(require,module,exports){
+arguments[4][25][0].apply(exports,arguments)
+},{"dup":25}],271:[function(require,module,exports){
+arguments[4][26][0].apply(exports,arguments)
+},{"./lib/dom":267,"./lib/events":268,"./lib/fn":269,"./lib/url":270,"dup":26}],272:[function(require,module,exports){
+arguments[4][27][0].apply(exports,arguments)
+},{"../shared/receiver":279,"braintree-utilities":271,"dup":27}],273:[function(require,module,exports){
+arguments[4][28][0].apply(exports,arguments)
+},{"./authorization_service":272,"./loader":275,"braintree-utilities":271,"dup":28}],274:[function(require,module,exports){
+arguments[4][29][0].apply(exports,arguments)
+},{"./client":273,"dup":29}],275:[function(require,module,exports){
+arguments[4][30][0].apply(exports,arguments)
+},{"./loader_display":276,"./loader_message":277,"./loader_spinner":278,"dup":30}],276:[function(require,module,exports){
+arguments[4][31][0].apply(exports,arguments)
+},{"dup":31}],277:[function(require,module,exports){
+arguments[4][32][0].apply(exports,arguments)
+},{"dup":32}],278:[function(require,module,exports){
+arguments[4][33][0].apply(exports,arguments)
+},{"dup":33}],279:[function(require,module,exports){
+arguments[4][34][0].apply(exports,arguments)
+},{"braintree-utilities":271,"dup":34}],280:[function(require,module,exports){
+arguments[4][35][0].apply(exports,arguments)
+},{"dup":35}],281:[function(require,module,exports){
+arguments[4][36][0].apply(exports,arguments)
+},{"dup":36}],282:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],283:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"dup":38}],284:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"dup":39}],285:[function(require,module,exports){
 arguments[4][40][0].apply(exports,arguments)
-},{"dup":40}],287:[function(require,module,exports){
+},{"dup":40}],286:[function(require,module,exports){
 arguments[4][41][0].apply(exports,arguments)
-},{"./array":282,"dup":41}],288:[function(require,module,exports){
-arguments[4][75][0].apply(exports,arguments)
-},{"./lib/array":282,"./lib/dom":283,"./lib/events":284,"./lib/fn":285,"./lib/string":286,"./lib/url":287,"dup":75}],289:[function(require,module,exports){
-arguments[4][76][0].apply(exports,arguments)
-},{"./lib/default-attributes":290,"dup":76,"lodash.assign":291,"lodash.isstring":302}],290:[function(require,module,exports){
-arguments[4][77][0].apply(exports,arguments)
-},{"dup":77}],291:[function(require,module,exports){
-arguments[4][78][0].apply(exports,arguments)
-},{"dup":78,"lodash._baseassign":292,"lodash._createassigner":294,"lodash.keys":298}],292:[function(require,module,exports){
-arguments[4][79][0].apply(exports,arguments)
-},{"dup":79,"lodash._basecopy":293,"lodash.keys":298}],293:[function(require,module,exports){
-arguments[4][80][0].apply(exports,arguments)
-},{"dup":80}],294:[function(require,module,exports){
-arguments[4][81][0].apply(exports,arguments)
-},{"dup":81,"lodash._bindcallback":295,"lodash._isiterateecall":296,"lodash.restparam":297}],295:[function(require,module,exports){
-arguments[4][82][0].apply(exports,arguments)
-},{"dup":82}],296:[function(require,module,exports){
-arguments[4][83][0].apply(exports,arguments)
-},{"dup":83}],297:[function(require,module,exports){
-arguments[4][84][0].apply(exports,arguments)
-},{"dup":84}],298:[function(require,module,exports){
-arguments[4][48][0].apply(exports,arguments)
-},{"dup":48,"lodash._getnative":299,"lodash.isarguments":300,"lodash.isarray":301}],299:[function(require,module,exports){
-arguments[4][49][0].apply(exports,arguments)
-},{"dup":49}],300:[function(require,module,exports){
+},{"./array":280,"dup":41}],287:[function(require,module,exports){
+arguments[4][42][0].apply(exports,arguments)
+},{"dup":42}],288:[function(require,module,exports){
+arguments[4][43][0].apply(exports,arguments)
+},{"./lib/array":280,"./lib/base64":281,"./lib/dom":282,"./lib/events":283,"./lib/fn":284,"./lib/string":285,"./lib/url":286,"./lib/uuid":287,"dup":43}],289:[function(require,module,exports){
+arguments[4][44][0].apply(exports,arguments)
+},{"dup":44,"lodash.isarguments":290,"lodash.isarray":291,"lodash.isfunction":292,"lodash.isstring":296,"lodash.keys":293}],290:[function(require,module,exports){
 arguments[4][45][0].apply(exports,arguments)
-},{"dup":45}],301:[function(require,module,exports){
+},{"dup":45}],291:[function(require,module,exports){
 arguments[4][46][0].apply(exports,arguments)
-},{"dup":46}],302:[function(require,module,exports){
+},{"dup":46}],292:[function(require,module,exports){
+arguments[4][47][0].apply(exports,arguments)
+},{"dup":47}],293:[function(require,module,exports){
+arguments[4][48][0].apply(exports,arguments)
+},{"dup":48,"lodash._getnative":294,"lodash.isarguments":290,"lodash.isarray":291}],294:[function(require,module,exports){
+arguments[4][49][0].apply(exports,arguments)
+},{"dup":49}],295:[function(require,module,exports){
+arguments[4][50][0].apply(exports,arguments)
+},{"dup":50}],296:[function(require,module,exports){
 arguments[4][51][0].apply(exports,arguments)
-},{"dup":51}],303:[function(require,module,exports){
+},{"dup":51}],297:[function(require,module,exports){
+arguments[4][52][0].apply(exports,arguments)
+},{"./lib/check-origin":298,"./lib/events":299,"dup":52,"framebus":300}],298:[function(require,module,exports){
+arguments[4][53][0].apply(exports,arguments)
+},{"dup":53}],299:[function(require,module,exports){
+arguments[4][54][0].apply(exports,arguments)
+},{"dup":54}],300:[function(require,module,exports){
+arguments[4][55][0].apply(exports,arguments)
+},{"dup":55}],301:[function(require,module,exports){
+arguments[4][35][0].apply(exports,arguments)
+},{"dup":35}],302:[function(require,module,exports){
+arguments[4][36][0].apply(exports,arguments)
+},{"dup":36}],303:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"dup":22}],304:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"dup":38}],305:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"dup":39}],306:[function(require,module,exports){
+arguments[4][40][0].apply(exports,arguments)
+},{"dup":40}],307:[function(require,module,exports){
+arguments[4][41][0].apply(exports,arguments)
+},{"./array":301,"dup":41}],308:[function(require,module,exports){
+arguments[4][42][0].apply(exports,arguments)
+},{"dup":42}],309:[function(require,module,exports){
+arguments[4][43][0].apply(exports,arguments)
+},{"./lib/array":301,"./lib/base64":302,"./lib/dom":303,"./lib/events":304,"./lib/fn":305,"./lib/string":306,"./lib/url":307,"./lib/uuid":308,"dup":43}],310:[function(require,module,exports){
+arguments[4][80][0].apply(exports,arguments)
+},{"./lib/default-attributes":311,"dup":80,"lodash.assign":312,"lodash.isstring":323,"setattributes":324}],311:[function(require,module,exports){
+arguments[4][81][0].apply(exports,arguments)
+},{"dup":81}],312:[function(require,module,exports){
+arguments[4][82][0].apply(exports,arguments)
+},{"dup":82,"lodash._baseassign":313,"lodash._createassigner":315,"lodash.keys":319}],313:[function(require,module,exports){
+arguments[4][83][0].apply(exports,arguments)
+},{"dup":83,"lodash._basecopy":314,"lodash.keys":319}],314:[function(require,module,exports){
+arguments[4][84][0].apply(exports,arguments)
+},{"dup":84}],315:[function(require,module,exports){
+arguments[4][85][0].apply(exports,arguments)
+},{"dup":85,"lodash._bindcallback":316,"lodash._isiterateecall":317,"lodash.restparam":318}],316:[function(require,module,exports){
+arguments[4][86][0].apply(exports,arguments)
+},{"dup":86}],317:[function(require,module,exports){
+arguments[4][87][0].apply(exports,arguments)
+},{"dup":87}],318:[function(require,module,exports){
+arguments[4][88][0].apply(exports,arguments)
+},{"dup":88}],319:[function(require,module,exports){
+arguments[4][48][0].apply(exports,arguments)
+},{"dup":48,"lodash._getnative":320,"lodash.isarguments":321,"lodash.isarray":322}],320:[function(require,module,exports){
+arguments[4][49][0].apply(exports,arguments)
+},{"dup":49}],321:[function(require,module,exports){
+arguments[4][45][0].apply(exports,arguments)
+},{"dup":45}],322:[function(require,module,exports){
+arguments[4][46][0].apply(exports,arguments)
+},{"dup":46}],323:[function(require,module,exports){
+arguments[4][51][0].apply(exports,arguments)
+},{"dup":51}],324:[function(require,module,exports){
+arguments[4][94][0].apply(exports,arguments)
+},{"dup":94}],325:[function(require,module,exports){
+(function (global){
 'use strict';
 
 var braintreeUtil = require('braintree-utilities');
-var bus = require('braintree-bus');
+var Bus = require('braintree-bus');
 var AppView = require('./views/app-view');
 var LoggedInView = require('./views/logged-in-view');
 var LoggedOutView = require('./views/logged-out-view');
@@ -9159,13 +9409,19 @@ var browser = require('../shared/util/browser');
 var constants = require('../shared/constants');
 var util = require('../shared/util/util');
 
-function Client(clientToken, options) {
+function Client(clientToken, options, channel) {
   options = options || {};
 
   this._clientToken = clientToken;
   this._clientOptions = options;
 
   this._clientToken.correlationId = util.generateUid();
+
+  this.channel = channel;
+  this.bus = new Bus({
+    merchantUrl: global.location.href,
+    channel: this.channel
+  });
 
   this.container = braintreeUtil.normalizeElement(options.container);
   this.paymentMethodNonceInputField = options.paymentMethodNonceInputField;
@@ -9186,19 +9442,19 @@ function Client(clientToken, options) {
 Client.prototype.initialize = function () {
   this._createViews();
 
-  bus.subscribe(
+  this.bus.on(
     constants.events.GET_CLIENT_TOKEN,
     braintreeUtil.bind(this._handleGetClientToken, this)
   );
 
-  bus.subscribe(
+  this.bus.on(
     constants.events.GET_CLIENT_OPTIONS,
     braintreeUtil.bind(this._handleGetClientOptions, this)
   );
 
   if (this.insertUI) {
-    bus.subscribe(
-      bus.events.PAYMENT_METHOD_GENERATED,
+    this.bus.on(
+      Bus.events.PAYMENT_METHOD_GENERATED,
       braintreeUtil.bind(this._handlePaymentMethodGenerated, this)
     );
   }
@@ -9212,7 +9468,10 @@ Client.prototype.initialize = function () {
 
 Client.prototype._createViews = function () {
   if (browser.isBridgeIframeRequired()) {
-    this.bridgeIframeView = new BridgeIframeView(this._clientToken.paypal.baseUrl);
+    this.bridgeIframeView = new BridgeIframeView({
+      paypalBaseUrl: this._clientToken.paypal.baseUrl,
+      channel: this.channel
+    });
     this.container.appendChild(this.bridgeIframeView.el);
   }
 
@@ -9220,35 +9479,43 @@ Client.prototype._createViews = function () {
     insertFrameFunction: this.insertFrameFunction,
     paypalBaseUrl: this._clientToken.paypal.baseUrl,
     isHermes: util.isHermesConfiguration(this._clientOptions),
-    headless: this._clientOptions.headless
+    headless: this._clientOptions.headless,
+    container: this.container,
+    channel: this.channel
   });
 
   if (!this.insertUI) { return; }
 
   this.paymentMethodNonceInputFieldView = new PaymentMethodNonceInputFieldView({
     container: this.container,
-    el: this.paymentMethodNonceInputField
+    el: this.paymentMethodNonceInputField,
+    channel: this.channel
   });
 
-  this.merchantPageView = new MerchantPageView();
+  this.merchantPageView = new MerchantPageView({
+    channel: this.channel
+  });
 
   this.loggedInView = new LoggedInView({
     assetsUrl: this._clientToken.paypal.assetsUrl,
-    container: this.container
+    container: this.container,
+    channel: this.channel
   });
 
   this.loggedOutView = new LoggedOutView({
     assetsUrl: this._clientToken.paypal.assetsUrl,
     container: this.container,
     isHermes: util.isHermesConfiguration(this._clientOptions),
-    locale: this._clientOptions.locale
+    locale: this._clientOptions.locale,
+    channel: this.channel
   });
 
   if (browser.isPopupSupported() && browser.isOverlaySupported()) {
     this.overlayView = new OverlayView({
       assetsUrl: this._clientToken.paypal.assetsUrl,
-      onFocus: function () { bus.emit(constants.events.FOCUS_APP); },
-      onClose: function () { bus.emit(constants.events.CLOSE_APP); }
+      onFocus: braintreeUtil.bind(function () { this.bus.emit(constants.events.FOCUS_APP); }, this),
+      onClose: braintreeUtil.bind(function () { this.bus.emit(constants.events.CLOSE_APP); }, this),
+      channel: this.channel
     });
   }
 };
@@ -9298,6 +9565,7 @@ Client.prototype._clientTokenData = function () {
     paypalClientId: this._clientToken.paypal.clientId,
     paypalPrivacyUrl: this._clientToken.paypal.privacyUrl,
     paypalUserAgreementUrl: this._clientToken.paypal.userAgreementUrl,
+    billingAgreementEnabled: this._clientToken.paypal.billingAgreementsEnabled,
     unvettedMerchant: this._clientToken.paypal.unvettedMerchant,
     payeeEmail: this._clientToken.paypal.payeeEmail,
     correlationId: this._clientToken.correlationId,
@@ -9332,7 +9600,8 @@ Client.prototype._handleGetClientOptions = function (callback) {
 
 module.exports = Client;
 
-},{"../shared/constants":314,"../shared/util/browser":321,"../shared/util/util":323,"./views/app-view":305,"./views/bridge-iframe-view":306,"./views/logged-in-view":307,"./views/logged-out-view":308,"./views/merchant-page-view":309,"./views/overlay-view":311,"./views/payment-method-nonce-input-field-view":312,"braintree-bus":279,"braintree-utilities":288}],304:[function(require,module,exports){
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"../shared/constants":336,"../shared/util/browser":343,"../shared/util/util":345,"./views/app-view":327,"./views/bridge-iframe-view":328,"./views/logged-in-view":329,"./views/logged-out-view":330,"./views/merchant-page-view":331,"./views/overlay-view":333,"./views/payment-method-nonce-input-field-view":334,"braintree-bus":297,"braintree-utilities":309}],326:[function(require,module,exports){
 'use strict';
 
 var Client = require('./client');
@@ -9340,11 +9609,12 @@ var browser = require('../shared/util/browser');
 var constants = require('../shared/constants');
 var getLocale = require('../shared/get-locale');
 var isHermesConfiguration = require('../shared/util/util').isHermesConfiguration;
-var VERSION = "1.5.7";
+var isOneTimeHermesConfiguration = require('../shared/util/util').isOneTimeHermesConfiguration;
+var VERSION = "1.5.8";
 var braintreeUtil = require('braintree-utilities');
 var braintreeApi = require('braintree-api');
 
-function create(clientToken, options) {
+function create(clientToken, options, channel) {
   var client, onUnsupported;
   options = options || {};
   onUnsupported = options.onUnsupported;
@@ -9390,12 +9660,14 @@ function create(clientToken, options) {
   }
 
   if (isHermesConfiguration(options)) {
-    if (!isHermesSupportedCurrency(options.currency)) {
-      onUnsupported(new Error('This PayPal integration does not support this currency'));
+    if (!isHermesSupportedCountry(options.locale)) {
+      onUnsupported(new Error('This PayPal integration does not support this country'));
       return null;
     }
+  }
 
-    if (!isHermesSupportedCountry(options.locale)) {
+  if (isOneTimeHermesConfiguration(options)) {
+    if (!isHermesSupportedCurrency(options.currency)) {
       onUnsupported(new Error('This PayPal integration does not support this currency'));
       return null;
     }
@@ -9406,7 +9678,7 @@ function create(clientToken, options) {
     }
   }
 
-  client = new Client(clientToken, options);
+  client = new Client(clientToken, options, channel);
   client.initialize();
 
   return client;
@@ -9456,17 +9728,19 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"../shared/constants":314,"../shared/get-locale":316,"../shared/util/browser":321,"../shared/util/util":323,"./client":303,"braintree-api":248,"braintree-utilities":288}],305:[function(require,module,exports){
-arguments[4][167][0].apply(exports,arguments)
-},{"../../shared/constants":314,"../../shared/util/browser":321,"./modal-view":310,"./popup-view":313,"braintree-bus":279,"braintree-utilities":288,"dup":167}],306:[function(require,module,exports){
+},{"../shared/constants":336,"../shared/get-locale":338,"../shared/util/browser":343,"../shared/util/util":345,"./client":325,"braintree-api":266,"braintree-utilities":309}],327:[function(require,module,exports){
+arguments[4][177][0].apply(exports,arguments)
+},{"../../shared/constants":336,"../../shared/util/browser":343,"./modal-view":332,"./popup-view":335,"braintree-bus":297,"braintree-utilities":309,"dup":177}],328:[function(require,module,exports){
 'use strict';
 
 var constants = require('../../shared/constants');
 var iframer = require('iframer');
 
-function BridgeIframeView(baseUrl) {
+function BridgeIframeView(options) {
+  this.options = options || {};
+
   this.el = iframer({
-    src: this._buildUrl(baseUrl),
+    src: this._buildUrl(),
     name: constants.BRIDGE_FRAME_NAME,
     height: 1,
     width: 1,
@@ -9484,22 +9758,24 @@ function BridgeIframeView(baseUrl) {
   });
 }
 
-BridgeIframeView.prototype._buildUrl = function (baseUrl) {
-  var url = baseUrl;
+BridgeIframeView.prototype._buildUrl = function () {
+  var url = this.options.paypalBaseUrl;
   url += '/pwpp/';
   url += constants.VERSION;
   url += '/html/bridge-frame.html';
+  url += '#' + this.options.channel;
 
   return url;
 };
 
 module.exports = BridgeIframeView;
 
-},{"../../shared/constants":314,"iframer":289}],307:[function(require,module,exports){
+},{"../../shared/constants":336,"iframer":310}],329:[function(require,module,exports){
+(function (global){
 'use strict';
 
 var braintreeUtil = require('braintree-utilities');
-var bus = require('braintree-bus');
+var Bus = require('braintree-bus');
 var util = require('../../shared/util/util');
 var dom = require('../../shared/util/dom');
 var constants = require('../../shared/constants');
@@ -9507,6 +9783,11 @@ var constants = require('../../shared/constants');
 function LoggedInView(options) {
   this.options = options || {};
   this.wrapper = this.options.container || document.body;
+
+  this.bus = new Bus({
+    merchantUrl: global.location.href,
+    channel: options.channel
+  });
 
   this._initialize();
 }
@@ -9519,8 +9800,8 @@ LoggedInView.prototype._initialize = function () {
 
   braintreeUtil.addEventListener(this.logoutNode, 'click', braintreeUtil.bind(this._handleClickLogout, this));
 
-  bus.subscribe(bus.events.PAYMENT_METHOD_GENERATED, braintreeUtil.bind(this._handlePaymentMethodGenerated, this));
-  bus.subscribe(bus.events.PAYMENT_METHOD_CANCELLED, braintreeUtil.bind(this._handlePaymentMethodCancelled, this));
+  this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, braintreeUtil.bind(this._handlePaymentMethodGenerated, this));
+  this.bus.on(Bus.events.PAYMENT_METHOD_CANCELLED, braintreeUtil.bind(this._handlePaymentMethodCancelled, this));
 };
 
 LoggedInView.prototype._createViewContainer = function () {
@@ -9624,7 +9905,7 @@ LoggedInView.prototype.hide = function () {
 LoggedInView.prototype._handleClickLogout = function (event) {
   util.preventDefault(event);
 
-  bus.emit(bus.events.PAYMENT_METHOD_CANCELLED, {source: constants.PAYPAL_INTEGRATION_NAME});
+  this.bus.emit(Bus.events.PAYMENT_METHOD_CANCELLED, {source: constants.PAYPAL_INTEGRATION_NAME});
 };
 
 LoggedInView.prototype._handlePaymentMethodGenerated = function (bundle) {
@@ -9644,17 +9925,24 @@ LoggedInView.prototype._handlePaymentMethodCancelled = function (event) {
 
 module.exports = LoggedInView;
 
-},{"../../shared/constants":314,"../../shared/util/dom":322,"../../shared/util/util":323,"braintree-bus":279,"braintree-utilities":288}],308:[function(require,module,exports){
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"../../shared/constants":336,"../../shared/util/dom":344,"../../shared/util/util":345,"braintree-bus":297,"braintree-utilities":309}],330:[function(require,module,exports){
+(function (global){
 'use strict';
 
 var braintreeUtil = require('braintree-utilities');
-var bus = require('braintree-bus');
+var Bus = require('braintree-bus');
 var constants = require('../../shared/constants');
 var getLocale = require('../../shared/get-locale');
 
 function LoggedOutView(options) {
   this.options = options;
   this.wrapper = this.options.container || document.body;
+
+  this.bus = new Bus({
+    merchantUrl: global.location.href,
+    channel: options.channel
+  });
 
   this._initialize();
 }
@@ -9668,8 +9956,8 @@ LoggedOutView.prototype._initialize = function () {
     this.createPayWithPayPalButton();
   }
 
-  bus.subscribe(bus.events.PAYMENT_METHOD_GENERATED, braintreeUtil.bind(this._handlePaymentMethodGenerated, this));
-  bus.subscribe(bus.events.PAYMENT_METHOD_CANCELLED, braintreeUtil.bind(this._handlePaymentMethodCancelled, this));
+  this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, braintreeUtil.bind(this._handlePaymentMethodGenerated, this));
+  this.bus.on(Bus.events.PAYMENT_METHOD_CANCELLED, braintreeUtil.bind(this._handlePaymentMethodCancelled, this));
 };
 
 LoggedOutView.prototype.createViewContainer = function () {
@@ -9747,16 +10035,25 @@ LoggedOutView.prototype._handlePaymentMethodCancelled = function (event) {
 
 module.exports = LoggedOutView;
 
-},{"../../shared/constants":314,"../../shared/get-locale":316,"braintree-bus":279,"braintree-utilities":288}],309:[function(require,module,exports){
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"../../shared/constants":336,"../../shared/get-locale":338,"braintree-bus":297,"braintree-utilities":309}],331:[function(require,module,exports){
+(function (global){
 'use strict';
 
-var bus = require('braintree-bus');
+var Bus = require('braintree-bus');
 var braintreeUtil = require('braintree-utilities');
 var constants = require('../../shared/constants');
 
-function MerchantPageView() {
-  bus.subscribe(constants.events.UI_MODAL_DID_OPEN, braintreeUtil.bind(this.lockWindowSize, this));
-  bus.subscribe(constants.events.UI_MODAL_DID_CLOSE, braintreeUtil.bind(this.unlockWindowSize, this));
+function MerchantPageView(options) {
+  this.options = options;
+
+  this.bus = new Bus({
+    merchantUrl: global.location.href,
+    channel: options.channel
+  });
+
+  this.bus.on(constants.events.UI_MODAL_DID_OPEN, braintreeUtil.bind(this.lockWindowSize, this));
+  this.bus.on(constants.events.UI_MODAL_DID_CLOSE, braintreeUtil.bind(this.unlockWindowSize, this));
 }
 
 MerchantPageView.prototype.lockWindowSize = function () {
@@ -9811,23 +10108,30 @@ function getMerchantPageDefaultStyles() {
 
 module.exports = MerchantPageView;
 
-},{"../../shared/constants":314,"braintree-bus":279,"braintree-utilities":288}],310:[function(require,module,exports){
-arguments[4][168][0].apply(exports,arguments)
-},{"../../shared/constants":314,"../../shared/util/browser":321,"braintree-bus":279,"braintree-utilities":288,"dup":168,"iframer":289}],311:[function(require,module,exports){
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"../../shared/constants":336,"braintree-bus":297,"braintree-utilities":309}],332:[function(require,module,exports){
+arguments[4][178][0].apply(exports,arguments)
+},{"../../shared/constants":336,"../../shared/util/browser":343,"braintree-bus":297,"braintree-utilities":309,"dup":178,"iframer":310}],333:[function(require,module,exports){
+(function (global){
 'use strict';
 var braintreeUtil = require('braintree-utilities');
-var bus = require('braintree-bus');
+var Bus = require('braintree-bus');
 var constants = require('../../shared/constants');
 
 function OverlayView(options) {
   this.options = options;
   this.spriteSrc = this.options.assetsUrl + '/pwpp/' + constants.VERSION + '/images/pp_overlay_sprite.png';
 
+  this.bus = new Bus({
+    merchantUrl: global.location.href,
+    channel: options.channel
+  });
+
   this._create();
   this._setupEvents();
 
-  bus.subscribe(bus.events.UI_POPUP_DID_OPEN, braintreeUtil.bind(this._handleUIPopupDidOpen, this));
-  bus.subscribe(bus.events.UI_POPUP_DID_CLOSE, braintreeUtil.bind(this._handleUIPopupDidClose, this));
+  this.bus.on(Bus.events.UI_POPUP_DID_OPEN, braintreeUtil.bind(this._handleUIPopupDidOpen, this));
+  this.bus.on(Bus.events.UI_POPUP_DID_CLOSE, braintreeUtil.bind(this._handleUIPopupDidClose, this));
 }
 
 OverlayView.prototype.open = function () {
@@ -9984,17 +10288,24 @@ OverlayView.prototype._handleFocus = function (event) {
 
 module.exports = OverlayView;
 
-},{"../../shared/constants":314,"braintree-bus":279,"braintree-utilities":288}],312:[function(require,module,exports){
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"../../shared/constants":336,"braintree-bus":297,"braintree-utilities":309}],334:[function(require,module,exports){
+(function (global){
 'use strict';
 
 var braintreeUtil = require('braintree-utilities');
-var bus = require('braintree-bus');
+var Bus = require('braintree-bus');
 var constants = require('../../shared/constants');
 
 function PaymentMethodNonceInputFieldView(options) {
   this.options = options || {};
   this.container = this.options.container || document.body;
   this.el = this.options.el;
+
+  this.bus = new Bus({
+    merchantUrl: global.location.href,
+    channel: options.channel
+  });
 
   this._initialize();
 }
@@ -10008,8 +10319,8 @@ PaymentMethodNonceInputFieldView.prototype._initialize = function () {
     }
   }
 
-  bus.subscribe(bus.events.PAYMENT_METHOD_GENERATED, braintreeUtil.bind(this._handlePaymentMethodGenerated, this));
-  bus.subscribe(bus.events.PAYMENT_METHOD_CANCELLED, braintreeUtil.bind(this._handlePaymentMethodCancelled, this));
+  this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, braintreeUtil.bind(this._handlePaymentMethodGenerated, this));
+  this.bus.on(Bus.events.PAYMENT_METHOD_CANCELLED, braintreeUtil.bind(this._handlePaymentMethodCancelled, this));
 };
 
 PaymentMethodNonceInputFieldView.prototype.create = function () {
@@ -10046,11 +10357,12 @@ PaymentMethodNonceInputFieldView.prototype._handlePaymentMethodGenerated = funct
 
 module.exports = PaymentMethodNonceInputFieldView;
 
-},{"../../shared/constants":314,"braintree-bus":279,"braintree-utilities":288}],313:[function(require,module,exports){
-arguments[4][169][0].apply(exports,arguments)
-},{"../../shared/constants":314,"braintree-bus":279,"dup":169}],314:[function(require,module,exports){
-arguments[4][170][0].apply(exports,arguments)
-},{"dup":170}],315:[function(require,module,exports){
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"../../shared/constants":336,"braintree-bus":297,"braintree-utilities":309}],335:[function(require,module,exports){
+arguments[4][179][0].apply(exports,arguments)
+},{"../../shared/constants":336,"braintree-bus":297,"dup":179}],336:[function(require,module,exports){
+arguments[4][180][0].apply(exports,arguments)
+},{"dup":180}],337:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -10082,7 +10394,7 @@ module.exports = {
   ru: 'ru_ru'
 };
 
-},{}],316:[function(require,module,exports){
+},{}],338:[function(require,module,exports){
 'use strict';
 
 var countryCodeLookupTable = require('../shared/data/country-code-lookup');
@@ -10125,17 +10437,17 @@ function getLocale(code) {
 
 module.exports = getLocale;
 
-},{"../shared/data/country-code-lookup":315}],317:[function(require,module,exports){
-arguments[4][171][0].apply(exports,arguments)
-},{"./platform":319,"./useragent":320,"dup":171}],318:[function(require,module,exports){
-arguments[4][172][0].apply(exports,arguments)
-},{"./platform":319,"./useragent":320,"dup":172}],319:[function(require,module,exports){
-arguments[4][173][0].apply(exports,arguments)
-},{"./useragent":320,"dup":173}],320:[function(require,module,exports){
-arguments[4][174][0].apply(exports,arguments)
-},{"dup":174}],321:[function(require,module,exports){
-arguments[4][175][0].apply(exports,arguments)
-},{"../useragent/browser":317,"../useragent/device":318,"../useragent/platform":319,"../useragent/useragent":320,"dup":175}],322:[function(require,module,exports){
+},{"../shared/data/country-code-lookup":337}],339:[function(require,module,exports){
+arguments[4][181][0].apply(exports,arguments)
+},{"./platform":341,"./useragent":342,"dup":181}],340:[function(require,module,exports){
+arguments[4][182][0].apply(exports,arguments)
+},{"./platform":341,"./useragent":342,"dup":182}],341:[function(require,module,exports){
+arguments[4][183][0].apply(exports,arguments)
+},{"./useragent":342,"dup":183}],342:[function(require,module,exports){
+arguments[4][184][0].apply(exports,arguments)
+},{"dup":184}],343:[function(require,module,exports){
+arguments[4][185][0].apply(exports,arguments)
+},{"../useragent/browser":339,"../useragent/device":340,"../useragent/platform":341,"../useragent/useragent":342,"dup":185}],344:[function(require,module,exports){
 'use strict';
 
 function setTextContent(element, content) {
@@ -10152,7 +10464,7 @@ module.exports = {
   setTextContent: setTextContent
 };
 
-},{}],323:[function(require,module,exports){
+},{}],345:[function(require,module,exports){
 'use strict';
 
 var trim = typeof String.prototype.trim === 'function' ?
@@ -10257,8 +10569,16 @@ function preventDefault(event) {
   }
 }
 
-function isHermesConfiguration(options) {
+function isOneTimeHermesConfiguration(options) {
   return !!options.singleUse && !!options.amount && !!options.currency;
+}
+
+function isBillingAgreementHermesConfiguration(options) {
+  return !!options.billingAgreementEnabled;
+}
+
+function isHermesConfiguration(options) {
+  return isBillingAgreementHermesConfiguration(options) || isOneTimeHermesConfiguration(options);
 }
 
 module.exports = {
@@ -10269,24 +10589,30 @@ module.exports = {
   htmlEscape: htmlEscape,
   parseUrlParams: parseUrlParams,
   preventDefault: preventDefault,
+  isOneTimeHermesConfiguration: isOneTimeHermesConfiguration,
+  isBillingAgreementHermesConfiguration: isBillingAgreementHermesConfiguration,
   isHermesConfiguration: isHermesConfiguration
 };
 
-},{}],324:[function(require,module,exports){
+},{}],346:[function(require,module,exports){
 arguments[4][35][0].apply(exports,arguments)
-},{"dup":35}],325:[function(require,module,exports){
+},{"dup":35}],347:[function(require,module,exports){
+arguments[4][36][0].apply(exports,arguments)
+},{"dup":36}],348:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"dup":22}],326:[function(require,module,exports){
-arguments[4][23][0].apply(exports,arguments)
-},{"dup":23}],327:[function(require,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"dup":24}],328:[function(require,module,exports){
+},{"dup":22}],349:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"dup":38}],350:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"dup":39}],351:[function(require,module,exports){
 arguments[4][40][0].apply(exports,arguments)
-},{"dup":40}],329:[function(require,module,exports){
+},{"dup":40}],352:[function(require,module,exports){
 arguments[4][41][0].apply(exports,arguments)
-},{"./array":324,"dup":41}],330:[function(require,module,exports){
-arguments[4][75][0].apply(exports,arguments)
-},{"./lib/array":324,"./lib/dom":325,"./lib/events":326,"./lib/fn":327,"./lib/string":328,"./lib/url":329,"dup":75}],331:[function(require,module,exports){
+},{"./array":346,"dup":41}],353:[function(require,module,exports){
+arguments[4][42][0].apply(exports,arguments)
+},{"dup":42}],354:[function(require,module,exports){
+arguments[4][43][0].apply(exports,arguments)
+},{"./lib/array":346,"./lib/base64":347,"./lib/dom":348,"./lib/events":349,"./lib/fn":350,"./lib/string":351,"./lib/url":352,"./lib/uuid":353,"dup":43}],355:[function(require,module,exports){
 /**
  * lodash 3.0.2 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -10351,7 +10677,7 @@ function cloneDeep(value, customizer, thisArg) {
 
 module.exports = cloneDeep;
 
-},{"lodash._baseclone":332,"lodash._bindcallback":342}],332:[function(require,module,exports){
+},{"lodash._baseclone":356,"lodash._bindcallback":366}],356:[function(require,module,exports){
 (function (global){
 /**
  * lodash 3.3.0 (Custom Build) <https://lodash.com/>
@@ -10626,7 +10952,7 @@ function isObject(value) {
 module.exports = baseClone;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"lodash._arraycopy":333,"lodash._arrayeach":334,"lodash._baseassign":335,"lodash._basefor":337,"lodash.isarray":338,"lodash.keys":339}],333:[function(require,module,exports){
+},{"lodash._arraycopy":357,"lodash._arrayeach":358,"lodash._baseassign":359,"lodash._basefor":361,"lodash.isarray":362,"lodash.keys":363}],357:[function(require,module,exports){
 /**
  * lodash 3.0.0 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -10657,7 +10983,7 @@ function arrayCopy(source, array) {
 
 module.exports = arrayCopy;
 
-},{}],334:[function(require,module,exports){
+},{}],358:[function(require,module,exports){
 /**
  * lodash 3.0.0 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -10690,11 +11016,11 @@ function arrayEach(array, iteratee) {
 
 module.exports = arrayEach;
 
-},{}],335:[function(require,module,exports){
-arguments[4][79][0].apply(exports,arguments)
-},{"dup":79,"lodash._basecopy":336,"lodash.keys":339}],336:[function(require,module,exports){
-arguments[4][80][0].apply(exports,arguments)
-},{"dup":80}],337:[function(require,module,exports){
+},{}],359:[function(require,module,exports){
+arguments[4][83][0].apply(exports,arguments)
+},{"dup":83,"lodash._basecopy":360,"lodash.keys":363}],360:[function(require,module,exports){
+arguments[4][84][0].apply(exports,arguments)
+},{"dup":84}],361:[function(require,module,exports){
 /**
  * lodash 3.0.2 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -10782,17 +11108,17 @@ function isObject(value) {
 
 module.exports = baseFor;
 
-},{}],338:[function(require,module,exports){
+},{}],362:[function(require,module,exports){
 arguments[4][46][0].apply(exports,arguments)
-},{"dup":46}],339:[function(require,module,exports){
+},{"dup":46}],363:[function(require,module,exports){
 arguments[4][48][0].apply(exports,arguments)
-},{"dup":48,"lodash._getnative":340,"lodash.isarguments":341,"lodash.isarray":338}],340:[function(require,module,exports){
+},{"dup":48,"lodash._getnative":364,"lodash.isarguments":365,"lodash.isarray":362}],364:[function(require,module,exports){
 arguments[4][49][0].apply(exports,arguments)
-},{"dup":49}],341:[function(require,module,exports){
+},{"dup":49}],365:[function(require,module,exports){
 arguments[4][45][0].apply(exports,arguments)
-},{"dup":45}],342:[function(require,module,exports){
-arguments[4][82][0].apply(exports,arguments)
-},{"dup":82}],343:[function(require,module,exports){
+},{"dup":45}],366:[function(require,module,exports){
+arguments[4][86][0].apply(exports,arguments)
+},{"dup":86}],367:[function(require,module,exports){
 /**
  * lodash 3.1.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -10849,19 +11175,19 @@ function create(prototype, properties, guard) {
 
 module.exports = create;
 
-},{"lodash._baseassign":344,"lodash._basecreate":350,"lodash._isiterateecall":351}],344:[function(require,module,exports){
-arguments[4][79][0].apply(exports,arguments)
-},{"dup":79,"lodash._basecopy":345,"lodash.keys":346}],345:[function(require,module,exports){
-arguments[4][80][0].apply(exports,arguments)
-},{"dup":80}],346:[function(require,module,exports){
+},{"lodash._baseassign":368,"lodash._basecreate":374,"lodash._isiterateecall":375}],368:[function(require,module,exports){
+arguments[4][83][0].apply(exports,arguments)
+},{"dup":83,"lodash._basecopy":369,"lodash.keys":370}],369:[function(require,module,exports){
+arguments[4][84][0].apply(exports,arguments)
+},{"dup":84}],370:[function(require,module,exports){
 arguments[4][48][0].apply(exports,arguments)
-},{"dup":48,"lodash._getnative":347,"lodash.isarguments":348,"lodash.isarray":349}],347:[function(require,module,exports){
+},{"dup":48,"lodash._getnative":371,"lodash.isarguments":372,"lodash.isarray":373}],371:[function(require,module,exports){
 arguments[4][49][0].apply(exports,arguments)
-},{"dup":49}],348:[function(require,module,exports){
+},{"dup":49}],372:[function(require,module,exports){
 arguments[4][45][0].apply(exports,arguments)
-},{"dup":45}],349:[function(require,module,exports){
+},{"dup":45}],373:[function(require,module,exports){
 arguments[4][46][0].apply(exports,arguments)
-},{"dup":46}],350:[function(require,module,exports){
+},{"dup":46}],374:[function(require,module,exports){
 /**
  * lodash 3.0.3 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -10920,9 +11246,9 @@ function isObject(value) {
 
 module.exports = baseCreate;
 
-},{}],351:[function(require,module,exports){
-arguments[4][83][0].apply(exports,arguments)
-},{"dup":83}],352:[function(require,module,exports){
+},{}],375:[function(require,module,exports){
+arguments[4][87][0].apply(exports,arguments)
+},{"dup":87}],376:[function(require,module,exports){
 'use strict';
 /* eslint-disable consistent-return */
 
@@ -10951,7 +11277,7 @@ function toSnakeCase(string) {
 
 module.exports = {convertToLegacyShippingAddress: convertToLegacyShippingAddress};
 
-},{}],353:[function(require,module,exports){
+},{}],377:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -10960,11 +11286,12 @@ module.exports = {
   ROOT_READY_CALLBACK: 'onReady'
 };
 
-},{}],354:[function(require,module,exports){
+},{}],378:[function(require,module,exports){
+(function (global){
 'use strict';
 
 var api = require('braintree-api');
-var bus = require('braintree-bus');
+var Bus = require('braintree-bus');
 var bind = require('braintree-utilities').bind;
 var constants = require('../constants');
 var sanitizePayload = require('../lib/sanitize-payload');
@@ -10981,8 +11308,8 @@ function _handleDependencyReady() {
   if (this._dependenciesRemaining === 0) {
     delete this._dependenciesRemaining;
 
-    bus.off(bus.events.ASYNC_DEPENDENCY_INITIALIZING, this._handleDependencyInitializing);
-    bus.off(bus.events.ASYNC_DEPENDENCY_READY, this._handleDependencyReady);
+    this.bus.off(Bus.events.ASYNC_DEPENDENCY_INITIALIZING, this._handleDependencyInitializing);
+    this.bus.off(Bus.events.ASYNC_DEPENDENCY_READY, this._handleDependencyReady);
 
     this._onIntegrationReady();
   }
@@ -10993,13 +11320,21 @@ function BaseIntegration(configuration) {
 
   this.isReady = false;
 
+  this.bus = new Bus({
+    channel: this.configuration.channel,
+    merchantUrl: global.location.href
+  });
+
   this._createApiClient();
   this._configureCallbacks();
   this._configureAnalytics();
   this._attachEvents();
-
-  bus.emit(bus.events.ASYNC_DEPENDENCY_INITIALIZING);
+  this._emitInitializing();
 }
+
+BaseIntegration.prototype._emitInitializing = function () {
+  this.bus.emit(Bus.events.ASYNC_DEPENDENCY_INITIALIZING);
+};
 
 BaseIntegration.prototype._createApiClient = function () {
   var apiClientOptions = {
@@ -11033,7 +11368,7 @@ BaseIntegration.prototype._configureAnalytics = function () {
   var prefix = 'web.' + this.configuration.integrationType + '.';
   var apiClient = this.apiClient;
 
-  bus.on(bus.events.SEND_ANALYTICS_EVENTS, function (events, callback) {
+  this.bus.on(Bus.events.SEND_ANALYTICS_EVENTS, function (events, callback) {
     var i;
 
     if (!(events instanceof Array)) {
@@ -11051,14 +11386,14 @@ BaseIntegration.prototype._configureAnalytics = function () {
 BaseIntegration.prototype._attachEvents = function () {
   var configuration = this.configuration;
 
-  bus.on(bus.events.ERROR, this.onError);
-  bus.on(bus.events.PAYMENT_METHOD_RECEIVED, this.onSuccess);
+  this.bus.on(Bus.events.ERROR, this.onError);
+  this.bus.on(Bus.events.PAYMENT_METHOD_RECEIVED, this.onSuccess);
 
-  bus.on(bus.events.WARNING, function (warning) {
+  this.bus.on(Bus.events.WARNING, function (warning) {
     try { console.warn(warning); } catch (e) { /* ignored */ } // eslint-disable-line no-console
   });
 
-  bus.on(bus.events.CONFIGURATION_REQUEST, function (reply) {
+  this.bus.on(Bus.events.CONFIGURATION_REQUEST, function (reply) {
     // TODO: Coinbase and Hosted Fields both expect this reply
     // in this format. We need to amend that
     reply({
@@ -11074,8 +11409,8 @@ BaseIntegration.prototype._attachEvents = function () {
   this._dependenciesRemaining = 0;
   this._handleDependencyInitializing = bind(_handleDependencyInitializing, this);
   this._handleDependencyReady = bind(_handleDependencyReady, this);
-  bus.on(bus.events.ASYNC_DEPENDENCY_INITIALIZING, this._handleDependencyInitializing);
-  bus.on(bus.events.ASYNC_DEPENDENCY_READY, this._handleDependencyReady);
+  this.bus.on(Bus.events.ASYNC_DEPENDENCY_INITIALIZING, this._handleDependencyInitializing);
+  this.bus.on(Bus.events.ASYNC_DEPENDENCY_READY, this._handleDependencyReady);
 };
 
 BaseIntegration.prototype._onIntegrationReady = function () {
@@ -11086,14 +11421,16 @@ BaseIntegration.prototype._onIntegrationReady = function () {
 
 module.exports = BaseIntegration;
 
-},{"../constants":353,"../lib/fallback-error-handler":360,"../lib/lookup-callback-for":361,"../lib/sanitize-payload":362,"braintree-api":21,"braintree-bus":52,"braintree-utilities":330}],355:[function(require,module,exports){
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"../constants":377,"../lib/fallback-error-handler":384,"../lib/lookup-callback-for":385,"../lib/sanitize-payload":386,"braintree-api":21,"braintree-bus":52,"braintree-utilities":354}],379:[function(require,module,exports){
 'use strict';
 
 var clone = require('lodash.clonedeep');
 var create = require('lodash.create');
 var api = require('braintree-api');
+var bind = require('braintree-utilities').bind;
 var coinbase = require('braintree-coinbase');
-var bus = require('braintree-bus');
+var Bus = require('braintree-bus');
 var BaseIntegration = require('./base-integration');
 
 function CoinbaseIntegration() {
@@ -11103,8 +11440,9 @@ function CoinbaseIntegration() {
 
   coinbaseConfiguration = clone(this.configuration.merchantConfiguration);
 
-  bus.on(bus.events.PAYMENT_METHOD_GENERATED, this._onPaymentMethodGenerated);
+  this._attachBusEvents();
 
+  coinbaseConfiguration.channel = this.configuration.channel;
   coinbaseConfiguration.configuration = clone(this.configuration.gatewayConfiguration);
   coinbaseConfiguration.coinbase = clone(coinbaseConfiguration.coinbase || {});
   coinbaseConfiguration.apiClient = new api.Client({
@@ -11115,20 +11453,24 @@ function CoinbaseIntegration() {
 
   coinbase.create(coinbaseConfiguration);
 
-  bus.emit(bus.events.ASYNC_DEPENDENCY_READY);
+  this.bus.emit(Bus.events.ASYNC_DEPENDENCY_READY);
 }
 
 CoinbaseIntegration.prototype = create(BaseIntegration.prototype, {
   constructor: CoinbaseIntegration
 });
 
+CoinbaseIntegration.prototype._attachBusEvents = function () {
+  this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, bind(this._onPaymentMethodGenerated, this));
+};
+
 CoinbaseIntegration.prototype._onPaymentMethodGenerated = function (payload) {
-  bus.emit(bus.events.PAYMENT_METHOD_RECEIVED, payload);
+  this.bus.emit(Bus.events.PAYMENT_METHOD_RECEIVED, payload);
 };
 
 module.exports = CoinbaseIntegration;
 
-},{"./base-integration":354,"braintree-api":21,"braintree-bus":52,"braintree-coinbase":55,"lodash.clonedeep":331,"lodash.create":343}],356:[function(require,module,exports){
+},{"./base-integration":378,"braintree-api":21,"braintree-bus":52,"braintree-coinbase":56,"braintree-utilities":354,"lodash.clonedeep":355,"lodash.create":367}],380:[function(require,module,exports){
 'use strict';
 
 var clone = require('lodash.clonedeep');
@@ -11138,7 +11480,7 @@ var paypal = require('braintree-paypal');
 var coinbase = require('braintree-coinbase');
 var utils = require('braintree-utilities');
 var constants = require('../constants');
-var bus = require('braintree-bus');
+var Bus = require('braintree-bus');
 var convertToLegacyShippingAddress = require('../compatibility').convertToLegacyShippingAddress;
 var BaseIntegration = require('./base-integration');
 
@@ -11149,7 +11491,7 @@ function CustomIntegration() {
   this._setupPayPal();
   this._setupCoinbase();
 
-  bus.emit(bus.events.ASYNC_DEPENDENCY_READY);
+  this.bus.emit(Bus.events.ASYNC_DEPENDENCY_READY);
 }
 
 CustomIntegration.prototype = create(BaseIntegration.prototype, {
@@ -11161,23 +11503,23 @@ CustomIntegration.prototype._setupForm = function () {
   var formShouldAutoSubmit, successCallback, formIntegration;
 
   if (merchantConfiguration.id) {
-    formIntegration = form.setup(this.apiClient, merchantConfiguration);
+    formIntegration = form.setup(this.apiClient, this.configuration);
 
     formShouldAutoSubmit = !utils.isFunction(merchantConfiguration[constants.ROOT_SUCCESS_CALLBACK]);
     if (!formShouldAutoSubmit) {
       successCallback = this.onSuccess;
-      formIntegration.onNonceReceived = function (err, payload) {
+      formIntegration.onNonceReceived = utils.bind(function (err, payload) {
         if (err) {
-          bus.emit(bus.events.ERROR, err);
+          this.bus.emit(Bus.events.ERROR, err); // eslint-disable-line no-invalid-this
         } else {
           successCallback(payload);
         }
-      };
+      }, this);
     }
   } else {
-    bus.on(bus.events.PAYMENT_METHOD_GENERATED, function (payload) {
-      bus.emit(bus.events.PAYMENT_METHOD_RECEIVED, payload);
-    });
+    this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, utils.bind(function (payload) {
+      this.bus.emit(Bus.events.PAYMENT_METHOD_RECEIVED, payload); // eslint-disable-line no-invalid-this
+    }, this));
   }
 };
 
@@ -11206,10 +11548,10 @@ CustomIntegration.prototype._setupPayPal = function () {
     );
   };
 
-  paypalConfiguration.onCancelled = function () {
-    bus.emit(bus.events.PAYMENT_METHOD_CANCELLED);
+  paypalConfiguration.onCancelled = utils.bind(function () {
+    this.bus.emit(Bus.events.PAYMENT_METHOD_CANCELLED); // eslint-disable-line no-invalid-this
     legacyPaypalCancelledCallback();
-  };
+  }, this);
 
   // In a custom integration, paypal options are nested inside of the paypal object
   // so the paypalConfiguration needs to be augmented with the value from the root
@@ -11219,14 +11561,16 @@ CustomIntegration.prototype._setupPayPal = function () {
     paypalConfiguration.enableCORS = true;
   }
 
-  paypal.create(this.configuration.gatewayConfiguration, paypalConfiguration);
+  paypal.create(this.configuration.gatewayConfiguration, paypalConfiguration, this.configuration.channel);
 };
 
 CustomIntegration.prototype._setupCoinbase = function () {
-  var coinbaseConfiguration = clone(this.configuration.merchantConfiguration);
+  var coinbaseConfiguration;
 
-  if (!coinbaseConfiguration.coinbase) { return; }
+  if (!this.configuration.merchantConfiguration.coinbase) { return; }
 
+  coinbaseConfiguration = clone(this.configuration.merchantConfiguration);
+  coinbaseConfiguration.channel = this.configuration.channel;
   coinbaseConfiguration.configuration = this.configuration.gatewayConfiguration;
   coinbaseConfiguration.apiClient = this.apiClient;
   delete coinbaseConfiguration.paypal;
@@ -11245,13 +11589,13 @@ function getIntegrationCallbackLookup(options, integration) {
 
 module.exports = CustomIntegration;
 
-},{"../compatibility":352,"../constants":353,"./base-integration":354,"braintree-bus":52,"braintree-coinbase":55,"braintree-form":220,"braintree-paypal":304,"braintree-utilities":330,"lodash.clonedeep":331,"lodash.create":343}],357:[function(require,module,exports){
+},{"../compatibility":376,"../constants":377,"./base-integration":378,"braintree-bus":52,"braintree-coinbase":56,"braintree-form":233,"braintree-paypal":326,"braintree-utilities":354,"lodash.clonedeep":355,"lodash.create":367}],381:[function(require,module,exports){
 'use strict';
 
 var create = require('lodash.create');
 var dropin = require('braintree-dropin');
 var utils = require('braintree-utilities');
-var bus = require('braintree-bus');
+var Bus = require('braintree-bus');
 var constants = require('../constants');
 var sanitizePayload = require('../lib/sanitize-payload');
 var BaseIntegration = require('./base-integration');
@@ -11278,18 +11622,18 @@ function DropinIntegration() {
   hasRootCallback = _hasRootCallback(merchantConfiguration);
 
   if (legacyCallback || hasRootCallback) {
-    merchantConfiguration.paymentMethodNonceReceived = function (payload) {
+    merchantConfiguration.paymentMethodNonceReceived = utils.bind(function (payload) {
       if (legacyCallback) {
         legacyCallback(payload.originalEvent, payload.nonce);
       }
 
-      bus.emit(bus.events.PAYMENT_METHOD_RECEIVED, sanitizePayload(payload));
-    };
+      this.bus.emit(Bus.events.PAYMENT_METHOD_RECEIVED, sanitizePayload(payload)); // eslint-disable-line no-invalid-this
+    }, this);
   }
 
   dropin.create(this.configuration);
 
-  bus.emit(bus.events.ASYNC_DEPENDENCY_READY);
+  this.bus.emit(Bus.events.ASYNC_DEPENDENCY_READY);
 }
 
 DropinIntegration.prototype = create(BaseIntegration.prototype, {
@@ -11298,7 +11642,7 @@ DropinIntegration.prototype = create(BaseIntegration.prototype, {
 
 module.exports = DropinIntegration;
 
-},{"../constants":353,"../lib/sanitize-payload":362,"./base-integration":354,"braintree-bus":52,"braintree-dropin":211,"braintree-utilities":330,"lodash.create":343}],358:[function(require,module,exports){
+},{"../constants":377,"../lib/sanitize-payload":386,"./base-integration":378,"braintree-bus":52,"braintree-dropin":224,"braintree-utilities":354,"lodash.create":367}],382:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -11308,14 +11652,14 @@ module.exports = {
   coinbase: require('./coinbase')
 };
 
-},{"./coinbase":355,"./custom":356,"./dropin":357,"./paypal":359}],359:[function(require,module,exports){
+},{"./coinbase":379,"./custom":380,"./dropin":381,"./paypal":383}],383:[function(require,module,exports){
 'use strict';
 
 var create = require('lodash.create');
 var paypal = require('braintree-paypal');
 var utils = require('braintree-utilities');
 var constants = require('../constants');
-var bus = require('braintree-bus');
+var Bus = require('braintree-bus');
 var convertToLegacyShippingAddress = require('../compatibility').convertToLegacyShippingAddress;
 var BaseIntegration = require('./base-integration');
 
@@ -11343,7 +11687,7 @@ function PayPalIntegration() {
   hasRootCallback = _hasRootCallback(merchantConfiguration);
 
   if (legacyCallback || hasRootCallback) {
-    merchantConfiguration.onSuccess = function (payload) {
+    merchantConfiguration.onSuccess = utils.bind(function (payload) {
       if (legacyCallback) {
         legacyCallback(
           payload.nonce,
@@ -11352,13 +11696,13 @@ function PayPalIntegration() {
         );
       }
 
-      bus.emit(bus.events.PAYMENT_METHOD_RECEIVED, payload);
-    };
+      this.bus.emit(Bus.events.PAYMENT_METHOD_RECEIVED, payload); // eslint-disable-line no-invalid-this
+    }, this);
   }
 
-  paypal.create(this.configuration.gatewayConfiguration, merchantConfiguration);
+  paypal.create(this.configuration.gatewayConfiguration, merchantConfiguration, this.configuration.channel);
 
-  bus.emit(bus.events.ASYNC_DEPENDENCY_READY);
+  this.bus.emit(Bus.events.ASYNC_DEPENDENCY_READY);
 }
 
 PayPalIntegration.prototype = create(BaseIntegration.prototype, {
@@ -11367,7 +11711,7 @@ PayPalIntegration.prototype = create(BaseIntegration.prototype, {
 
 module.exports = PayPalIntegration;
 
-},{"../compatibility":352,"../constants":353,"./base-integration":354,"braintree-bus":52,"braintree-paypal":304,"braintree-utilities":330,"lodash.create":343}],360:[function(require,module,exports){
+},{"../compatibility":376,"../constants":377,"./base-integration":378,"braintree-bus":52,"braintree-paypal":326,"braintree-utilities":354,"lodash.create":367}],384:[function(require,module,exports){
 'use strict';
 
 module.exports = function fallbackError(error) {
@@ -11380,7 +11724,7 @@ module.exports = function fallbackError(error) {
   }
 };
 
-},{}],361:[function(require,module,exports){
+},{}],385:[function(require,module,exports){
 'use strict';
 
 var isFunction = require('braintree-utilities').isFunction;
@@ -11399,7 +11743,7 @@ module.exports = function lookupCallbackFor(model) {
   };
 };
 
-},{"braintree-utilities":330}],362:[function(require,module,exports){
+},{"braintree-utilities":354}],386:[function(require,module,exports){
 'use strict';
 
 module.exports = function sanitizePayload(payload) {
