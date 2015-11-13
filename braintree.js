@@ -2745,7 +2745,7 @@ window.Braintree = Braintree;
 'use strict';
 /* eslint no-console: 0 */
 
-var VERSION = "2.10.0";
+var VERSION = "2.10.1";
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
@@ -6086,11 +6086,13 @@ Coinbase.prototype._insertFrame = function (container) {
 Coinbase.prototype._onOAuthSuccess = function (data) {
   if (!data.code) {
     this._sendAnalyticsEvent('popup.denied');
+    this._closePopup();
     return;
   }
 
   bus.emit('coinbase:view:navigate', 'loading');
   this._sendAnalyticsEvent('popup.authorized');
+
   this.apiClient.tokenizeCoinbase({ code: data.code, query: urlComposer.getQueryString() }, utils.bind(function (err, payload) {
     callbacks.tokenize.apply(null, [err, payload, this]);
   }, this));
@@ -6210,7 +6212,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "0.1.1",
+  VERSION: "0.1.2",
   INTEGRATION_NAME: 'Coinbase'
 };
 
@@ -8898,7 +8900,7 @@ var FrameContainer = require('./frame-container');
 var PayPalService = require('../shared/paypal-service');
 var constants = require('../shared/constants');
 var paypalBrowser = require('braintree-paypal/src/shared/util/browser');
-var version = "1.7.1";
+var version = "1.7.2";
 
 function getElementStyle(element, style) {
   var computedStyle = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
@@ -9144,7 +9146,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.7.1";
+var VERSION = "1.7.2";
 
 function create(clientToken, options) {
   var client;
