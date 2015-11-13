@@ -2745,7 +2745,7 @@ window.Braintree = Braintree;
 'use strict';
 /* eslint no-console: 0 */
 
-var VERSION = "2.11.1";
+var VERSION = "2.11.2";
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
@@ -2996,6 +2996,17 @@ Client.prototype.createSEPAMandate = function (attrs, callback) {
     util.joinUrlFragments([this.clientApiUrl, 'v1', 'sepa_mandates.json']),
     mergedAttrs,
     function (d) { return {sepaMandate: new SEPAMandate(d.europeBankAccounts[0].sepaMandates[0]), sepaBankAccount: new EuropeBankAccount(d.europeBankAccounts[0])}; },
+    callback,
+    this.requestTimeout
+  );
+};
+
+Client.prototype.getSEPAMandate = function (attrs, callback) {
+  var mergedAttrs = util.mergeOptions(this.attrs, attrs);
+  this.driver.get(
+    util.joinUrlFragments([this.clientApiUrl, 'v1', 'sepa_mandates.json']),
+    mergedAttrs,
+    function (d) { return {sepaMandate: new SEPAMandate(d.sepaMandates[0])}; },
     callback,
     this.requestTimeout
   );
@@ -6270,7 +6281,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "0.2.1",
+  VERSION: "0.2.2",
   INTEGRATION_NAME: 'Coinbase'
 };
 
@@ -8043,7 +8054,7 @@ OverlayView.prototype._pollForPopup = function () {
 module.exports = OverlayView;
 
 },{"../shared/constants":201,"braintree-utilities":196}],201:[function(require,module,exports){
-var version = "1.5.2";
+var version = "1.5.3";
 
 exports.VERSION = version;
 exports.POPUP_NAME = 'braintree_paypal_popup';
@@ -8964,7 +8975,7 @@ var FrameContainer = require('./frame-container');
 var PayPalService = require('../shared/paypal-service');
 var constants = require('../shared/constants');
 var paypalBrowser = require('braintree-paypal/src/shared/util/browser');
-var version = "1.8.2";
+var version = "1.8.3";
 
 function getElementStyle(element, style) {
   var computedStyle = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
@@ -9221,7 +9232,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.8.2";
+var VERSION = "1.8.3";
 
 function create(options) {
   var client = new Client(options);
@@ -9851,7 +9862,7 @@ arguments[4][197][0].apply(exports,arguments)
 },{"../shared/constants":328,"../shared/get-locale":330,"../shared/util/browser":335,"../shared/util/dom":336,"../shared/util/util":337,"./logged-in-view":325,"./logged-out-view":326,"./overlay-view":327,"braintree-api":284,"braintree-bus":313,"braintree-utilities":322,"dup":197}],324:[function(require,module,exports){
 var Client = require('./client');
 var browser = require('../shared/util/browser');
-var VERSION = "1.5.2";
+var VERSION = "1.5.3";
 
 function create(clientToken, options) {
   if (!browser.detectedPostMessage()) {
