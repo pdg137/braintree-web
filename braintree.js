@@ -2744,15 +2744,15 @@ window.Braintree = Braintree;
 (function (global){
 'use strict';
 
-var VERSION = "2.14.4";
-var api = require('braintree-api');
-var paypal = require('../paypal');
-var dropin = require('../dropin');
-var integrations = require('./integrations');
-var constants = require('./constants');
-var fallbackErrorHandler = require('./lib/fallback-error-handler');
-var lookupCallbackFor = require('./lib/lookup-callback-for');
-var uuid = require('braintree-utilities').uuid;
+var VERSION = "2.15.0";
+var api = require(15);
+var paypal = require(210);
+var dropin = require(196);
+var integrations = require(173);
+var constants = require(168);
+var fallbackErrorHandler = require(175);
+var lookupCallbackFor = require(177);
+var uuid = require(82).uuid;
 
 function setup(clientToken, integrationType, merchantConfiguration) {
   if (!integrations.hasOwnProperty(integrationType)) {
@@ -2791,29 +2791,29 @@ module.exports = {
   cse: global.Braintree,
   paypal: paypal,
   dropin: dropin,
-  hostedFields: {VERSION: require('../hosted-fields').VERSION},
+  hostedFields: {VERSION: require(204).VERSION},
   setup: setup,
   VERSION: VERSION
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../dropin":161,"../hosted-fields":169,"../paypal":175,"./constants":133,"./integrations":138,"./lib/fallback-error-handler":140,"./lib/lookup-callback-for":142,"braintree-api":15,"braintree-utilities":76}],2:[function(require,module,exports){
+},{"15":15,"168":168,"173":173,"175":175,"177":177,"196":196,"204":204,"210":210,"82":82}],2:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var braintreeUtils = require('braintree-utilities');
-var braintree3ds = require('braintree-3ds');
-var parseClientToken = require('./parse-client-token');
-var util = require('./util');
-var SEPAMandate = require('./sepa-mandate');
-var EuropeBankAccount = require('./europe-bank-account');
-var CreditCard = require('./credit-card');
-var CoinbaseAccount = require('./coinbase-account');
-var PayPalAccount = require('./paypal-account');
-var normalizeCreditCardFields = require('./normalize-api-fields').normalizeCreditCardFields;
-var chooseRequestDriver = require('braintree-request').chooseDriver;
-var shouldEnableCORS = require('./should-enable-cors');
-var constants = require('./constants');
+var bind = require(96);
+var braintree3ds = require(27);
+var parseClientToken = require(9);
+var util = require(14);
+var SEPAMandate = require(12);
+var EuropeBankAccount = require(6);
+var CreditCard = require(5);
+var CoinbaseAccount = require(3);
+var PayPalAccount = require(10);
+var normalizeCreditCardFields = require(8).normalizeCreditCardFields;
+var chooseRequestDriver = require(41).chooseDriver;
+var shouldEnableCORS = require(13);
+var constants = require(4);
 
 function getAnalyticsConfiguration(options) {
   var analyticsConfiguration = options.analyticsConfiguration || {};
@@ -2851,9 +2851,10 @@ function Client(options) {
     container: options.container,
     clientToken: parsedClientToken
   });
-  this.verify3DS = braintreeUtils.bind(secure3d.verify, secure3d);
+  this.verify3DS = bind(secure3d.verify, secure3d);
 
   this.attrs.sharedCustomerIdentifierType = options.sharedCustomerIdentifierType;
+  this.attrs.braintreeLibraryVersion = this.sdkVersion;
 
   if (parsedClientToken.merchantAccountId) {
     this.attrs.merchantAccountId = parsedClientToken.merchantAccountId;
@@ -3053,9 +3054,6 @@ Client.prototype.sendAnalyticsEvents = function (events, callback) {
   }
 
   attrs = util.mergeOptions(this.attrs, {
-    /*eslint-disable */
-    braintree_library_version: this.sdkVersion,
-    /*eslint-ensable */
     analytics: eventObjects,
     _meta: {
       merchantAppId: this.merchantAppId,
@@ -3146,7 +3144,7 @@ Client.prototype.getAmexExpressCheckoutNonceProfile = function (attrs, callback)
 module.exports = Client;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./coinbase-account":3,"./constants":4,"./credit-card":5,"./europe-bank-account":6,"./normalize-api-fields":8,"./parse-client-token":9,"./paypal-account":10,"./sepa-mandate":12,"./should-enable-cors":13,"./util":14,"braintree-3ds":27,"braintree-request":41,"braintree-utilities":50}],3:[function(require,module,exports){
+},{"10":10,"12":12,"13":13,"14":14,"27":27,"3":3,"4":4,"41":41,"5":5,"6":6,"8":8,"9":9,"96":96}],3:[function(require,module,exports){
 'use strict';
 
 var ATTRIBUTES = [
@@ -3235,11 +3233,11 @@ module.exports = EuropeBankAccount;
 },{}],7:[function(require,module,exports){
 'use strict';
 
-var parseClientToken = require('./parse-client-token');
-var util = require('./util');
-var chooseRequestDriver = require('braintree-request').chooseDriver;
-var shouldEnableCORS = require('./should-enable-cors');
-var constants = require('./constants');
+var parseClientToken = require(9);
+var util = require(14);
+var chooseRequestDriver = require(41).chooseDriver;
+var shouldEnableCORS = require(13);
+var constants = require(4);
 
 function _tokenizeClientKey(clientKey) {
   var tokens = clientKey.split('_');
@@ -3284,7 +3282,7 @@ function getConfiguration(options, callback) {
 
 module.exports = getConfiguration;
 
-},{"./constants":4,"./parse-client-token":9,"./should-enable-cors":13,"./util":14,"braintree-request":41}],8:[function(require,module,exports){
+},{"13":13,"14":14,"4":4,"41":41,"9":9}],8:[function(require,module,exports){
 'use strict';
 
 function normalizeCreditCardFields(attrs) {
@@ -3326,8 +3324,8 @@ module.exports = {
 },{}],9:[function(require,module,exports){
 'use strict';
 
-var braintreeUtils = require('braintree-utilities');
-require('./polyfill');
+var braintreeUtils = require(58);
+require(11);
 
 function parseClientToken(rawClientToken) {
   var clientToken;
@@ -3359,7 +3357,7 @@ function parseClientToken(rawClientToken) {
 
 module.exports = parseClientToken;
 
-},{"./polyfill":11,"braintree-utilities":50}],10:[function(require,module,exports){
+},{"11":11,"58":58}],10:[function(require,module,exports){
 'use strict';
 
 var ATTRIBUTES = [
@@ -3508,10 +3506,10 @@ module.exports = {
 },{}],15:[function(require,module,exports){
 'use strict';
 
-var Client = require('./lib/client');
-var util = require('./lib/util');
-var parseClientToken = require('./lib/parse-client-token');
-var getConfiguration = require('./lib/get-configuration');
+var Client = require(2);
+var util = require(14);
+var parseClientToken = require(9);
+var getConfiguration = require(7);
 
 function configure(options) {
   return new Client(options);
@@ -3525,7 +3523,7 @@ module.exports = {
   _getConfiguration: getConfiguration
 };
 
-},{"./lib/client":2,"./lib/get-configuration":7,"./lib/parse-client-token":9,"./lib/util":14}],16:[function(require,module,exports){
+},{"14":14,"2":2,"7":7,"9":9}],16:[function(require,module,exports){
 'use strict';
 
 var nativeIndexOf = Array.prototype.indexOf;
@@ -3712,7 +3710,7 @@ module.exports = {
 },{}],22:[function(require,module,exports){
 'use strict';
 
-var array = require('./array');
+var array = require(16);
 
 function isBrowserHttps() {
   return window.location.protocol === 'https:';
@@ -3811,7 +3809,7 @@ module.exports = {
   isWhitelistedDomain: isWhitelistedDomain
 };
 
-},{"./array":16}],23:[function(require,module,exports){
+},{"16":16}],23:[function(require,module,exports){
 'use strict';
 
 // RFC 4122 v4 (pseudo-random) UUID
@@ -3826,14 +3824,14 @@ function generate() {
 module.exports = generate;
 
 },{}],24:[function(require,module,exports){
-var dom = require('./lib/dom');
-var url = require('./lib/url');
-var fn = require('./lib/fn');
-var events = require('./lib/events');
-var string = require('./lib/string');
-var array = require('./lib/array');
-var base64 = require('./lib/base64');
-var uuid = require('./lib/uuid');
+var dom = require(18);
+var url = require(22);
+var fn = require(20);
+var events = require(19);
+var string = require(21);
+var array = require(16);
+var base64 = require(17);
+var uuid = require(23);
 
 module.exports = {
   string: string,
@@ -3853,11 +3851,11 @@ module.exports = {
   uuid: uuid
 };
 
-},{"./lib/array":16,"./lib/base64":17,"./lib/dom":18,"./lib/events":19,"./lib/fn":20,"./lib/string":21,"./lib/url":22,"./lib/uuid":23}],25:[function(require,module,exports){
+},{"16":16,"17":17,"18":18,"19":19,"20":20,"21":21,"22":22,"23":23}],25:[function(require,module,exports){
 'use strict';
 
-var utils = require('braintree-utilities');
-var Receiver = require('../shared/receiver');
+var utils = require(24);
+var Receiver = require(32);
 var version = "1.3.1";
 
 var htmlNode, bodyNode;
@@ -3988,12 +3986,12 @@ AuthenticationService.prototype.constructAuthorizationURL = function (response) 
 
 module.exports = AuthenticationService;
 
-},{"../shared/receiver":32,"braintree-utilities":24}],26:[function(require,module,exports){
+},{"24":24,"32":32}],26:[function(require,module,exports){
 'use strict';
 
-var utils = require('braintree-utilities');
-var AuthenticationService = require('./authorization_service');
-var Loader = require('./loader');
+var utils = require(24);
+var AuthenticationService = require(25);
+var Loader = require(28);
 
 function noop() {}
 
@@ -4147,10 +4145,10 @@ Client.prototype._onLookupComplete = function () {
 
 module.exports = Client;
 
-},{"./authorization_service":25,"./loader":28,"braintree-utilities":24}],27:[function(require,module,exports){
+},{"24":24,"25":25,"28":28}],27:[function(require,module,exports){
 'use strict';
 
-var Client = require('./client');
+var Client = require(26);
 
 module.exports = {
   create: function (clientToken, options) {
@@ -4159,12 +4157,12 @@ module.exports = {
   }
 };
 
-},{"./client":26}],28:[function(require,module,exports){
+},{"26":26}],28:[function(require,module,exports){
 'use strict';
 
-var LoaderDisplay = require('./loader_display');
-var LoaderMessage = require('./loader_message');
-var LoaderSpinner = require('./loader_spinner');
+var LoaderDisplay = require(29);
+var LoaderMessage = require(30);
+var LoaderSpinner = require(31);
 
 function Loader() {
   this._element = document.createElement('div');
@@ -4214,7 +4212,7 @@ Loader.prototype._initialize = function () {
 
 module.exports = Loader;
 
-},{"./loader_display":29,"./loader_message":30,"./loader_spinner":31}],29:[function(require,module,exports){
+},{"29":29,"30":30,"31":31}],29:[function(require,module,exports){
 'use strict';
 
 function LoaderDisplay(displayObject) {
@@ -4321,7 +4319,7 @@ module.exports = LoaderSpinner;
 },{}],32:[function(require,module,exports){
 'use strict';
 
-var utils = require('braintree-utilities');
+var utils = require(24);
 
 function Receiver (callback) {
   this.postMessageReceiver(callback);
@@ -4374,14 +4372,14 @@ Receiver.prototype.stopListening = function () {
 
 module.exports = Receiver;
 
-},{"braintree-utilities":24}],33:[function(require,module,exports){
+},{"24":24}],33:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var util = require('./util');
-var prepBody = require('./prep-body');
-var parseBody = require('./parse-body');
-var constants = require('./constants');
+var util = require(40);
+var prepBody = require(39);
+var parseBody = require(38);
+var constants = require(35);
 var isXHRAvailable = global.XMLHttpRequest && 'withCredentials' in new global.XMLHttpRequest();
 
 function getRequestObject() {
@@ -4451,12 +4449,12 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./constants":35,"./parse-body":38,"./prep-body":39,"./util":40}],34:[function(require,module,exports){
+},{"35":35,"38":38,"39":39,"40":40}],34:[function(require,module,exports){
 'use strict';
 
-var JSONPDriver = require('./jsonp-driver');
-var AJAXDriver = require('./ajax-driver');
-var util = require('./util');
+var JSONPDriver = require(36);
+var AJAXDriver = require(33);
+var util = require(40);
 
 function chooseRequestDriver(options) {
   var ua = util.getUserAgent();
@@ -4473,7 +4471,7 @@ function chooseRequestDriver(options) {
 
 module.exports = chooseRequestDriver;
 
-},{"./ajax-driver":33,"./jsonp-driver":36,"./util":40}],35:[function(require,module,exports){
+},{"33":33,"36":36,"40":40}],35:[function(require,module,exports){
 module.exports={
   "errors": {
     "UNKNOWN_ERROR": "Unknown error",
@@ -4484,8 +4482,8 @@ module.exports={
 },{}],36:[function(require,module,exports){
 'use strict';
 
-var JSONP = require('./jsonp');
-var constants = require('./constants');
+var JSONP = require(37);
+var constants = require(35);
 var timeoutWatchers = [];
 
 function deserialize(response, mapper) {
@@ -4538,11 +4536,11 @@ module.exports = {
   post: post
 };
 
-},{"./constants":35,"./jsonp":37}],37:[function(require,module,exports){
+},{"35":35,"37":37}],37:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var util = require('./util');
+var util = require(40);
 
 /*
 * Lightweight JSONP fetcher
@@ -4612,7 +4610,7 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./util":40}],38:[function(require,module,exports){
+},{"40":40}],38:[function(require,module,exports){
 'use strict';
 
 module.exports = function (body) {
@@ -4626,7 +4624,7 @@ module.exports = function (body) {
 },{}],39:[function(require,module,exports){
 'use strict';
 
-var isString = require('lodash.isstring');
+var isString = require(49);
 
 module.exports = function (method, body) {
   if (!isString(method)) {
@@ -4640,12 +4638,12 @@ module.exports = function (method, body) {
   return body;
 };
 
-},{"lodash.isstring":52}],40:[function(require,module,exports){
+},{"49":49}],40:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var isEmpty = require('lodash.isempty');
-var isObject = require('lodash.isobject');
+var isEmpty = require(42);
+var isObject = require(48);
 
 function isArray(value) {
   return value && typeof value === 'object' && typeof value.length === 'number' &&
@@ -4719,13 +4717,13 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"lodash.isempty":121,"lodash.isobject":51}],41:[function(require,module,exports){
+},{"42":42,"48":48}],41:[function(require,module,exports){
 'use strict';
 
-var AJAXDriver = require('./lib/ajax-driver');
-var JSONPDriver = require('./lib/jsonp-driver');
-var chooseDriver = require('./lib/choose-driver');
-var util = require('./lib/util');
+var AJAXDriver = require(33);
+var JSONPDriver = require(36);
+var chooseDriver = require(34);
+var util = require(40);
 
 module.exports = {
   AJAXDriver: AJAXDriver,
@@ -4734,25 +4732,869 @@ module.exports = {
   util: util
 };
 
-},{"./lib/ajax-driver":33,"./lib/choose-driver":34,"./lib/jsonp-driver":36,"./lib/util":40}],42:[function(require,module,exports){
-arguments[4][16][0].apply(exports,arguments)
-},{"dup":16}],43:[function(require,module,exports){
-arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],44:[function(require,module,exports){
-arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],45:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],46:[function(require,module,exports){
-arguments[4][20][0].apply(exports,arguments)
-},{"dup":20}],47:[function(require,module,exports){
-arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],48:[function(require,module,exports){
-arguments[4][22][0].apply(exports,arguments)
-},{"./array":42,"dup":22}],49:[function(require,module,exports){
-arguments[4][23][0].apply(exports,arguments)
-},{"dup":23}],50:[function(require,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"./lib/array":42,"./lib/base64":43,"./lib/dom":44,"./lib/events":45,"./lib/fn":46,"./lib/string":47,"./lib/url":48,"./lib/uuid":49,"dup":24}],51:[function(require,module,exports){
+},{"33":33,"34":34,"36":36,"40":40}],42:[function(require,module,exports){
+/**
+ * lodash 3.0.4 (Custom Build) <https://lodash.com/>
+ * Build: `lodash modern modularize exports="npm" -o ./`
+ * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <https://lodash.com/license>
+ */
+var isArguments = require(43),
+    isArray = require(44),
+    isFunction = require(45),
+    isString = require(49),
+    keys = require(46);
+
+/**
+ * Checks if `value` is object-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ */
+function isObjectLike(value) {
+  return !!value && typeof value == 'object';
+}
+
+/**
+ * Used as the [maximum length](https://people.mozilla.org/~jorendorff/es6-draft.html#sec-number.max_safe_integer)
+ * of an array-like value.
+ */
+var MAX_SAFE_INTEGER = 9007199254740991;
+
+/**
+ * The base implementation of `_.property` without support for deep paths.
+ *
+ * @private
+ * @param {string} key The key of the property to get.
+ * @returns {Function} Returns the new function.
+ */
+function baseProperty(key) {
+  return function(object) {
+    return object == null ? undefined : object[key];
+  };
+}
+
+/**
+ * Gets the "length" property value of `object`.
+ *
+ * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
+ * that affects Safari on at least iOS 8.1-8.3 ARM64.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {*} Returns the "length" value.
+ */
+var getLength = baseProperty('length');
+
+/**
+ * Checks if `value` is array-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
+ */
+function isArrayLike(value) {
+  return value != null && isLength(getLength(value));
+}
+
+/**
+ * Checks if `value` is a valid array-like length.
+ *
+ * **Note:** This function is based on [`ToLength`](https://people.mozilla.org/~jorendorff/es6-draft.html#sec-tolength).
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
+ */
+function isLength(value) {
+  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+}
+
+/**
+ * Checks if `value` is empty. A value is considered empty unless it is an
+ * `arguments` object, array, string, or jQuery-like collection with a length
+ * greater than `0` or an object with own enumerable properties.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {Array|Object|string} value The value to inspect.
+ * @returns {boolean} Returns `true` if `value` is empty, else `false`.
+ * @example
+ *
+ * _.isEmpty(null);
+ * // => true
+ *
+ * _.isEmpty(true);
+ * // => true
+ *
+ * _.isEmpty(1);
+ * // => true
+ *
+ * _.isEmpty([1, 2, 3]);
+ * // => false
+ *
+ * _.isEmpty({ 'a': 1 });
+ * // => false
+ */
+function isEmpty(value) {
+  if (value == null) {
+    return true;
+  }
+  if (isArrayLike(value) && (isArray(value) || isString(value) || isArguments(value) ||
+      (isObjectLike(value) && isFunction(value.splice)))) {
+    return !value.length;
+  }
+  return !keys(value).length;
+}
+
+module.exports = isEmpty;
+
+},{"43":43,"44":44,"45":45,"46":46,"49":49}],43:[function(require,module,exports){
+/**
+ * lodash 3.0.4 (Custom Build) <https://lodash.com/>
+ * Build: `lodash modern modularize exports="npm" -o ./`
+ * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <https://lodash.com/license>
+ */
+
+/**
+ * Checks if `value` is object-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ */
+function isObjectLike(value) {
+  return !!value && typeof value == 'object';
+}
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/** Native method references. */
+var propertyIsEnumerable = objectProto.propertyIsEnumerable;
+
+/**
+ * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
+ * of an array-like value.
+ */
+var MAX_SAFE_INTEGER = 9007199254740991;
+
+/**
+ * The base implementation of `_.property` without support for deep paths.
+ *
+ * @private
+ * @param {string} key The key of the property to get.
+ * @returns {Function} Returns the new function.
+ */
+function baseProperty(key) {
+  return function(object) {
+    return object == null ? undefined : object[key];
+  };
+}
+
+/**
+ * Gets the "length" property value of `object`.
+ *
+ * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
+ * that affects Safari on at least iOS 8.1-8.3 ARM64.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {*} Returns the "length" value.
+ */
+var getLength = baseProperty('length');
+
+/**
+ * Checks if `value` is array-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
+ */
+function isArrayLike(value) {
+  return value != null && isLength(getLength(value));
+}
+
+/**
+ * Checks if `value` is a valid array-like length.
+ *
+ * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
+ */
+function isLength(value) {
+  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+}
+
+/**
+ * Checks if `value` is classified as an `arguments` object.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @example
+ *
+ * _.isArguments(function() { return arguments; }());
+ * // => true
+ *
+ * _.isArguments([1, 2, 3]);
+ * // => false
+ */
+function isArguments(value) {
+  return isObjectLike(value) && isArrayLike(value) &&
+    hasOwnProperty.call(value, 'callee') && !propertyIsEnumerable.call(value, 'callee');
+}
+
+module.exports = isArguments;
+
+},{}],44:[function(require,module,exports){
+/**
+ * lodash 3.0.4 (Custom Build) <https://lodash.com/>
+ * Build: `lodash modern modularize exports="npm" -o ./`
+ * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <https://lodash.com/license>
+ */
+
+/** `Object#toString` result references. */
+var arrayTag = '[object Array]',
+    funcTag = '[object Function]';
+
+/** Used to detect host constructors (Safari > 5). */
+var reIsHostCtor = /^\[object .+?Constructor\]$/;
+
+/**
+ * Checks if `value` is object-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ */
+function isObjectLike(value) {
+  return !!value && typeof value == 'object';
+}
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/** Used to resolve the decompiled source of functions. */
+var fnToString = Function.prototype.toString;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/**
+ * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var objToString = objectProto.toString;
+
+/** Used to detect if a method is native. */
+var reIsNative = RegExp('^' +
+  fnToString.call(hasOwnProperty).replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
+  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
+);
+
+/* Native method references for those with the same name as other `lodash` methods. */
+var nativeIsArray = getNative(Array, 'isArray');
+
+/**
+ * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
+ * of an array-like value.
+ */
+var MAX_SAFE_INTEGER = 9007199254740991;
+
+/**
+ * Gets the native function at `key` of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @param {string} key The key of the method to get.
+ * @returns {*} Returns the function if it's native, else `undefined`.
+ */
+function getNative(object, key) {
+  var value = object == null ? undefined : object[key];
+  return isNative(value) ? value : undefined;
+}
+
+/**
+ * Checks if `value` is a valid array-like length.
+ *
+ * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
+ */
+function isLength(value) {
+  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+}
+
+/**
+ * Checks if `value` is classified as an `Array` object.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @example
+ *
+ * _.isArray([1, 2, 3]);
+ * // => true
+ *
+ * _.isArray(function() { return arguments; }());
+ * // => false
+ */
+var isArray = nativeIsArray || function(value) {
+  return isObjectLike(value) && isLength(value.length) && objToString.call(value) == arrayTag;
+};
+
+/**
+ * Checks if `value` is classified as a `Function` object.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @example
+ *
+ * _.isFunction(_);
+ * // => true
+ *
+ * _.isFunction(/abc/);
+ * // => false
+ */
+function isFunction(value) {
+  // The use of `Object#toString` avoids issues with the `typeof` operator
+  // in older versions of Chrome and Safari which return 'function' for regexes
+  // and Safari 8 equivalents which return 'object' for typed array constructors.
+  return isObject(value) && objToString.call(value) == funcTag;
+}
+
+/**
+ * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
+ * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(1);
+ * // => false
+ */
+function isObject(value) {
+  // Avoid a V8 JIT bug in Chrome 19-20.
+  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
+  var type = typeof value;
+  return !!value && (type == 'object' || type == 'function');
+}
+
+/**
+ * Checks if `value` is a native function.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a native function, else `false`.
+ * @example
+ *
+ * _.isNative(Array.prototype.push);
+ * // => true
+ *
+ * _.isNative(_);
+ * // => false
+ */
+function isNative(value) {
+  if (value == null) {
+    return false;
+  }
+  if (isFunction(value)) {
+    return reIsNative.test(fnToString.call(value));
+  }
+  return isObjectLike(value) && reIsHostCtor.test(value);
+}
+
+module.exports = isArray;
+
+},{}],45:[function(require,module,exports){
+/**
+ * lodash 3.0.6 (Custom Build) <https://lodash.com/>
+ * Build: `lodash modern modularize exports="npm" -o ./`
+ * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <https://lodash.com/license>
+ */
+
+/** `Object#toString` result references. */
+var funcTag = '[object Function]';
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/**
+ * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var objToString = objectProto.toString;
+
+/**
+ * Checks if `value` is classified as a `Function` object.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @example
+ *
+ * _.isFunction(_);
+ * // => true
+ *
+ * _.isFunction(/abc/);
+ * // => false
+ */
+function isFunction(value) {
+  // The use of `Object#toString` avoids issues with the `typeof` operator
+  // in older versions of Chrome and Safari which return 'function' for regexes
+  // and Safari 8 equivalents which return 'object' for typed array constructors.
+  return isObject(value) && objToString.call(value) == funcTag;
+}
+
+/**
+ * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
+ * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(1);
+ * // => false
+ */
+function isObject(value) {
+  // Avoid a V8 JIT bug in Chrome 19-20.
+  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
+  var type = typeof value;
+  return !!value && (type == 'object' || type == 'function');
+}
+
+module.exports = isFunction;
+
+},{}],46:[function(require,module,exports){
+/**
+ * lodash 3.1.2 (Custom Build) <https://lodash.com/>
+ * Build: `lodash modern modularize exports="npm" -o ./`
+ * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <https://lodash.com/license>
+ */
+var getNative = require(47),
+    isArguments = require(43),
+    isArray = require(44);
+
+/** Used to detect unsigned integer values. */
+var reIsUint = /^\d+$/;
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/* Native method references for those with the same name as other `lodash` methods. */
+var nativeKeys = getNative(Object, 'keys');
+
+/**
+ * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
+ * of an array-like value.
+ */
+var MAX_SAFE_INTEGER = 9007199254740991;
+
+/**
+ * The base implementation of `_.property` without support for deep paths.
+ *
+ * @private
+ * @param {string} key The key of the property to get.
+ * @returns {Function} Returns the new function.
+ */
+function baseProperty(key) {
+  return function(object) {
+    return object == null ? undefined : object[key];
+  };
+}
+
+/**
+ * Gets the "length" property value of `object`.
+ *
+ * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
+ * that affects Safari on at least iOS 8.1-8.3 ARM64.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {*} Returns the "length" value.
+ */
+var getLength = baseProperty('length');
+
+/**
+ * Checks if `value` is array-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
+ */
+function isArrayLike(value) {
+  return value != null && isLength(getLength(value));
+}
+
+/**
+ * Checks if `value` is a valid array-like index.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @param {number} [length=MAX_SAFE_INTEGER] The upper bounds of a valid index.
+ * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.
+ */
+function isIndex(value, length) {
+  value = (typeof value == 'number' || reIsUint.test(value)) ? +value : -1;
+  length = length == null ? MAX_SAFE_INTEGER : length;
+  return value > -1 && value % 1 == 0 && value < length;
+}
+
+/**
+ * Checks if `value` is a valid array-like length.
+ *
+ * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
+ */
+function isLength(value) {
+  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+}
+
+/**
+ * A fallback implementation of `Object.keys` which creates an array of the
+ * own enumerable property names of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ */
+function shimKeys(object) {
+  var props = keysIn(object),
+      propsLength = props.length,
+      length = propsLength && object.length;
+
+  var allowIndexes = !!length && isLength(length) &&
+    (isArray(object) || isArguments(object));
+
+  var index = -1,
+      result = [];
+
+  while (++index < propsLength) {
+    var key = props[index];
+    if ((allowIndexes && isIndex(key, length)) || hasOwnProperty.call(object, key)) {
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+/**
+ * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
+ * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(1);
+ * // => false
+ */
+function isObject(value) {
+  // Avoid a V8 JIT bug in Chrome 19-20.
+  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
+  var type = typeof value;
+  return !!value && (type == 'object' || type == 'function');
+}
+
+/**
+ * Creates an array of the own enumerable property names of `object`.
+ *
+ * **Note:** Non-object values are coerced to objects. See the
+ * [ES spec](http://ecma-international.org/ecma-262/6.0/#sec-object.keys)
+ * for more details.
+ *
+ * @static
+ * @memberOf _
+ * @category Object
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ * @example
+ *
+ * function Foo() {
+ *   this.a = 1;
+ *   this.b = 2;
+ * }
+ *
+ * Foo.prototype.c = 3;
+ *
+ * _.keys(new Foo);
+ * // => ['a', 'b'] (iteration order is not guaranteed)
+ *
+ * _.keys('hi');
+ * // => ['0', '1']
+ */
+var keys = !nativeKeys ? shimKeys : function(object) {
+  var Ctor = object == null ? undefined : object.constructor;
+  if ((typeof Ctor == 'function' && Ctor.prototype === object) ||
+      (typeof object != 'function' && isArrayLike(object))) {
+    return shimKeys(object);
+  }
+  return isObject(object) ? nativeKeys(object) : [];
+};
+
+/**
+ * Creates an array of the own and inherited enumerable property names of `object`.
+ *
+ * **Note:** Non-object values are coerced to objects.
+ *
+ * @static
+ * @memberOf _
+ * @category Object
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ * @example
+ *
+ * function Foo() {
+ *   this.a = 1;
+ *   this.b = 2;
+ * }
+ *
+ * Foo.prototype.c = 3;
+ *
+ * _.keysIn(new Foo);
+ * // => ['a', 'b', 'c'] (iteration order is not guaranteed)
+ */
+function keysIn(object) {
+  if (object == null) {
+    return [];
+  }
+  if (!isObject(object)) {
+    object = Object(object);
+  }
+  var length = object.length;
+  length = (length && isLength(length) &&
+    (isArray(object) || isArguments(object)) && length) || 0;
+
+  var Ctor = object.constructor,
+      index = -1,
+      isProto = typeof Ctor == 'function' && Ctor.prototype === object,
+      result = Array(length),
+      skipIndexes = length > 0;
+
+  while (++index < length) {
+    result[index] = (index + '');
+  }
+  for (var key in object) {
+    if (!(skipIndexes && isIndex(key, length)) &&
+        !(key == 'constructor' && (isProto || !hasOwnProperty.call(object, key)))) {
+      result.push(key);
+    }
+  }
+  return result;
+}
+
+module.exports = keys;
+
+},{"43":43,"44":44,"47":47}],47:[function(require,module,exports){
+/**
+ * lodash 3.9.1 (Custom Build) <https://lodash.com/>
+ * Build: `lodash modern modularize exports="npm" -o ./`
+ * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
+ * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
+ * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+ * Available under MIT license <https://lodash.com/license>
+ */
+
+/** `Object#toString` result references. */
+var funcTag = '[object Function]';
+
+/** Used to detect host constructors (Safari > 5). */
+var reIsHostCtor = /^\[object .+?Constructor\]$/;
+
+/**
+ * Checks if `value` is object-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ */
+function isObjectLike(value) {
+  return !!value && typeof value == 'object';
+}
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/** Used to resolve the decompiled source of functions. */
+var fnToString = Function.prototype.toString;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/**
+ * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var objToString = objectProto.toString;
+
+/** Used to detect if a method is native. */
+var reIsNative = RegExp('^' +
+  fnToString.call(hasOwnProperty).replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
+  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
+);
+
+/**
+ * Gets the native function at `key` of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @param {string} key The key of the method to get.
+ * @returns {*} Returns the function if it's native, else `undefined`.
+ */
+function getNative(object, key) {
+  var value = object == null ? undefined : object[key];
+  return isNative(value) ? value : undefined;
+}
+
+/**
+ * Checks if `value` is classified as a `Function` object.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @example
+ *
+ * _.isFunction(_);
+ * // => true
+ *
+ * _.isFunction(/abc/);
+ * // => false
+ */
+function isFunction(value) {
+  // The use of `Object#toString` avoids issues with the `typeof` operator
+  // in older versions of Chrome and Safari which return 'function' for regexes
+  // and Safari 8 equivalents which return 'object' for typed array constructors.
+  return isObject(value) && objToString.call(value) == funcTag;
+}
+
+/**
+ * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
+ * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @example
+ *
+ * _.isObject({});
+ * // => true
+ *
+ * _.isObject([1, 2, 3]);
+ * // => true
+ *
+ * _.isObject(1);
+ * // => false
+ */
+function isObject(value) {
+  // Avoid a V8 JIT bug in Chrome 19-20.
+  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
+  var type = typeof value;
+  return !!value && (type == 'object' || type == 'function');
+}
+
+/**
+ * Checks if `value` is a native function.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a native function, else `false`.
+ * @example
+ *
+ * _.isNative(Array.prototype.push);
+ * // => true
+ *
+ * _.isNative(_);
+ * // => false
+ */
+function isNative(value) {
+  if (value == null) {
+    return false;
+  }
+  if (isFunction(value)) {
+    return reIsNative.test(fnToString.call(value));
+  }
+  return isObjectLike(value) && reIsHostCtor.test(value);
+}
+
+module.exports = getNative;
+
+},{}],48:[function(require,module,exports){
 /**
  * lodash 3.0.2 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -4791,7 +5633,7 @@ function isObject(value) {
 
 module.exports = isObject;
 
-},{}],52:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 /**
  * lodash 3.0.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -4846,10 +5688,28 @@ function isString(value) {
 
 module.exports = isString;
 
-},{}],53:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
+arguments[4][16][0].apply(exports,arguments)
+},{"16":16}],51:[function(require,module,exports){
+arguments[4][17][0].apply(exports,arguments)
+},{"17":17}],52:[function(require,module,exports){
+arguments[4][18][0].apply(exports,arguments)
+},{"18":18}],53:[function(require,module,exports){
+arguments[4][19][0].apply(exports,arguments)
+},{"19":19}],54:[function(require,module,exports){
+arguments[4][20][0].apply(exports,arguments)
+},{"20":20}],55:[function(require,module,exports){
+arguments[4][21][0].apply(exports,arguments)
+},{"21":21}],56:[function(require,module,exports){
+arguments[4][22][0].apply(exports,arguments)
+},{"22":22,"50":50}],57:[function(require,module,exports){
+arguments[4][23][0].apply(exports,arguments)
+},{"23":23}],58:[function(require,module,exports){
+arguments[4][24][0].apply(exports,arguments)
+},{"24":24,"50":50,"51":51,"52":52,"53":53,"54":54,"55":55,"56":56,"57":57}],59:[function(require,module,exports){
 'use strict';
 
-var utils = require('braintree-utilities');
+var utils = require(73);
 
 function MessageBus(host, channel) {
   this.host = host || window;
@@ -4916,10 +5776,10 @@ MessageBus.Message.prototype.reply = function (type, data) {
 
 module.exports = MessageBus;
 
-},{"braintree-utilities":67}],54:[function(require,module,exports){
+},{"73":73}],60:[function(require,module,exports){
 'use strict';
 
-var utils = require('braintree-utilities');
+var utils = require(73);
 
 function PubsubClient(bus, target) {
   this.bus = bus;
@@ -4965,7 +5825,7 @@ PubsubClient.prototype.unsubscribe = function (channel, handler) {
 
 module.exports = PubsubClient;
 
-},{"braintree-utilities":67}],55:[function(require,module,exports){
+},{"73":73}],61:[function(require,module,exports){
 'use strict';
 
 function PubsubServer(bus) {
@@ -5024,10 +5884,10 @@ PubsubServer.prototype.unsubscribe = function (channel, handler) {
 
 module.exports = PubsubServer;
 
-},{}],56:[function(require,module,exports){
+},{}],62:[function(require,module,exports){
 'use strict';
 
-var utils = require('braintree-utilities');
+var utils = require(73);
 
 function RPCClient(bus, target) {
   this.bus = bus;
@@ -5057,10 +5917,10 @@ RPCClient.prototype.invoke = function (method, args, callback) {
 
 module.exports = RPCClient;
 
-},{"braintree-utilities":67}],57:[function(require,module,exports){
+},{"73":73}],63:[function(require,module,exports){
 'use strict';
 
-var utils = require('braintree-utilities');
+var utils = require(73);
 
 function RPCServer(bus) {
   this.bus = bus;
@@ -5099,12 +5959,12 @@ RPCServer.prototype.define = function (method, handler) {
 
 module.exports = RPCServer;
 
-},{"braintree-utilities":67}],58:[function(require,module,exports){
-var MessageBus = require('./lib/message-bus');
-var PubsubClient = require('./lib/pubsub-client');
-var PubsubServer = require('./lib/pubsub-server');
-var RPCClient = require('./lib/rpc-client');
-var RPCServer = require('./lib/rpc-server');
+},{"73":73}],64:[function(require,module,exports){
+var MessageBus = require(59);
+var PubsubClient = require(60);
+var PubsubServer = require(61);
+var RPCClient = require(62);
+var RPCServer = require(63);
 
 module.exports = {
   MessageBus: MessageBus,
@@ -5114,49 +5974,49 @@ module.exports = {
   RPCServer: RPCServer
 };
 
-},{"./lib/message-bus":53,"./lib/pubsub-client":54,"./lib/pubsub-server":55,"./lib/rpc-client":56,"./lib/rpc-server":57}],59:[function(require,module,exports){
+},{"59":59,"60":60,"61":61,"62":62,"63":63}],65:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
-},{"dup":16}],60:[function(require,module,exports){
+},{"16":16}],66:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],61:[function(require,module,exports){
+},{"17":17}],67:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],62:[function(require,module,exports){
+},{"18":18}],68:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],63:[function(require,module,exports){
+},{"19":19}],69:[function(require,module,exports){
 arguments[4][20][0].apply(exports,arguments)
-},{"dup":20}],64:[function(require,module,exports){
+},{"20":20}],70:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],65:[function(require,module,exports){
+},{"21":21}],71:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"./array":59,"dup":22}],66:[function(require,module,exports){
+},{"22":22,"65":65}],72:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
-},{"dup":23}],67:[function(require,module,exports){
+},{"23":23}],73:[function(require,module,exports){
 arguments[4][24][0].apply(exports,arguments)
-},{"./lib/array":59,"./lib/base64":60,"./lib/dom":61,"./lib/events":62,"./lib/fn":63,"./lib/string":64,"./lib/url":65,"./lib/uuid":66,"dup":24}],68:[function(require,module,exports){
+},{"24":24,"65":65,"66":66,"67":67,"68":68,"69":69,"70":70,"71":71,"72":72}],74:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
-},{"dup":16}],69:[function(require,module,exports){
+},{"16":16}],75:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],70:[function(require,module,exports){
+},{"17":17}],76:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],71:[function(require,module,exports){
+},{"18":18}],77:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],72:[function(require,module,exports){
+},{"19":19}],78:[function(require,module,exports){
 arguments[4][20][0].apply(exports,arguments)
-},{"dup":20}],73:[function(require,module,exports){
+},{"20":20}],79:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"dup":21}],74:[function(require,module,exports){
+},{"21":21}],80:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"./array":68,"dup":22}],75:[function(require,module,exports){
+},{"22":22,"74":74}],81:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
-},{"dup":23}],76:[function(require,module,exports){
+},{"23":23}],82:[function(require,module,exports){
 arguments[4][24][0].apply(exports,arguments)
-},{"./lib/array":68,"./lib/base64":69,"./lib/dom":70,"./lib/events":71,"./lib/fn":72,"./lib/string":73,"./lib/url":74,"./lib/uuid":75,"dup":24}],77:[function(require,module,exports){
+},{"24":24,"74":74,"75":75,"76":76,"77":77,"78":78,"79":79,"80":80,"81":81}],83:[function(require,module,exports){
 'use strict';
 
 module.exports = ClassList
 
-var indexOf = require('component-indexof'),
-    trim = require('trim'),
+var indexOf = require(84),
+    trim = require(85),
     arr = Array.prototype
 
 /**
@@ -5270,7 +6130,7 @@ ClassList.prototype.toString = function () {
   return arr.join.call(this, ' ')
 }
 
-},{"component-indexof":78,"trim":79}],78:[function(require,module,exports){
+},{"84":84,"85":85}],84:[function(require,module,exports){
 module.exports = function(arr, obj){
   if (arr.indexOf) return arr.indexOf(obj);
   for (var i = 0; i < arr.length; ++i) {
@@ -5278,7 +6138,7 @@ module.exports = function(arr, obj){
   }
   return -1;
 };
-},{}],79:[function(require,module,exports){
+},{}],85:[function(require,module,exports){
 
 exports = module.exports = trim;
 
@@ -5294,13 +6154,13 @@ exports.right = function(str){
   return str.replace(/\s*$/, '');
 };
 
-},{}],80:[function(require,module,exports){
+},{}],86:[function(require,module,exports){
 'use strict';
 
-var batchExecuteFunctions = require('batch-execute-functions');
+var batchExecuteFunctions = require(87);
 // Reach into lib for isFunction. This lib requires a DOM and cannot be
 // tested otherwise
-var fnUtil = require('braintree-utilities/lib/fn');
+var fnUtil = require(88);
 
 function Destructor() {
   this._teardownRegistry = [];
@@ -5324,7 +6184,7 @@ Destructor.prototype.teardown = function (callback) {
 
 module.exports = Destructor;
 
-},{"batch-execute-functions":81,"braintree-utilities/lib/fn":82}],81:[function(require,module,exports){
+},{"87":87,"88":88}],87:[function(require,module,exports){
 'use strict';
 
 function call(fn, callback) {
@@ -5374,9 +6234,9 @@ module.exports = function (functions, callback) {
   }
 };
 
-},{}],82:[function(require,module,exports){
+},{}],88:[function(require,module,exports){
 arguments[4][20][0].apply(exports,arguments)
-},{"dup":20}],83:[function(require,module,exports){
+},{"20":20}],89:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -5450,7 +6310,7 @@ FormNapper.prototype.detach = function () {
 module.exports = FormNapper;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],84:[function(require,module,exports){
+},{}],90:[function(require,module,exports){
 'use strict';
 (function (root, factory) {
   if (typeof exports === 'object' && typeof module !== 'undefined') {
@@ -5713,13 +6573,13 @@ module.exports = FormNapper;
   return framebus;
 });
 
-},{}],85:[function(require,module,exports){
+},{}],91:[function(require,module,exports){
 'use strict';
 
-var assign = require('lodash.assign');
-var isString = require('lodash.isstring');
-var setAttributes = require('setattributes');
-var defaultAttributes = require('./lib/default-attributes');
+var assign = require(156);
+var isString = require(155);
+var setAttributes = require(93);
+var defaultAttributes = require(92);
 
 module.exports = function createFrame(options) {
   var iframe = document.createElement('iframe');
@@ -5739,7 +6599,7 @@ module.exports = function createFrame(options) {
   return iframe;
 };
 
-},{"./lib/default-attributes":86,"lodash.assign":89,"lodash.isstring":87,"setattributes":88}],86:[function(require,module,exports){
+},{"155":155,"156":156,"92":92,"93":93}],92:[function(require,module,exports){
 module.exports={
   "src": "about:blank",
   "frameBorder": 0,
@@ -5747,9 +6607,7 @@ module.exports={
   "scrolling": "no"
 }
 
-},{}],87:[function(require,module,exports){
-arguments[4][52][0].apply(exports,arguments)
-},{"dup":52}],88:[function(require,module,exports){
+},{}],93:[function(require,module,exports){
 module.exports = function setAttributes(element, attributes) {
   var value;
 
@@ -5766,416 +6624,270 @@ module.exports = function setAttributes(element, attributes) {
   }
 };
 
-},{}],89:[function(require,module,exports){
-/**
- * lodash 3.2.0 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-var baseAssign = require('lodash._baseassign'),
-    createAssigner = require('lodash._createassigner'),
-    keys = require('lodash.keys');
+},{}],94:[function(require,module,exports){
+var LazyWrapper = require(99),
+    LodashWrapper = require(100),
+    baseLodash = require(113),
+    isArray = require(151),
+    isObjectLike = require(139),
+    wrapperClone = require(148);
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
 
 /**
- * A specialized version of `_.assign` for customizing assigned values without
- * support for argument juggling, multiple sources, and `this` binding `customizer`
- * functions.
+ * Creates a `lodash` object which wraps `value` to enable implicit chaining.
+ * Methods that operate on and return arrays, collections, and functions can
+ * be chained together. Methods that retrieve a single value or may return a
+ * primitive value will automatically end the chain returning the unwrapped
+ * value. Explicit chaining may be enabled using `_.chain`. The execution of
+ * chained methods is lazy, that is, execution is deferred until `_#value`
+ * is implicitly or explicitly called.
  *
- * @private
- * @param {Object} object The destination object.
- * @param {Object} source The source object.
- * @param {Function} customizer The function to customize assigned values.
- * @returns {Object} Returns `object`.
- */
-function assignWith(object, source, customizer) {
-  var index = -1,
-      props = keys(source),
-      length = props.length;
-
-  while (++index < length) {
-    var key = props[index],
-        value = object[key],
-        result = customizer(value, source[key], key, object, source);
-
-    if ((result === result ? (result !== value) : (value === value)) ||
-        (value === undefined && !(key in object))) {
-      object[key] = result;
-    }
-  }
-  return object;
-}
-
-/**
- * Assigns own enumerable properties of source object(s) to the destination
- * object. Subsequent sources overwrite property assignments of previous sources.
- * If `customizer` is provided it is invoked to produce the assigned values.
- * The `customizer` is bound to `thisArg` and invoked with five arguments:
- * (objectValue, sourceValue, key, object, source).
+ * Lazy evaluation allows several methods to support shortcut fusion. Shortcut
+ * fusion is an optimization strategy which merge iteratee calls; this can help
+ * to avoid the creation of intermediate data structures and greatly reduce the
+ * number of iteratee executions.
  *
- * **Note:** This method mutates `object` and is based on
- * [`Object.assign`](https://people.mozilla.org/~jorendorff/es6-draft.html#sec-object.assign).
+ * Chaining is supported in custom builds as long as the `_#value` method is
+ * directly or indirectly included in the build.
  *
- * @static
- * @memberOf _
- * @alias extend
- * @category Object
- * @param {Object} object The destination object.
- * @param {...Object} [sources] The source objects.
- * @param {Function} [customizer] The function to customize assigned values.
- * @param {*} [thisArg] The `this` binding of `customizer`.
- * @returns {Object} Returns `object`.
+ * In addition to lodash methods, wrappers have `Array` and `String` methods.
+ *
+ * The wrapper `Array` methods are:
+ * `concat`, `join`, `pop`, `push`, `reverse`, `shift`, `slice`, `sort`,
+ * `splice`, and `unshift`
+ *
+ * The wrapper `String` methods are:
+ * `replace` and `split`
+ *
+ * The wrapper methods that support shortcut fusion are:
+ * `compact`, `drop`, `dropRight`, `dropRightWhile`, `dropWhile`, `filter`,
+ * `first`, `initial`, `last`, `map`, `pluck`, `reject`, `rest`, `reverse`,
+ * `slice`, `take`, `takeRight`, `takeRightWhile`, `takeWhile`, `toArray`,
+ * and `where`
+ *
+ * The chainable wrapper methods are:
+ * `after`, `ary`, `assign`, `at`, `before`, `bind`, `bindAll`, `bindKey`,
+ * `callback`, `chain`, `chunk`, `commit`, `compact`, `concat`, `constant`,
+ * `countBy`, `create`, `curry`, `debounce`, `defaults`, `defaultsDeep`,
+ * `defer`, `delay`, `difference`, `drop`, `dropRight`, `dropRightWhile`,
+ * `dropWhile`, `fill`, `filter`, `flatten`, `flattenDeep`, `flow`, `flowRight`,
+ * `forEach`, `forEachRight`, `forIn`, `forInRight`, `forOwn`, `forOwnRight`,
+ * `functions`, `groupBy`, `indexBy`, `initial`, `intersection`, `invert`,
+ * `invoke`, `keys`, `keysIn`, `map`, `mapKeys`, `mapValues`, `matches`,
+ * `matchesProperty`, `memoize`, `merge`, `method`, `methodOf`, `mixin`,
+ * `modArgs`, `negate`, `omit`, `once`, `pairs`, `partial`, `partialRight`,
+ * `partition`, `pick`, `plant`, `pluck`, `property`, `propertyOf`, `pull`,
+ * `pullAt`, `push`, `range`, `rearg`, `reject`, `remove`, `rest`, `restParam`,
+ * `reverse`, `set`, `shuffle`, `slice`, `sort`, `sortBy`, `sortByAll`,
+ * `sortByOrder`, `splice`, `spread`, `take`, `takeRight`, `takeRightWhile`,
+ * `takeWhile`, `tap`, `throttle`, `thru`, `times`, `toArray`, `toPlainObject`,
+ * `transform`, `union`, `uniq`, `unshift`, `unzip`, `unzipWith`, `values`,
+ * `valuesIn`, `where`, `without`, `wrap`, `xor`, `zip`, `zipObject`, `zipWith`
+ *
+ * The wrapper methods that are **not** chainable by default are:
+ * `add`, `attempt`, `camelCase`, `capitalize`, `ceil`, `clone`, `cloneDeep`,
+ * `deburr`, `endsWith`, `escape`, `escapeRegExp`, `every`, `find`, `findIndex`,
+ * `findKey`, `findLast`, `findLastIndex`, `findLastKey`, `findWhere`, `first`,
+ * `floor`, `get`, `gt`, `gte`, `has`, `identity`, `includes`, `indexOf`,
+ * `inRange`, `isArguments`, `isArray`, `isBoolean`, `isDate`, `isElement`,
+ * `isEmpty`, `isEqual`, `isError`, `isFinite` `isFunction`, `isMatch`,
+ * `isNative`, `isNaN`, `isNull`, `isNumber`, `isObject`, `isPlainObject`,
+ * `isRegExp`, `isString`, `isUndefined`, `isTypedArray`, `join`, `kebabCase`,
+ * `last`, `lastIndexOf`, `lt`, `lte`, `max`, `min`, `noConflict`, `noop`,
+ * `now`, `pad`, `padLeft`, `padRight`, `parseInt`, `pop`, `random`, `reduce`,
+ * `reduceRight`, `repeat`, `result`, `round`, `runInContext`, `shift`, `size`,
+ * `snakeCase`, `some`, `sortedIndex`, `sortedLastIndex`, `startCase`,
+ * `startsWith`, `sum`, `template`, `trim`, `trimLeft`, `trimRight`, `trunc`,
+ * `unescape`, `uniqueId`, `value`, and `words`
+ *
+ * The wrapper method `sample` will return a wrapped value when `n` is provided,
+ * otherwise an unwrapped value is returned.
+ *
+ * @name _
+ * @constructor
+ * @category Chain
+ * @param {*} value The value to wrap in a `lodash` instance.
+ * @returns {Object} Returns the new `lodash` wrapper instance.
  * @example
  *
- * _.assign({ 'user': 'barney' }, { 'age': 40 }, { 'user': 'fred' });
- * // => { 'user': 'fred', 'age': 40 }
+ * var wrapped = _([1, 2, 3]);
  *
- * // using a customizer callback
- * var defaults = _.partialRight(_.assign, function(value, other) {
- *   return _.isUndefined(value) ? other : value;
+ * // returns an unwrapped value
+ * wrapped.reduce(function(total, n) {
+ *   return total + n;
+ * });
+ * // => 6
+ *
+ * // returns a wrapped value
+ * var squares = wrapped.map(function(n) {
+ *   return n * n;
  * });
  *
- * defaults({ 'user': 'barney' }, { 'age': 36 }, { 'user': 'fred' });
- * // => { 'user': 'barney', 'age': 36 }
- */
-var assign = createAssigner(function(object, source, customizer) {
-  return customizer
-    ? assignWith(object, source, customizer)
-    : baseAssign(object, source);
-});
-
-module.exports = assign;
-
-},{"lodash._baseassign":90,"lodash._createassigner":92,"lodash.keys":96}],90:[function(require,module,exports){
-/**
- * lodash 3.2.0 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-var baseCopy = require('lodash._basecopy'),
-    keys = require('lodash.keys');
-
-/**
- * The base implementation of `_.assign` without support for argument juggling,
- * multiple sources, and `customizer` functions.
+ * _.isArray(squares);
+ * // => false
  *
- * @private
- * @param {Object} object The destination object.
- * @param {Object} source The source object.
- * @returns {Object} Returns `object`.
+ * _.isArray(squares.value());
+ * // => true
  */
-function baseAssign(object, source) {
-  return source == null
-    ? object
-    : baseCopy(source, keys(source), object);
-}
-
-module.exports = baseAssign;
-
-},{"lodash._basecopy":91,"lodash.keys":96}],91:[function(require,module,exports){
-/**
- * lodash 3.0.1 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-
-/**
- * Copies properties of `source` to `object`.
- *
- * @private
- * @param {Object} source The object to copy properties from.
- * @param {Array} props The property names to copy.
- * @param {Object} [object={}] The object to copy properties to.
- * @returns {Object} Returns `object`.
- */
-function baseCopy(source, props, object) {
-  object || (object = {});
-
-  var index = -1,
-      length = props.length;
-
-  while (++index < length) {
-    var key = props[index];
-    object[key] = source[key];
-  }
-  return object;
-}
-
-module.exports = baseCopy;
-
-},{}],92:[function(require,module,exports){
-/**
- * lodash 3.1.1 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-var bindCallback = require('lodash._bindcallback'),
-    isIterateeCall = require('lodash._isiterateecall'),
-    restParam = require('lodash.restparam');
-
-/**
- * Creates a function that assigns properties of source object(s) to a given
- * destination object.
- *
- * **Note:** This function is used to create `_.assign`, `_.defaults`, and `_.merge`.
- *
- * @private
- * @param {Function} assigner The function to assign values.
- * @returns {Function} Returns the new assigner function.
- */
-function createAssigner(assigner) {
-  return restParam(function(object, sources) {
-    var index = -1,
-        length = object == null ? 0 : sources.length,
-        customizer = length > 2 ? sources[length - 2] : undefined,
-        guard = length > 2 ? sources[2] : undefined,
-        thisArg = length > 1 ? sources[length - 1] : undefined;
-
-    if (typeof customizer == 'function') {
-      customizer = bindCallback(customizer, thisArg, 5);
-      length -= 2;
-    } else {
-      customizer = typeof thisArg == 'function' ? thisArg : undefined;
-      length -= (customizer ? 1 : 0);
+function lodash(value) {
+  if (isObjectLike(value) && !isArray(value) && !(value instanceof LazyWrapper)) {
+    if (value instanceof LodashWrapper) {
+      return value;
     }
-    if (guard && isIterateeCall(sources[0], sources[1], guard)) {
-      customizer = length < 3 ? undefined : customizer;
-      length = 1;
+    if (hasOwnProperty.call(value, '__chain__') && hasOwnProperty.call(value, '__wrapped__')) {
+      return wrapperClone(value);
     }
-    while (++index < length) {
-      var source = sources[index];
-      if (source) {
-        assigner(object, source, customizer);
-      }
-    }
-    return object;
-  });
+  }
+  return new LodashWrapper(value);
 }
 
-module.exports = createAssigner;
+// Ensure wrappers are instances of `baseLodash`.
+lodash.prototype = baseLodash.prototype;
 
-},{"lodash._bindcallback":93,"lodash._isiterateecall":94,"lodash.restparam":95}],93:[function(require,module,exports){
-/**
- * lodash 3.0.1 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
+module.exports = lodash;
 
-/**
- * A specialized version of `baseCallback` which only supports `this` binding
- * and specifying the number of arguments to provide to `func`.
- *
- * @private
- * @param {Function} func The function to bind.
- * @param {*} thisArg The `this` binding of `func`.
- * @param {number} [argCount] The number of arguments to provide to `func`.
- * @returns {Function} Returns the callback.
- */
-function bindCallback(func, thisArg, argCount) {
-  if (typeof func != 'function') {
-    return identity;
-  }
-  if (thisArg === undefined) {
-    return func;
-  }
-  switch (argCount) {
-    case 1: return function(value) {
-      return func.call(thisArg, value);
-    };
-    case 3: return function(value, index, collection) {
-      return func.call(thisArg, value, index, collection);
-    };
-    case 4: return function(accumulator, value, index, collection) {
-      return func.call(thisArg, accumulator, value, index, collection);
-    };
-    case 5: return function(value, other, key, object, source) {
-      return func.call(thisArg, value, other, key, object, source);
-    };
-  }
-  return function() {
-    return func.apply(thisArg, arguments);
-  };
-}
+},{"100":100,"113":113,"139":139,"148":148,"151":151,"99":99}],95:[function(require,module,exports){
+var getNative = require(130);
+
+/* Native method references for those with the same name as other `lodash` methods. */
+var nativeNow = getNative(Date, 'now');
 
 /**
- * This method returns the first argument provided to it.
+ * Gets the number of milliseconds that have elapsed since the Unix epoch
+ * (1 January 1970 00:00:00 UTC).
  *
  * @static
  * @memberOf _
- * @category Utility
- * @param {*} value Any value.
- * @returns {*} Returns `value`.
+ * @category Date
  * @example
+ *
+ * _.defer(function(stamp) {
+ *   console.log(_.now() - stamp);
+ * }, _.now());
+ * // => logs the number of milliseconds it took for the deferred function to be invoked
+ */
+var now = nativeNow || function() {
+  return new Date().getTime();
+};
+
+module.exports = now;
+
+},{"130":130}],96:[function(require,module,exports){
+var createWrapper = require(126),
+    replaceHolders = require(144),
+    restParam = require(98);
+
+/** Used to compose bitmasks for wrapper metadata. */
+var BIND_FLAG = 1,
+    PARTIAL_FLAG = 32;
+
+/**
+ * Creates a function that invokes `func` with the `this` binding of `thisArg`
+ * and prepends any additional `_.bind` arguments to those provided to the
+ * bound function.
+ *
+ * The `_.bind.placeholder` value, which defaults to `_` in monolithic builds,
+ * may be used as a placeholder for partially applied arguments.
+ *
+ * **Note:** Unlike native `Function#bind` this method does not set the "length"
+ * property of bound functions.
+ *
+ * @static
+ * @memberOf _
+ * @category Function
+ * @param {Function} func The function to bind.
+ * @param {*} thisArg The `this` binding of `func`.
+ * @param {...*} [partials] The arguments to be partially applied.
+ * @returns {Function} Returns the new bound function.
+ * @example
+ *
+ * var greet = function(greeting, punctuation) {
+ *   return greeting + ' ' + this.user + punctuation;
+ * };
  *
  * var object = { 'user': 'fred' };
  *
- * _.identity(object) === object;
- * // => true
- */
-function identity(value) {
-  return value;
-}
-
-module.exports = bindCallback;
-
-},{}],94:[function(require,module,exports){
-/**
- * lodash 3.0.9 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-
-/** Used to detect unsigned integer values. */
-var reIsUint = /^\d+$/;
-
-/**
- * Used as the [maximum length](https://people.mozilla.org/~jorendorff/es6-draft.html#sec-number.max_safe_integer)
- * of an array-like value.
- */
-var MAX_SAFE_INTEGER = 9007199254740991;
-
-/**
- * The base implementation of `_.property` without support for deep paths.
+ * var bound = _.bind(greet, object, 'hi');
+ * bound('!');
+ * // => 'hi fred!'
  *
- * @private
- * @param {string} key The key of the property to get.
- * @returns {Function} Returns the new function.
+ * // using placeholders
+ * var bound = _.bind(greet, object, _, '!');
+ * bound('hi');
+ * // => 'hi fred!'
  */
-function baseProperty(key) {
-  return function(object) {
-    return object == null ? undefined : object[key];
-  };
-}
-
-/**
- * Gets the "length" property value of `object`.
- *
- * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
- * that affects Safari on at least iOS 8.1-8.3 ARM64.
- *
- * @private
- * @param {Object} object The object to query.
- * @returns {*} Returns the "length" value.
- */
-var getLength = baseProperty('length');
-
-/**
- * Checks if `value` is array-like.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
- */
-function isArrayLike(value) {
-  return value != null && isLength(getLength(value));
-}
-
-/**
- * Checks if `value` is a valid array-like index.
- *
- * @private
- * @param {*} value The value to check.
- * @param {number} [length=MAX_SAFE_INTEGER] The upper bounds of a valid index.
- * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.
- */
-function isIndex(value, length) {
-  value = (typeof value == 'number' || reIsUint.test(value)) ? +value : -1;
-  length = length == null ? MAX_SAFE_INTEGER : length;
-  return value > -1 && value % 1 == 0 && value < length;
-}
-
-/**
- * Checks if the provided arguments are from an iteratee call.
- *
- * @private
- * @param {*} value The potential iteratee value argument.
- * @param {*} index The potential iteratee index or key argument.
- * @param {*} object The potential iteratee object argument.
- * @returns {boolean} Returns `true` if the arguments are from an iteratee call, else `false`.
- */
-function isIterateeCall(value, index, object) {
-  if (!isObject(object)) {
-    return false;
+var bind = restParam(function(func, thisArg, partials) {
+  var bitmask = BIND_FLAG;
+  if (partials.length) {
+    var holders = replaceHolders(partials, bind.placeholder);
+    bitmask |= PARTIAL_FLAG;
   }
-  var type = typeof index;
-  if (type == 'number'
-      ? (isArrayLike(object) && isIndex(index, object.length))
-      : (type == 'string' && index in object)) {
-    var other = object[index];
-    return value === value ? (value === other) : (other !== other);
-  }
-  return false;
-}
+  return createWrapper(func, bitmask, thisArg, partials, holders);
+});
+
+// Assign default placeholders.
+bind.placeholder = {};
+
+module.exports = bind;
+
+},{"126":126,"144":144,"98":98}],97:[function(require,module,exports){
+var baseFlatten = require(109),
+    createWrapper = require(126),
+    functions = require(158),
+    restParam = require(98);
+
+/** Used to compose bitmasks for wrapper metadata. */
+var BIND_FLAG = 1;
 
 /**
- * Checks if `value` is a valid array-like length.
+ * Binds methods of an object to the object itself, overwriting the existing
+ * method. Method names may be specified as individual arguments or as arrays
+ * of method names. If no method names are provided all enumerable function
+ * properties, own and inherited, of `object` are bound.
  *
- * **Note:** This function is based on [`ToLength`](https://people.mozilla.org/~jorendorff/es6-draft.html#sec-tolength).
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
- */
-function isLength(value) {
-  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
-}
-
-/**
- * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
- * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ * **Note:** This method does not set the "length" property of bound functions.
  *
  * @static
  * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @category Function
+ * @param {Object} object The object to bind and assign the bound methods to.
+ * @param {...(string|string[])} [methodNames] The object method names to bind,
+ *  specified as individual method names or arrays of method names.
+ * @returns {Object} Returns `object`.
  * @example
  *
- * _.isObject({});
- * // => true
+ * var view = {
+ *   'label': 'docs',
+ *   'onClick': function() {
+ *     console.log('clicked ' + this.label);
+ *   }
+ * };
  *
- * _.isObject([1, 2, 3]);
- * // => true
- *
- * _.isObject(1);
- * // => false
+ * _.bindAll(view);
+ * jQuery('#docs').on('click', view.onClick);
+ * // => logs 'clicked docs' when the element is clicked
  */
-function isObject(value) {
-  // Avoid a V8 JIT bug in Chrome 19-20.
-  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
-  var type = typeof value;
-  return !!value && (type == 'object' || type == 'function');
-}
+var bindAll = restParam(function(object, methodNames) {
+  methodNames = methodNames.length ? baseFlatten(methodNames) : functions(object);
 
-module.exports = isIterateeCall;
+  var index = -1,
+      length = methodNames.length;
 
-},{}],95:[function(require,module,exports){
-/**
- * lodash 3.6.1 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
+  while (++index < length) {
+    var key = methodNames[index];
+    object[key] = createWrapper(object[key], BIND_FLAG, object);
+  }
+  return object;
+});
 
+module.exports = bindAll;
+
+},{"109":109,"126":126,"158":158,"98":98}],98:[function(require,module,exports){
 /** Used as the `TypeError` message for "Functions" methods. */
 var FUNC_ERROR_TEXT = 'Expected a function';
 
@@ -6186,7 +6898,7 @@ var nativeMax = Math.max;
  * Creates a function that invokes `func` with the `this` binding of the
  * created function and arguments from `start` and beyond provided as an array.
  *
- * **Note:** This method is based on the [rest parameter](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/rest_parameters).
+ * **Note:** This method is based on the [rest parameter](https://developer.mozilla.org/Web/JavaScript/Reference/Functions/rest_parameters).
  *
  * @static
  * @memberOf _
@@ -6235,754 +6947,190 @@ function restParam(func, start) {
 
 module.exports = restParam;
 
-},{}],96:[function(require,module,exports){
-/**
- * lodash 3.1.2 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-var getNative = require('lodash._getnative'),
-    isArguments = require('lodash.isarguments'),
-    isArray = require('lodash.isarray');
+},{}],99:[function(require,module,exports){
+var baseCreate = require(108),
+    baseLodash = require(113);
 
-/** Used to detect unsigned integer values. */
-var reIsUint = /^\d+$/;
-
-/** Used for native method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/* Native method references for those with the same name as other `lodash` methods. */
-var nativeKeys = getNative(Object, 'keys');
+/** Used as references for `-Infinity` and `Infinity`. */
+var POSITIVE_INFINITY = Number.POSITIVE_INFINITY;
 
 /**
- * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
- * of an array-like value.
- */
-var MAX_SAFE_INTEGER = 9007199254740991;
-
-/**
- * The base implementation of `_.property` without support for deep paths.
+ * Creates a lazy wrapper object which wraps `value` to enable lazy evaluation.
  *
  * @private
- * @param {string} key The key of the property to get.
- * @returns {Function} Returns the new function.
+ * @param {*} value The value to wrap.
  */
-function baseProperty(key) {
-  return function(object) {
-    return object == null ? undefined : object[key];
-  };
+function LazyWrapper(value) {
+  this.__wrapped__ = value;
+  this.__actions__ = [];
+  this.__dir__ = 1;
+  this.__filtered__ = false;
+  this.__iteratees__ = [];
+  this.__takeCount__ = POSITIVE_INFINITY;
+  this.__views__ = [];
 }
 
-/**
- * Gets the "length" property value of `object`.
- *
- * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
- * that affects Safari on at least iOS 8.1-8.3 ARM64.
- *
- * @private
- * @param {Object} object The object to query.
- * @returns {*} Returns the "length" value.
- */
-var getLength = baseProperty('length');
+LazyWrapper.prototype = baseCreate(baseLodash.prototype);
+LazyWrapper.prototype.constructor = LazyWrapper;
+
+module.exports = LazyWrapper;
+
+},{"108":108,"113":113}],100:[function(require,module,exports){
+var baseCreate = require(108),
+    baseLodash = require(113);
 
 /**
- * Checks if `value` is array-like.
+ * The base constructor for creating `lodash` wrapper objects.
  *
  * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
+ * @param {*} value The value to wrap.
+ * @param {boolean} [chainAll] Enable chaining for all wrapper methods.
+ * @param {Array} [actions=[]] Actions to peform to resolve the unwrapped value.
  */
-function isArrayLike(value) {
-  return value != null && isLength(getLength(value));
+function LodashWrapper(value, chainAll, actions) {
+  this.__wrapped__ = value;
+  this.__actions__ = actions || [];
+  this.__chain__ = !!chainAll;
 }
 
+LodashWrapper.prototype = baseCreate(baseLodash.prototype);
+LodashWrapper.prototype.constructor = LodashWrapper;
+
+module.exports = LodashWrapper;
+
+},{"108":108,"113":113}],101:[function(require,module,exports){
 /**
- * Checks if `value` is a valid array-like index.
+ * Copies the values of `source` to `array`.
  *
  * @private
- * @param {*} value The value to check.
- * @param {number} [length=MAX_SAFE_INTEGER] The upper bounds of a valid index.
- * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.
+ * @param {Array} source The array to copy values from.
+ * @param {Array} [array=[]] The array to copy values to.
+ * @returns {Array} Returns `array`.
  */
-function isIndex(value, length) {
-  value = (typeof value == 'number' || reIsUint.test(value)) ? +value : -1;
-  length = length == null ? MAX_SAFE_INTEGER : length;
-  return value > -1 && value % 1 == 0 && value < length;
-}
-
-/**
- * Checks if `value` is a valid array-like length.
- *
- * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
- */
-function isLength(value) {
-  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
-}
-
-/**
- * A fallback implementation of `Object.keys` which creates an array of the
- * own enumerable property names of `object`.
- *
- * @private
- * @param {Object} object The object to query.
- * @returns {Array} Returns the array of property names.
- */
-function shimKeys(object) {
-  var props = keysIn(object),
-      propsLength = props.length,
-      length = propsLength && object.length;
-
-  var allowIndexes = !!length && isLength(length) &&
-    (isArray(object) || isArguments(object));
-
+function arrayCopy(source, array) {
   var index = -1,
-      result = [];
+      length = source.length;
 
-  while (++index < propsLength) {
-    var key = props[index];
-    if ((allowIndexes && isIndex(key, length)) || hasOwnProperty.call(object, key)) {
-      result.push(key);
-    }
+  array || (array = Array(length));
+  while (++index < length) {
+    array[index] = source[index];
   }
-  return result;
+  return array;
 }
 
-/**
- * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
- * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an object, else `false`.
- * @example
- *
- * _.isObject({});
- * // => true
- *
- * _.isObject([1, 2, 3]);
- * // => true
- *
- * _.isObject(1);
- * // => false
- */
-function isObject(value) {
-  // Avoid a V8 JIT bug in Chrome 19-20.
-  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
-  var type = typeof value;
-  return !!value && (type == 'object' || type == 'function');
-}
+module.exports = arrayCopy;
 
+},{}],102:[function(require,module,exports){
 /**
- * Creates an array of the own enumerable property names of `object`.
+ * A specialized version of `_.forEach` for arrays without support for callback
+ * shorthands and `this` binding.
  *
- * **Note:** Non-object values are coerced to objects. See the
- * [ES spec](http://ecma-international.org/ecma-262/6.0/#sec-object.keys)
- * for more details.
- *
- * @static
- * @memberOf _
- * @category Object
- * @param {Object} object The object to query.
- * @returns {Array} Returns the array of property names.
- * @example
- *
- * function Foo() {
- *   this.a = 1;
- *   this.b = 2;
- * }
- *
- * Foo.prototype.c = 3;
- *
- * _.keys(new Foo);
- * // => ['a', 'b'] (iteration order is not guaranteed)
- *
- * _.keys('hi');
- * // => ['0', '1']
+ * @private
+ * @param {Array} array The array to iterate over.
+ * @param {Function} iteratee The function invoked per iteration.
+ * @returns {Array} Returns `array`.
  */
-var keys = !nativeKeys ? shimKeys : function(object) {
-  var Ctor = object == null ? undefined : object.constructor;
-  if ((typeof Ctor == 'function' && Ctor.prototype === object) ||
-      (typeof object != 'function' && isArrayLike(object))) {
-    return shimKeys(object);
-  }
-  return isObject(object) ? nativeKeys(object) : [];
-};
-
-/**
- * Creates an array of the own and inherited enumerable property names of `object`.
- *
- * **Note:** Non-object values are coerced to objects.
- *
- * @static
- * @memberOf _
- * @category Object
- * @param {Object} object The object to query.
- * @returns {Array} Returns the array of property names.
- * @example
- *
- * function Foo() {
- *   this.a = 1;
- *   this.b = 2;
- * }
- *
- * Foo.prototype.c = 3;
- *
- * _.keysIn(new Foo);
- * // => ['a', 'b', 'c'] (iteration order is not guaranteed)
- */
-function keysIn(object) {
-  if (object == null) {
-    return [];
-  }
-  if (!isObject(object)) {
-    object = Object(object);
-  }
-  var length = object.length;
-  length = (length && isLength(length) &&
-    (isArray(object) || isArguments(object)) && length) || 0;
-
-  var Ctor = object.constructor,
-      index = -1,
-      isProto = typeof Ctor == 'function' && Ctor.prototype === object,
-      result = Array(length),
-      skipIndexes = length > 0;
+function arrayEach(array, iteratee) {
+  var index = -1,
+      length = array.length;
 
   while (++index < length) {
-    result[index] = (index + '');
-  }
-  for (var key in object) {
-    if (!(skipIndexes && isIndex(key, length)) &&
-        !(key == 'constructor' && (isProto || !hasOwnProperty.call(object, key)))) {
-      result.push(key);
+    if (iteratee(array[index], index, array) === false) {
+      break;
     }
   }
-  return result;
+  return array;
 }
 
-module.exports = keys;
+module.exports = arrayEach;
 
-},{"lodash._getnative":97,"lodash.isarguments":98,"lodash.isarray":99}],97:[function(require,module,exports){
+},{}],103:[function(require,module,exports){
 /**
- * lodash 3.9.1 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-
-/** `Object#toString` result references. */
-var funcTag = '[object Function]';
-
-/** Used to detect host constructors (Safari > 5). */
-var reIsHostCtor = /^\[object .+?Constructor\]$/;
-
-/**
- * Checks if `value` is object-like.
+ * Appends the elements of `values` to `array`.
  *
  * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ * @param {Array} array The array to modify.
+ * @param {Array} values The values to append.
+ * @returns {Array} Returns `array`.
  */
-function isObjectLike(value) {
-  return !!value && typeof value == 'object';
-}
+function arrayPush(array, values) {
+  var index = -1,
+      length = values.length,
+      offset = array.length;
 
-/** Used for native method references. */
-var objectProto = Object.prototype;
-
-/** Used to resolve the decompiled source of functions. */
-var fnToString = Function.prototype.toString;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/**
- * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
- * of values.
- */
-var objToString = objectProto.toString;
-
-/** Used to detect if a method is native. */
-var reIsNative = RegExp('^' +
-  fnToString.call(hasOwnProperty).replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
-  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
-);
-
-/**
- * Gets the native function at `key` of `object`.
- *
- * @private
- * @param {Object} object The object to query.
- * @param {string} key The key of the method to get.
- * @returns {*} Returns the function if it's native, else `undefined`.
- */
-function getNative(object, key) {
-  var value = object == null ? undefined : object[key];
-  return isNative(value) ? value : undefined;
-}
-
-/**
- * Checks if `value` is classified as a `Function` object.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
- * @example
- *
- * _.isFunction(_);
- * // => true
- *
- * _.isFunction(/abc/);
- * // => false
- */
-function isFunction(value) {
-  // The use of `Object#toString` avoids issues with the `typeof` operator
-  // in older versions of Chrome and Safari which return 'function' for regexes
-  // and Safari 8 equivalents which return 'object' for typed array constructors.
-  return isObject(value) && objToString.call(value) == funcTag;
-}
-
-/**
- * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
- * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an object, else `false`.
- * @example
- *
- * _.isObject({});
- * // => true
- *
- * _.isObject([1, 2, 3]);
- * // => true
- *
- * _.isObject(1);
- * // => false
- */
-function isObject(value) {
-  // Avoid a V8 JIT bug in Chrome 19-20.
-  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
-  var type = typeof value;
-  return !!value && (type == 'object' || type == 'function');
-}
-
-/**
- * Checks if `value` is a native function.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a native function, else `false`.
- * @example
- *
- * _.isNative(Array.prototype.push);
- * // => true
- *
- * _.isNative(_);
- * // => false
- */
-function isNative(value) {
-  if (value == null) {
-    return false;
+  while (++index < length) {
+    array[offset + index] = values[index];
   }
-  if (isFunction(value)) {
-    return reIsNative.test(fnToString.call(value));
+  return array;
+}
+
+module.exports = arrayPush;
+
+},{}],104:[function(require,module,exports){
+var keys = require(159);
+
+/**
+ * A specialized version of `_.assign` for customizing assigned values without
+ * support for argument juggling, multiple sources, and `this` binding `customizer`
+ * functions.
+ *
+ * @private
+ * @param {Object} object The destination object.
+ * @param {Object} source The source object.
+ * @param {Function} customizer The function to customize assigned values.
+ * @returns {Object} Returns `object`.
+ */
+function assignWith(object, source, customizer) {
+  var index = -1,
+      props = keys(source),
+      length = props.length;
+
+  while (++index < length) {
+    var key = props[index],
+        value = object[key],
+        result = customizer(value, source[key], key, object, source);
+
+    if ((result === result ? (result !== value) : (value === value)) ||
+        (value === undefined && !(key in object))) {
+      object[key] = result;
+    }
   }
-  return isObjectLike(value) && reIsHostCtor.test(value);
+  return object;
 }
 
-module.exports = getNative;
+module.exports = assignWith;
 
-},{}],98:[function(require,module,exports){
-/**
- * lodash 3.0.4 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
+},{"159":159}],105:[function(require,module,exports){
+var baseCopy = require(107),
+    keys = require(159);
 
 /**
- * Checks if `value` is object-like.
+ * The base implementation of `_.assign` without support for argument juggling,
+ * multiple sources, and `customizer` functions.
  *
  * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ * @param {Object} object The destination object.
+ * @param {Object} source The source object.
+ * @returns {Object} Returns `object`.
  */
-function isObjectLike(value) {
-  return !!value && typeof value == 'object';
+function baseAssign(object, source) {
+  return source == null
+    ? object
+    : baseCopy(source, keys(source), object);
 }
 
-/** Used for native method references. */
-var objectProto = Object.prototype;
+module.exports = baseAssign;
 
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/** Native method references. */
-var propertyIsEnumerable = objectProto.propertyIsEnumerable;
-
-/**
- * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
- * of an array-like value.
- */
-var MAX_SAFE_INTEGER = 9007199254740991;
-
-/**
- * The base implementation of `_.property` without support for deep paths.
- *
- * @private
- * @param {string} key The key of the property to get.
- * @returns {Function} Returns the new function.
- */
-function baseProperty(key) {
-  return function(object) {
-    return object == null ? undefined : object[key];
-  };
-}
-
-/**
- * Gets the "length" property value of `object`.
- *
- * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
- * that affects Safari on at least iOS 8.1-8.3 ARM64.
- *
- * @private
- * @param {Object} object The object to query.
- * @returns {*} Returns the "length" value.
- */
-var getLength = baseProperty('length');
-
-/**
- * Checks if `value` is array-like.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
- */
-function isArrayLike(value) {
-  return value != null && isLength(getLength(value));
-}
-
-/**
- * Checks if `value` is a valid array-like length.
- *
- * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
- */
-function isLength(value) {
-  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
-}
-
-/**
- * Checks if `value` is classified as an `arguments` object.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
- * @example
- *
- * _.isArguments(function() { return arguments; }());
- * // => true
- *
- * _.isArguments([1, 2, 3]);
- * // => false
- */
-function isArguments(value) {
-  return isObjectLike(value) && isArrayLike(value) &&
-    hasOwnProperty.call(value, 'callee') && !propertyIsEnumerable.call(value, 'callee');
-}
-
-module.exports = isArguments;
-
-},{}],99:[function(require,module,exports){
-/**
- * lodash 3.0.4 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-
-/** `Object#toString` result references. */
-var arrayTag = '[object Array]',
-    funcTag = '[object Function]';
-
-/** Used to detect host constructors (Safari > 5). */
-var reIsHostCtor = /^\[object .+?Constructor\]$/;
-
-/**
- * Checks if `value` is object-like.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
- */
-function isObjectLike(value) {
-  return !!value && typeof value == 'object';
-}
-
-/** Used for native method references. */
-var objectProto = Object.prototype;
-
-/** Used to resolve the decompiled source of functions. */
-var fnToString = Function.prototype.toString;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/**
- * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
- * of values.
- */
-var objToString = objectProto.toString;
-
-/** Used to detect if a method is native. */
-var reIsNative = RegExp('^' +
-  fnToString.call(hasOwnProperty).replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
-  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
-);
-
-/* Native method references for those with the same name as other `lodash` methods. */
-var nativeIsArray = getNative(Array, 'isArray');
-
-/**
- * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
- * of an array-like value.
- */
-var MAX_SAFE_INTEGER = 9007199254740991;
-
-/**
- * Gets the native function at `key` of `object`.
- *
- * @private
- * @param {Object} object The object to query.
- * @param {string} key The key of the method to get.
- * @returns {*} Returns the function if it's native, else `undefined`.
- */
-function getNative(object, key) {
-  var value = object == null ? undefined : object[key];
-  return isNative(value) ? value : undefined;
-}
-
-/**
- * Checks if `value` is a valid array-like length.
- *
- * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
- */
-function isLength(value) {
-  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
-}
-
-/**
- * Checks if `value` is classified as an `Array` object.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
- * @example
- *
- * _.isArray([1, 2, 3]);
- * // => true
- *
- * _.isArray(function() { return arguments; }());
- * // => false
- */
-var isArray = nativeIsArray || function(value) {
-  return isObjectLike(value) && isLength(value.length) && objToString.call(value) == arrayTag;
-};
-
-/**
- * Checks if `value` is classified as a `Function` object.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
- * @example
- *
- * _.isFunction(_);
- * // => true
- *
- * _.isFunction(/abc/);
- * // => false
- */
-function isFunction(value) {
-  // The use of `Object#toString` avoids issues with the `typeof` operator
-  // in older versions of Chrome and Safari which return 'function' for regexes
-  // and Safari 8 equivalents which return 'object' for typed array constructors.
-  return isObject(value) && objToString.call(value) == funcTag;
-}
-
-/**
- * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
- * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an object, else `false`.
- * @example
- *
- * _.isObject({});
- * // => true
- *
- * _.isObject([1, 2, 3]);
- * // => true
- *
- * _.isObject(1);
- * // => false
- */
-function isObject(value) {
-  // Avoid a V8 JIT bug in Chrome 19-20.
-  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
-  var type = typeof value;
-  return !!value && (type == 'object' || type == 'function');
-}
-
-/**
- * Checks if `value` is a native function.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a native function, else `false`.
- * @example
- *
- * _.isNative(Array.prototype.push);
- * // => true
- *
- * _.isNative(_);
- * // => false
- */
-function isNative(value) {
-  if (value == null) {
-    return false;
-  }
-  if (isFunction(value)) {
-    return reIsNative.test(fnToString.call(value));
-  }
-  return isObjectLike(value) && reIsHostCtor.test(value);
-}
-
-module.exports = isArray;
-
-},{}],100:[function(require,module,exports){
-/**
- * lodash 3.0.2 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-var baseClone = require('lodash._baseclone'),
-    bindCallback = require('lodash._bindcallback');
-
-/**
- * Creates a deep clone of `value`. If `customizer` is provided it's invoked
- * to produce the cloned values. If `customizer` returns `undefined` cloning
- * is handled by the method instead. The `customizer` is bound to `thisArg`
- * and invoked with up to three argument; (value [, index|key, object]).
- *
- * **Note:** This method is loosely based on the
- * [structured clone algorithm](http://www.w3.org/TR/html5/infrastructure.html#internal-structured-cloning-algorithm).
- * The enumerable properties of `arguments` objects and objects created by
- * constructors other than `Object` are cloned to plain `Object` objects. An
- * empty object is returned for uncloneable values such as functions, DOM nodes,
- * Maps, Sets, and WeakMaps.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to deep clone.
- * @param {Function} [customizer] The function to customize cloning values.
- * @param {*} [thisArg] The `this` binding of `customizer`.
- * @returns {*} Returns the deep cloned value.
- * @example
- *
- * var users = [
- *   { 'user': 'barney' },
- *   { 'user': 'fred' }
- * ];
- *
- * var deep = _.cloneDeep(users);
- * deep[0] === users[0];
- * // => false
- *
- * // using a customizer callback
- * var el = _.cloneDeep(document.body, function(value) {
- *   if (_.isElement(value)) {
- *     return value.cloneNode(true);
- *   }
- * });
- *
- * el === document.body
- * // => false
- * el.nodeName
- * // => BODY
- * el.childNodes.length;
- * // => 20
- */
-function cloneDeep(value, customizer, thisArg) {
-  return typeof customizer == 'function'
-    ? baseClone(value, true, bindCallback(customizer, thisArg, 3))
-    : baseClone(value, true);
-}
-
-module.exports = cloneDeep;
-
-},{"lodash._baseclone":101,"lodash._bindcallback":111}],101:[function(require,module,exports){
-(function (global){
-/**
- * lodash 3.3.0 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-var arrayCopy = require('lodash._arraycopy'),
-    arrayEach = require('lodash._arrayeach'),
-    baseAssign = require('lodash._baseassign'),
-    baseFor = require('lodash._basefor'),
-    isArray = require('lodash.isarray'),
-    keys = require('lodash.keys');
+},{"107":107,"159":159}],106:[function(require,module,exports){
+var arrayCopy = require(101),
+    arrayEach = require(102),
+    baseAssign = require(105),
+    baseForOwn = require(111),
+    initCloneArray = require(131),
+    initCloneByTag = require(132),
+    initCloneObject = require(133),
+    isArray = require(151),
+    isObject = require(154);
 
 /** `Object#toString` result references. */
 var argsTag = '[object Arguments]',
@@ -7010,9 +7158,6 @@ var arrayBufferTag = '[object ArrayBuffer]',
     uint16Tag = '[object Uint16Array]',
     uint32Tag = '[object Uint32Array]';
 
-/** Used to match `RegExp` flags from their coerced string values. */
-var reFlags = /\w*$/;
-
 /** Used to identify `toStringTag` values supported by `_.clone`. */
 var cloneableTags = {};
 cloneableTags[argsTag] = cloneableTags[arrayTag] =
@@ -7031,18 +7176,11 @@ cloneableTags[weakMapTag] = false;
 /** Used for native method references. */
 var objectProto = Object.prototype;
 
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
 /**
  * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
  * of values.
  */
 var objToString = objectProto.toString;
-
-/** Native method references. */
-var ArrayBuffer = global.ArrayBuffer,
-    Uint8Array = global.Uint8Array;
 
 /**
  * The base implementation of `_.clone` without support for argument juggling
@@ -7111,6 +7249,124 @@ function baseClone(value, isDeep, customizer, key, object, stackA, stackB) {
   return result;
 }
 
+module.exports = baseClone;
+
+},{"101":101,"102":102,"105":105,"111":111,"131":131,"132":132,"133":133,"151":151,"154":154}],107:[function(require,module,exports){
+/**
+ * Copies properties of `source` to `object`.
+ *
+ * @private
+ * @param {Object} source The object to copy properties from.
+ * @param {Array} props The property names to copy.
+ * @param {Object} [object={}] The object to copy properties to.
+ * @returns {Object} Returns `object`.
+ */
+function baseCopy(source, props, object) {
+  object || (object = {});
+
+  var index = -1,
+      length = props.length;
+
+  while (++index < length) {
+    var key = props[index];
+    object[key] = source[key];
+  }
+  return object;
+}
+
+module.exports = baseCopy;
+
+},{}],108:[function(require,module,exports){
+var isObject = require(154);
+
+/**
+ * The base implementation of `_.create` without support for assigning
+ * properties to the created object.
+ *
+ * @private
+ * @param {Object} prototype The object to inherit from.
+ * @returns {Object} Returns the new object.
+ */
+var baseCreate = (function() {
+  function object() {}
+  return function(prototype) {
+    if (isObject(prototype)) {
+      object.prototype = prototype;
+      var result = new object;
+      object.prototype = undefined;
+    }
+    return result || {};
+  };
+}());
+
+module.exports = baseCreate;
+
+},{"154":154}],109:[function(require,module,exports){
+var arrayPush = require(103),
+    isArguments = require(150),
+    isArray = require(151),
+    isArrayLike = require(134),
+    isObjectLike = require(139);
+
+/**
+ * The base implementation of `_.flatten` with added support for restricting
+ * flattening and specifying the start index.
+ *
+ * @private
+ * @param {Array} array The array to flatten.
+ * @param {boolean} [isDeep] Specify a deep flatten.
+ * @param {boolean} [isStrict] Restrict flattening to arrays-like objects.
+ * @param {Array} [result=[]] The initial result value.
+ * @returns {Array} Returns the new flattened array.
+ */
+function baseFlatten(array, isDeep, isStrict, result) {
+  result || (result = []);
+
+  var index = -1,
+      length = array.length;
+
+  while (++index < length) {
+    var value = array[index];
+    if (isObjectLike(value) && isArrayLike(value) &&
+        (isStrict || isArray(value) || isArguments(value))) {
+      if (isDeep) {
+        // Recursively flatten arrays (susceptible to call stack limits).
+        baseFlatten(value, isDeep, isStrict, result);
+      } else {
+        arrayPush(result, value);
+      }
+    } else if (!isStrict) {
+      result[result.length] = value;
+    }
+  }
+  return result;
+}
+
+module.exports = baseFlatten;
+
+},{"103":103,"134":134,"139":139,"150":150,"151":151}],110:[function(require,module,exports){
+var createBaseFor = require(121);
+
+/**
+ * The base implementation of `baseForIn` and `baseForOwn` which iterates
+ * over `object` properties returned by `keysFunc` invoking `iteratee` for
+ * each property. Iteratee functions may exit iteration early by explicitly
+ * returning `false`.
+ *
+ * @private
+ * @param {Object} object The object to iterate over.
+ * @param {Function} iteratee The function invoked per iteration.
+ * @param {Function} keysFunc The function to get the keys of `object`.
+ * @returns {Object} Returns `object`.
+ */
+var baseFor = createBaseFor();
+
+module.exports = baseFor;
+
+},{"121":121}],111:[function(require,module,exports){
+var baseFor = require(110),
+    keys = require(159);
+
 /**
  * The base implementation of `_.forOwn` without support for callback
  * shorthands and `this` binding.
@@ -7123,6 +7379,131 @@ function baseClone(value, isDeep, customizer, key, object, stackA, stackB) {
 function baseForOwn(object, iteratee) {
   return baseFor(object, iteratee, keys);
 }
+
+module.exports = baseForOwn;
+
+},{"110":110,"159":159}],112:[function(require,module,exports){
+var isFunction = require(152);
+
+/**
+ * The base implementation of `_.functions` which creates an array of
+ * `object` function property names filtered from those provided.
+ *
+ * @private
+ * @param {Object} object The object to inspect.
+ * @param {Array} props The property names to filter.
+ * @returns {Array} Returns the new array of filtered property names.
+ */
+function baseFunctions(object, props) {
+  var index = -1,
+      length = props.length,
+      resIndex = -1,
+      result = [];
+
+  while (++index < length) {
+    var key = props[index];
+    if (isFunction(object[key])) {
+      result[++resIndex] = key;
+    }
+  }
+  return result;
+}
+
+module.exports = baseFunctions;
+
+},{"152":152}],113:[function(require,module,exports){
+/**
+ * The function whose prototype all chaining wrappers inherit from.
+ *
+ * @private
+ */
+function baseLodash() {
+  // No operation performed.
+}
+
+module.exports = baseLodash;
+
+},{}],114:[function(require,module,exports){
+/**
+ * The base implementation of `_.property` without support for deep paths.
+ *
+ * @private
+ * @param {string} key The key of the property to get.
+ * @returns {Function} Returns the new function.
+ */
+function baseProperty(key) {
+  return function(object) {
+    return object == null ? undefined : object[key];
+  };
+}
+
+module.exports = baseProperty;
+
+},{}],115:[function(require,module,exports){
+var identity = require(161),
+    metaMap = require(141);
+
+/**
+ * The base implementation of `setData` without support for hot loop detection.
+ *
+ * @private
+ * @param {Function} func The function to associate metadata with.
+ * @param {*} data The metadata.
+ * @returns {Function} Returns `func`.
+ */
+var baseSetData = !metaMap ? identity : function(func, data) {
+  metaMap.set(func, data);
+  return func;
+};
+
+module.exports = baseSetData;
+
+},{"141":141,"161":161}],116:[function(require,module,exports){
+var identity = require(161);
+
+/**
+ * A specialized version of `baseCallback` which only supports `this` binding
+ * and specifying the number of arguments to provide to `func`.
+ *
+ * @private
+ * @param {Function} func The function to bind.
+ * @param {*} thisArg The `this` binding of `func`.
+ * @param {number} [argCount] The number of arguments to provide to `func`.
+ * @returns {Function} Returns the callback.
+ */
+function bindCallback(func, thisArg, argCount) {
+  if (typeof func != 'function') {
+    return identity;
+  }
+  if (thisArg === undefined) {
+    return func;
+  }
+  switch (argCount) {
+    case 1: return function(value) {
+      return func.call(thisArg, value);
+    };
+    case 3: return function(value, index, collection) {
+      return func.call(thisArg, value, index, collection);
+    };
+    case 4: return function(accumulator, value, index, collection) {
+      return func.call(thisArg, accumulator, value, index, collection);
+    };
+    case 5: return function(value, other, key, object, source) {
+      return func.call(thisArg, value, other, key, object, source);
+    };
+  }
+  return function() {
+    return func.apply(thisArg, arguments);
+  };
+}
+
+module.exports = bindCallback;
+
+},{"161":161}],117:[function(require,module,exports){
+(function (global){
+/** Native method references. */
+var ArrayBuffer = global.ArrayBuffer,
+    Uint8Array = global.Uint8Array;
 
 /**
  * Creates a clone of the given array buffer.
@@ -7138,6 +7519,556 @@ function bufferClone(buffer) {
   view.set(new Uint8Array(buffer));
   return result;
 }
+
+module.exports = bufferClone;
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],118:[function(require,module,exports){
+/* Native method references for those with the same name as other `lodash` methods. */
+var nativeMax = Math.max;
+
+/**
+ * Creates an array that is the composition of partially applied arguments,
+ * placeholders, and provided arguments into a single array of arguments.
+ *
+ * @private
+ * @param {Array|Object} args The provided arguments.
+ * @param {Array} partials The arguments to prepend to those provided.
+ * @param {Array} holders The `partials` placeholder indexes.
+ * @returns {Array} Returns the new array of composed arguments.
+ */
+function composeArgs(args, partials, holders) {
+  var holdersLength = holders.length,
+      argsIndex = -1,
+      argsLength = nativeMax(args.length - holdersLength, 0),
+      leftIndex = -1,
+      leftLength = partials.length,
+      result = Array(leftLength + argsLength);
+
+  while (++leftIndex < leftLength) {
+    result[leftIndex] = partials[leftIndex];
+  }
+  while (++argsIndex < holdersLength) {
+    result[holders[argsIndex]] = args[argsIndex];
+  }
+  while (argsLength--) {
+    result[leftIndex++] = args[argsIndex++];
+  }
+  return result;
+}
+
+module.exports = composeArgs;
+
+},{}],119:[function(require,module,exports){
+/* Native method references for those with the same name as other `lodash` methods. */
+var nativeMax = Math.max;
+
+/**
+ * This function is like `composeArgs` except that the arguments composition
+ * is tailored for `_.partialRight`.
+ *
+ * @private
+ * @param {Array|Object} args The provided arguments.
+ * @param {Array} partials The arguments to append to those provided.
+ * @param {Array} holders The `partials` placeholder indexes.
+ * @returns {Array} Returns the new array of composed arguments.
+ */
+function composeArgsRight(args, partials, holders) {
+  var holdersIndex = -1,
+      holdersLength = holders.length,
+      argsIndex = -1,
+      argsLength = nativeMax(args.length - holdersLength, 0),
+      rightIndex = -1,
+      rightLength = partials.length,
+      result = Array(argsLength + rightLength);
+
+  while (++argsIndex < argsLength) {
+    result[argsIndex] = args[argsIndex];
+  }
+  var offset = argsIndex;
+  while (++rightIndex < rightLength) {
+    result[offset + rightIndex] = partials[rightIndex];
+  }
+  while (++holdersIndex < holdersLength) {
+    result[offset + holders[holdersIndex]] = args[argsIndex++];
+  }
+  return result;
+}
+
+module.exports = composeArgsRight;
+
+},{}],120:[function(require,module,exports){
+var bindCallback = require(116),
+    isIterateeCall = require(136),
+    restParam = require(98);
+
+/**
+ * Creates a `_.assign`, `_.defaults`, or `_.merge` function.
+ *
+ * @private
+ * @param {Function} assigner The function to assign values.
+ * @returns {Function} Returns the new assigner function.
+ */
+function createAssigner(assigner) {
+  return restParam(function(object, sources) {
+    var index = -1,
+        length = object == null ? 0 : sources.length,
+        customizer = length > 2 ? sources[length - 2] : undefined,
+        guard = length > 2 ? sources[2] : undefined,
+        thisArg = length > 1 ? sources[length - 1] : undefined;
+
+    if (typeof customizer == 'function') {
+      customizer = bindCallback(customizer, thisArg, 5);
+      length -= 2;
+    } else {
+      customizer = typeof thisArg == 'function' ? thisArg : undefined;
+      length -= (customizer ? 1 : 0);
+    }
+    if (guard && isIterateeCall(sources[0], sources[1], guard)) {
+      customizer = length < 3 ? undefined : customizer;
+      length = 1;
+    }
+    while (++index < length) {
+      var source = sources[index];
+      if (source) {
+        assigner(object, source, customizer);
+      }
+    }
+    return object;
+  });
+}
+
+module.exports = createAssigner;
+
+},{"116":116,"136":136,"98":98}],121:[function(require,module,exports){
+var toObject = require(147);
+
+/**
+ * Creates a base function for `_.forIn` or `_.forInRight`.
+ *
+ * @private
+ * @param {boolean} [fromRight] Specify iterating from right to left.
+ * @returns {Function} Returns the new base function.
+ */
+function createBaseFor(fromRight) {
+  return function(object, iteratee, keysFunc) {
+    var iterable = toObject(object),
+        props = keysFunc(object),
+        length = props.length,
+        index = fromRight ? length : -1;
+
+    while ((fromRight ? index-- : ++index < length)) {
+      var key = props[index];
+      if (iteratee(iterable[key], key, iterable) === false) {
+        break;
+      }
+    }
+    return object;
+  };
+}
+
+module.exports = createBaseFor;
+
+},{"147":147}],122:[function(require,module,exports){
+(function (global){
+var createCtorWrapper = require(123);
+
+/**
+ * Creates a function that wraps `func` and invokes it with the `this`
+ * binding of `thisArg`.
+ *
+ * @private
+ * @param {Function} func The function to bind.
+ * @param {*} [thisArg] The `this` binding of `func`.
+ * @returns {Function} Returns the new bound function.
+ */
+function createBindWrapper(func, thisArg) {
+  var Ctor = createCtorWrapper(func);
+
+  function wrapper() {
+    var fn = (this && this !== global && this instanceof wrapper) ? Ctor : func;
+    return fn.apply(thisArg, arguments);
+  }
+  return wrapper;
+}
+
+module.exports = createBindWrapper;
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"123":123}],123:[function(require,module,exports){
+var baseCreate = require(108),
+    isObject = require(154);
+
+/**
+ * Creates a function that produces an instance of `Ctor` regardless of
+ * whether it was invoked as part of a `new` expression or by `call` or `apply`.
+ *
+ * @private
+ * @param {Function} Ctor The constructor to wrap.
+ * @returns {Function} Returns the new wrapped function.
+ */
+function createCtorWrapper(Ctor) {
+  return function() {
+    // Use a `switch` statement to work with class constructors.
+    // See http://ecma-international.org/ecma-262/6.0/#sec-ecmascript-function-objects-call-thisargument-argumentslist
+    // for more details.
+    var args = arguments;
+    switch (args.length) {
+      case 0: return new Ctor;
+      case 1: return new Ctor(args[0]);
+      case 2: return new Ctor(args[0], args[1]);
+      case 3: return new Ctor(args[0], args[1], args[2]);
+      case 4: return new Ctor(args[0], args[1], args[2], args[3]);
+      case 5: return new Ctor(args[0], args[1], args[2], args[3], args[4]);
+      case 6: return new Ctor(args[0], args[1], args[2], args[3], args[4], args[5]);
+      case 7: return new Ctor(args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
+    }
+    var thisBinding = baseCreate(Ctor.prototype),
+        result = Ctor.apply(thisBinding, args);
+
+    // Mimic the constructor's `return` behavior.
+    // See https://es5.github.io/#x13.2.2 for more details.
+    return isObject(result) ? result : thisBinding;
+  };
+}
+
+module.exports = createCtorWrapper;
+
+},{"108":108,"154":154}],124:[function(require,module,exports){
+(function (global){
+var arrayCopy = require(101),
+    composeArgs = require(118),
+    composeArgsRight = require(119),
+    createCtorWrapper = require(123),
+    isLaziable = require(137),
+    reorder = require(143),
+    replaceHolders = require(144),
+    setData = require(145);
+
+/** Used to compose bitmasks for wrapper metadata. */
+var BIND_FLAG = 1,
+    BIND_KEY_FLAG = 2,
+    CURRY_BOUND_FLAG = 4,
+    CURRY_FLAG = 8,
+    CURRY_RIGHT_FLAG = 16,
+    PARTIAL_FLAG = 32,
+    PARTIAL_RIGHT_FLAG = 64,
+    ARY_FLAG = 128;
+
+/* Native method references for those with the same name as other `lodash` methods. */
+var nativeMax = Math.max;
+
+/**
+ * Creates a function that wraps `func` and invokes it with optional `this`
+ * binding of, partial application, and currying.
+ *
+ * @private
+ * @param {Function|string} func The function or method name to reference.
+ * @param {number} bitmask The bitmask of flags. See `createWrapper` for more details.
+ * @param {*} [thisArg] The `this` binding of `func`.
+ * @param {Array} [partials] The arguments to prepend to those provided to the new function.
+ * @param {Array} [holders] The `partials` placeholder indexes.
+ * @param {Array} [partialsRight] The arguments to append to those provided to the new function.
+ * @param {Array} [holdersRight] The `partialsRight` placeholder indexes.
+ * @param {Array} [argPos] The argument positions of the new function.
+ * @param {number} [ary] The arity cap of `func`.
+ * @param {number} [arity] The arity of `func`.
+ * @returns {Function} Returns the new wrapped function.
+ */
+function createHybridWrapper(func, bitmask, thisArg, partials, holders, partialsRight, holdersRight, argPos, ary, arity) {
+  var isAry = bitmask & ARY_FLAG,
+      isBind = bitmask & BIND_FLAG,
+      isBindKey = bitmask & BIND_KEY_FLAG,
+      isCurry = bitmask & CURRY_FLAG,
+      isCurryBound = bitmask & CURRY_BOUND_FLAG,
+      isCurryRight = bitmask & CURRY_RIGHT_FLAG,
+      Ctor = isBindKey ? undefined : createCtorWrapper(func);
+
+  function wrapper() {
+    // Avoid `arguments` object use disqualifying optimizations by
+    // converting it to an array before providing it to other functions.
+    var length = arguments.length,
+        index = length,
+        args = Array(length);
+
+    while (index--) {
+      args[index] = arguments[index];
+    }
+    if (partials) {
+      args = composeArgs(args, partials, holders);
+    }
+    if (partialsRight) {
+      args = composeArgsRight(args, partialsRight, holdersRight);
+    }
+    if (isCurry || isCurryRight) {
+      var placeholder = wrapper.placeholder,
+          argsHolders = replaceHolders(args, placeholder);
+
+      length -= argsHolders.length;
+      if (length < arity) {
+        var newArgPos = argPos ? arrayCopy(argPos) : undefined,
+            newArity = nativeMax(arity - length, 0),
+            newsHolders = isCurry ? argsHolders : undefined,
+            newHoldersRight = isCurry ? undefined : argsHolders,
+            newPartials = isCurry ? args : undefined,
+            newPartialsRight = isCurry ? undefined : args;
+
+        bitmask |= (isCurry ? PARTIAL_FLAG : PARTIAL_RIGHT_FLAG);
+        bitmask &= ~(isCurry ? PARTIAL_RIGHT_FLAG : PARTIAL_FLAG);
+
+        if (!isCurryBound) {
+          bitmask &= ~(BIND_FLAG | BIND_KEY_FLAG);
+        }
+        var newData = [func, bitmask, thisArg, newPartials, newsHolders, newPartialsRight, newHoldersRight, newArgPos, ary, newArity],
+            result = createHybridWrapper.apply(undefined, newData);
+
+        if (isLaziable(func)) {
+          setData(result, newData);
+        }
+        result.placeholder = placeholder;
+        return result;
+      }
+    }
+    var thisBinding = isBind ? thisArg : this,
+        fn = isBindKey ? thisBinding[func] : func;
+
+    if (argPos) {
+      args = reorder(args, argPos);
+    }
+    if (isAry && ary < args.length) {
+      args.length = ary;
+    }
+    if (this && this !== global && this instanceof wrapper) {
+      fn = Ctor || createCtorWrapper(func);
+    }
+    return fn.apply(thisBinding, args);
+  }
+  return wrapper;
+}
+
+module.exports = createHybridWrapper;
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"101":101,"118":118,"119":119,"123":123,"137":137,"143":143,"144":144,"145":145}],125:[function(require,module,exports){
+(function (global){
+var createCtorWrapper = require(123);
+
+/** Used to compose bitmasks for wrapper metadata. */
+var BIND_FLAG = 1;
+
+/**
+ * Creates a function that wraps `func` and invokes it with the optional `this`
+ * binding of `thisArg` and the `partials` prepended to those provided to
+ * the wrapper.
+ *
+ * @private
+ * @param {Function} func The function to partially apply arguments to.
+ * @param {number} bitmask The bitmask of flags. See `createWrapper` for more details.
+ * @param {*} thisArg The `this` binding of `func`.
+ * @param {Array} partials The arguments to prepend to those provided to the new function.
+ * @returns {Function} Returns the new bound function.
+ */
+function createPartialWrapper(func, bitmask, thisArg, partials) {
+  var isBind = bitmask & BIND_FLAG,
+      Ctor = createCtorWrapper(func);
+
+  function wrapper() {
+    // Avoid `arguments` object use disqualifying optimizations by
+    // converting it to an array before providing it `func`.
+    var argsIndex = -1,
+        argsLength = arguments.length,
+        leftIndex = -1,
+        leftLength = partials.length,
+        args = Array(leftLength + argsLength);
+
+    while (++leftIndex < leftLength) {
+      args[leftIndex] = partials[leftIndex];
+    }
+    while (argsLength--) {
+      args[leftIndex++] = arguments[++argsIndex];
+    }
+    var fn = (this && this !== global && this instanceof wrapper) ? Ctor : func;
+    return fn.apply(isBind ? thisArg : this, args);
+  }
+  return wrapper;
+}
+
+module.exports = createPartialWrapper;
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"123":123}],126:[function(require,module,exports){
+var baseSetData = require(115),
+    createBindWrapper = require(122),
+    createHybridWrapper = require(124),
+    createPartialWrapper = require(125),
+    getData = require(127),
+    mergeData = require(140),
+    setData = require(145);
+
+/** Used to compose bitmasks for wrapper metadata. */
+var BIND_FLAG = 1,
+    BIND_KEY_FLAG = 2,
+    PARTIAL_FLAG = 32,
+    PARTIAL_RIGHT_FLAG = 64;
+
+/** Used as the `TypeError` message for "Functions" methods. */
+var FUNC_ERROR_TEXT = 'Expected a function';
+
+/* Native method references for those with the same name as other `lodash` methods. */
+var nativeMax = Math.max;
+
+/**
+ * Creates a function that either curries or invokes `func` with optional
+ * `this` binding and partially applied arguments.
+ *
+ * @private
+ * @param {Function|string} func The function or method name to reference.
+ * @param {number} bitmask The bitmask of flags.
+ *  The bitmask may be composed of the following flags:
+ *     1 - `_.bind`
+ *     2 - `_.bindKey`
+ *     4 - `_.curry` or `_.curryRight` of a bound function
+ *     8 - `_.curry`
+ *    16 - `_.curryRight`
+ *    32 - `_.partial`
+ *    64 - `_.partialRight`
+ *   128 - `_.rearg`
+ *   256 - `_.ary`
+ * @param {*} [thisArg] The `this` binding of `func`.
+ * @param {Array} [partials] The arguments to be partially applied.
+ * @param {Array} [holders] The `partials` placeholder indexes.
+ * @param {Array} [argPos] The argument positions of the new function.
+ * @param {number} [ary] The arity cap of `func`.
+ * @param {number} [arity] The arity of `func`.
+ * @returns {Function} Returns the new wrapped function.
+ */
+function createWrapper(func, bitmask, thisArg, partials, holders, argPos, ary, arity) {
+  var isBindKey = bitmask & BIND_KEY_FLAG;
+  if (!isBindKey && typeof func != 'function') {
+    throw new TypeError(FUNC_ERROR_TEXT);
+  }
+  var length = partials ? partials.length : 0;
+  if (!length) {
+    bitmask &= ~(PARTIAL_FLAG | PARTIAL_RIGHT_FLAG);
+    partials = holders = undefined;
+  }
+  length -= (holders ? holders.length : 0);
+  if (bitmask & PARTIAL_RIGHT_FLAG) {
+    var partialsRight = partials,
+        holdersRight = holders;
+
+    partials = holders = undefined;
+  }
+  var data = isBindKey ? undefined : getData(func),
+      newData = [func, bitmask, thisArg, partials, holders, partialsRight, holdersRight, argPos, ary, arity];
+
+  if (data) {
+    mergeData(newData, data);
+    bitmask = newData[1];
+    arity = newData[9];
+  }
+  newData[9] = arity == null
+    ? (isBindKey ? 0 : func.length)
+    : (nativeMax(arity - length, 0) || 0);
+
+  if (bitmask == BIND_FLAG) {
+    var result = createBindWrapper(newData[0], newData[2]);
+  } else if ((bitmask == PARTIAL_FLAG || bitmask == (BIND_FLAG | PARTIAL_FLAG)) && !newData[4].length) {
+    result = createPartialWrapper.apply(undefined, newData);
+  } else {
+    result = createHybridWrapper.apply(undefined, newData);
+  }
+  var setter = data ? baseSetData : setData;
+  return setter(result, newData);
+}
+
+module.exports = createWrapper;
+
+},{"115":115,"122":122,"124":124,"125":125,"127":127,"140":140,"145":145}],127:[function(require,module,exports){
+var metaMap = require(141),
+    noop = require(162);
+
+/**
+ * Gets metadata for `func`.
+ *
+ * @private
+ * @param {Function} func The function to query.
+ * @returns {*} Returns the metadata for `func`.
+ */
+var getData = !metaMap ? noop : function(func) {
+  return metaMap.get(func);
+};
+
+module.exports = getData;
+
+},{"141":141,"162":162}],128:[function(require,module,exports){
+var realNames = require(142);
+
+/**
+ * Gets the name of `func`.
+ *
+ * @private
+ * @param {Function} func The function to query.
+ * @returns {string} Returns the function name.
+ */
+function getFuncName(func) {
+  var result = (func.name + ''),
+      array = realNames[result],
+      length = array ? array.length : 0;
+
+  while (length--) {
+    var data = array[length],
+        otherFunc = data.func;
+    if (otherFunc == null || otherFunc == func) {
+      return data.name;
+    }
+  }
+  return result;
+}
+
+module.exports = getFuncName;
+
+},{"142":142}],129:[function(require,module,exports){
+var baseProperty = require(114);
+
+/**
+ * Gets the "length" property value of `object`.
+ *
+ * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
+ * that affects Safari on at least iOS 8.1-8.3 ARM64.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {*} Returns the "length" value.
+ */
+var getLength = baseProperty('length');
+
+module.exports = getLength;
+
+},{"114":114}],130:[function(require,module,exports){
+var isNative = require(153);
+
+/**
+ * Gets the native function at `key` of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @param {string} key The key of the method to get.
+ * @returns {*} Returns the function if it's native, else `undefined`.
+ */
+function getNative(object, key) {
+  var value = object == null ? undefined : object[key];
+  return isNative(value) ? value : undefined;
+}
+
+module.exports = getNative;
+
+},{"153":153}],131:[function(require,module,exports){
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
 
 /**
  * Initializes an array clone.
@@ -7158,20 +8089,31 @@ function initCloneArray(array) {
   return result;
 }
 
-/**
- * Initializes an object clone.
- *
- * @private
- * @param {Object} object The object to clone.
- * @returns {Object} Returns the initialized clone.
- */
-function initCloneObject(object) {
-  var Ctor = object.constructor;
-  if (!(typeof Ctor == 'function' && Ctor instanceof Ctor)) {
-    Ctor = Object;
-  }
-  return new Ctor;
-}
+module.exports = initCloneArray;
+
+},{}],132:[function(require,module,exports){
+var bufferClone = require(117);
+
+/** `Object#toString` result references. */
+var boolTag = '[object Boolean]',
+    dateTag = '[object Date]',
+    numberTag = '[object Number]',
+    regexpTag = '[object RegExp]',
+    stringTag = '[object String]';
+
+var arrayBufferTag = '[object ArrayBuffer]',
+    float32Tag = '[object Float32Array]',
+    float64Tag = '[object Float64Array]',
+    int8Tag = '[object Int8Array]',
+    int16Tag = '[object Int16Array]',
+    int32Tag = '[object Int32Array]',
+    uint8Tag = '[object Uint8Array]',
+    uint8ClampedTag = '[object Uint8ClampedArray]',
+    uint16Tag = '[object Uint16Array]',
+    uint32Tag = '[object Uint32Array]';
+
+/** Used to match `RegExp` flags from their coerced string values. */
+var reFlags = /\w*$/;
 
 /**
  * Initializes an object clone based on its `toStringTag`.
@@ -7212,151 +8154,423 @@ function initCloneByTag(object, tag, isDeep) {
   return result;
 }
 
+module.exports = initCloneByTag;
+
+},{"117":117}],133:[function(require,module,exports){
 /**
- * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
- * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ * Initializes an object clone.
  *
- * @static
- * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an object, else `false`.
- * @example
- *
- * _.isObject({});
- * // => true
- *
- * _.isObject([1, 2, 3]);
- * // => true
- *
- * _.isObject(1);
- * // => false
+ * @private
+ * @param {Object} object The object to clone.
+ * @returns {Object} Returns the initialized clone.
  */
-function isObject(value) {
-  // Avoid a V8 JIT bug in Chrome 19-20.
-  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
-  var type = typeof value;
-  return !!value && (type == 'object' || type == 'function');
+function initCloneObject(object) {
+  var Ctor = object.constructor;
+  if (!(typeof Ctor == 'function' && Ctor instanceof Ctor)) {
+    Ctor = Object;
+  }
+  return new Ctor;
 }
 
-module.exports = baseClone;
+module.exports = initCloneObject;
+
+},{}],134:[function(require,module,exports){
+var getLength = require(129),
+    isLength = require(138);
+
+/**
+ * Checks if `value` is array-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
+ */
+function isArrayLike(value) {
+  return value != null && isLength(getLength(value));
+}
+
+module.exports = isArrayLike;
+
+},{"129":129,"138":138}],135:[function(require,module,exports){
+/** Used to detect unsigned integer values. */
+var reIsUint = /^\d+$/;
+
+/**
+ * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
+ * of an array-like value.
+ */
+var MAX_SAFE_INTEGER = 9007199254740991;
+
+/**
+ * Checks if `value` is a valid array-like index.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @param {number} [length=MAX_SAFE_INTEGER] The upper bounds of a valid index.
+ * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.
+ */
+function isIndex(value, length) {
+  value = (typeof value == 'number' || reIsUint.test(value)) ? +value : -1;
+  length = length == null ? MAX_SAFE_INTEGER : length;
+  return value > -1 && value % 1 == 0 && value < length;
+}
+
+module.exports = isIndex;
+
+},{}],136:[function(require,module,exports){
+var isArrayLike = require(134),
+    isIndex = require(135),
+    isObject = require(154);
+
+/**
+ * Checks if the provided arguments are from an iteratee call.
+ *
+ * @private
+ * @param {*} value The potential iteratee value argument.
+ * @param {*} index The potential iteratee index or key argument.
+ * @param {*} object The potential iteratee object argument.
+ * @returns {boolean} Returns `true` if the arguments are from an iteratee call, else `false`.
+ */
+function isIterateeCall(value, index, object) {
+  if (!isObject(object)) {
+    return false;
+  }
+  var type = typeof index;
+  if (type == 'number'
+      ? (isArrayLike(object) && isIndex(index, object.length))
+      : (type == 'string' && index in object)) {
+    var other = object[index];
+    return value === value ? (value === other) : (other !== other);
+  }
+  return false;
+}
+
+module.exports = isIterateeCall;
+
+},{"134":134,"135":135,"154":154}],137:[function(require,module,exports){
+var LazyWrapper = require(99),
+    getData = require(127),
+    getFuncName = require(128),
+    lodash = require(94);
+
+/**
+ * Checks if `func` has a lazy counterpart.
+ *
+ * @private
+ * @param {Function} func The function to check.
+ * @returns {boolean} Returns `true` if `func` has a lazy counterpart, else `false`.
+ */
+function isLaziable(func) {
+  var funcName = getFuncName(func),
+      other = lodash[funcName];
+
+  if (typeof other != 'function' || !(funcName in LazyWrapper.prototype)) {
+    return false;
+  }
+  if (func === other) {
+    return true;
+  }
+  var data = getData(other);
+  return !!data && func === data[0];
+}
+
+module.exports = isLaziable;
+
+},{"127":127,"128":128,"94":94,"99":99}],138:[function(require,module,exports){
+/**
+ * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
+ * of an array-like value.
+ */
+var MAX_SAFE_INTEGER = 9007199254740991;
+
+/**
+ * Checks if `value` is a valid array-like length.
+ *
+ * **Note:** This function is based on [`ToLength`](http://ecma-international.org/ecma-262/6.0/#sec-tolength).
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
+ */
+function isLength(value) {
+  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+}
+
+module.exports = isLength;
+
+},{}],139:[function(require,module,exports){
+/**
+ * Checks if `value` is object-like.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
+ */
+function isObjectLike(value) {
+  return !!value && typeof value == 'object';
+}
+
+module.exports = isObjectLike;
+
+},{}],140:[function(require,module,exports){
+var arrayCopy = require(101),
+    composeArgs = require(118),
+    composeArgsRight = require(119),
+    replaceHolders = require(144);
+
+/** Used to compose bitmasks for wrapper metadata. */
+var BIND_FLAG = 1,
+    CURRY_BOUND_FLAG = 4,
+    CURRY_FLAG = 8,
+    ARY_FLAG = 128,
+    REARG_FLAG = 256;
+
+/** Used as the internal argument placeholder. */
+var PLACEHOLDER = '__lodash_placeholder__';
+
+/* Native method references for those with the same name as other `lodash` methods. */
+var nativeMin = Math.min;
+
+/**
+ * Merges the function metadata of `source` into `data`.
+ *
+ * Merging metadata reduces the number of wrappers required to invoke a function.
+ * This is possible because methods like `_.bind`, `_.curry`, and `_.partial`
+ * may be applied regardless of execution order. Methods like `_.ary` and `_.rearg`
+ * augment function arguments, making the order in which they are executed important,
+ * preventing the merging of metadata. However, we make an exception for a safe
+ * common case where curried functions have `_.ary` and or `_.rearg` applied.
+ *
+ * @private
+ * @param {Array} data The destination metadata.
+ * @param {Array} source The source metadata.
+ * @returns {Array} Returns `data`.
+ */
+function mergeData(data, source) {
+  var bitmask = data[1],
+      srcBitmask = source[1],
+      newBitmask = bitmask | srcBitmask,
+      isCommon = newBitmask < ARY_FLAG;
+
+  var isCombo =
+    (srcBitmask == ARY_FLAG && bitmask == CURRY_FLAG) ||
+    (srcBitmask == ARY_FLAG && bitmask == REARG_FLAG && data[7].length <= source[8]) ||
+    (srcBitmask == (ARY_FLAG | REARG_FLAG) && bitmask == CURRY_FLAG);
+
+  // Exit early if metadata can't be merged.
+  if (!(isCommon || isCombo)) {
+    return data;
+  }
+  // Use source `thisArg` if available.
+  if (srcBitmask & BIND_FLAG) {
+    data[2] = source[2];
+    // Set when currying a bound function.
+    newBitmask |= (bitmask & BIND_FLAG) ? 0 : CURRY_BOUND_FLAG;
+  }
+  // Compose partial arguments.
+  var value = source[3];
+  if (value) {
+    var partials = data[3];
+    data[3] = partials ? composeArgs(partials, value, source[4]) : arrayCopy(value);
+    data[4] = partials ? replaceHolders(data[3], PLACEHOLDER) : arrayCopy(source[4]);
+  }
+  // Compose partial right arguments.
+  value = source[5];
+  if (value) {
+    partials = data[5];
+    data[5] = partials ? composeArgsRight(partials, value, source[6]) : arrayCopy(value);
+    data[6] = partials ? replaceHolders(data[5], PLACEHOLDER) : arrayCopy(source[6]);
+  }
+  // Use source `argPos` if available.
+  value = source[7];
+  if (value) {
+    data[7] = arrayCopy(value);
+  }
+  // Use source `ary` if it's smaller.
+  if (srcBitmask & ARY_FLAG) {
+    data[8] = data[8] == null ? source[8] : nativeMin(data[8], source[8]);
+  }
+  // Use source `arity` if one is not provided.
+  if (data[9] == null) {
+    data[9] = source[9];
+  }
+  // Use source `func` and merge bitmasks.
+  data[0] = source[0];
+  data[1] = newBitmask;
+
+  return data;
+}
+
+module.exports = mergeData;
+
+},{"101":101,"118":118,"119":119,"144":144}],141:[function(require,module,exports){
+(function (global){
+var getNative = require(130);
+
+/** Native method references. */
+var WeakMap = getNative(global, 'WeakMap');
+
+/** Used to store function metadata. */
+var metaMap = WeakMap && new WeakMap;
+
+module.exports = metaMap;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"lodash._arraycopy":102,"lodash._arrayeach":103,"lodash._baseassign":104,"lodash._basefor":106,"lodash.isarray":107,"lodash.keys":108}],102:[function(require,module,exports){
-/**
- * lodash 3.0.0 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.7.0 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
+},{"130":130}],142:[function(require,module,exports){
+/** Used to lookup unminified function names. */
+var realNames = {};
+
+module.exports = realNames;
+
+},{}],143:[function(require,module,exports){
+var arrayCopy = require(101),
+    isIndex = require(135);
+
+/* Native method references for those with the same name as other `lodash` methods. */
+var nativeMin = Math.min;
 
 /**
- * Copies the values of `source` to `array`.
+ * Reorder `array` according to the specified indexes where the element at
+ * the first index is assigned as the first element, the element at
+ * the second index is assigned as the second element, and so on.
  *
  * @private
- * @param {Array} source The array to copy values from.
- * @param {Array} [array=[]] The array to copy values to.
+ * @param {Array} array The array to reorder.
+ * @param {Array} indexes The arranged array indexes.
  * @returns {Array} Returns `array`.
  */
-function arrayCopy(source, array) {
-  var index = -1,
-      length = source.length;
+function reorder(array, indexes) {
+  var arrLength = array.length,
+      length = nativeMin(indexes.length, arrLength),
+      oldArray = arrayCopy(array);
 
-  array || (array = Array(length));
-  while (++index < length) {
-    array[index] = source[index];
+  while (length--) {
+    var index = indexes[length];
+    array[length] = isIndex(index, arrLength) ? oldArray[index] : undefined;
   }
   return array;
 }
 
-module.exports = arrayCopy;
+module.exports = reorder;
 
-},{}],103:[function(require,module,exports){
-/**
- * lodash 3.0.0 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.7.0 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
+},{"101":101,"135":135}],144:[function(require,module,exports){
+/** Used as the internal argument placeholder. */
+var PLACEHOLDER = '__lodash_placeholder__';
 
 /**
- * A specialized version of `_.forEach` for arrays without support for callback
- * shorthands or `this` binding.
+ * Replaces all `placeholder` elements in `array` with an internal placeholder
+ * and returns an array of their indexes.
  *
  * @private
- * @param {Array} array The array to iterate over.
- * @param {Function} iteratee The function invoked per iteration.
- * @returns {Array} Returns `array`.
+ * @param {Array} array The array to modify.
+ * @param {*} placeholder The placeholder to replace.
+ * @returns {Array} Returns the new array of placeholder indexes.
  */
-function arrayEach(array, iteratee) {
+function replaceHolders(array, placeholder) {
   var index = -1,
-      length = array.length;
+      length = array.length,
+      resIndex = -1,
+      result = [];
 
   while (++index < length) {
-    if (iteratee(array[index], index, array) === false) {
-      break;
+    if (array[index] === placeholder) {
+      array[index] = PLACEHOLDER;
+      result[++resIndex] = index;
     }
   }
-  return array;
+  return result;
 }
 
-module.exports = arrayEach;
+module.exports = replaceHolders;
 
-},{}],104:[function(require,module,exports){
-arguments[4][90][0].apply(exports,arguments)
-},{"dup":90,"lodash._basecopy":105,"lodash.keys":108}],105:[function(require,module,exports){
-arguments[4][91][0].apply(exports,arguments)
-},{"dup":91}],106:[function(require,module,exports){
-/**
- * lodash 3.0.2 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
+},{}],145:[function(require,module,exports){
+var baseSetData = require(115),
+    now = require(95);
+
+/** Used to detect when a function becomes hot. */
+var HOT_COUNT = 150,
+    HOT_SPAN = 16;
 
 /**
- * The base implementation of `baseForIn` and `baseForOwn` which iterates
- * over `object` properties returned by `keysFunc` invoking `iteratee` for
- * each property. Iteratee functions may exit iteration early by explicitly
- * returning `false`.
+ * Sets metadata for `func`.
+ *
+ * **Note:** If this function becomes hot, i.e. is invoked a lot in a short
+ * period of time, it will trip its breaker and transition to an identity function
+ * to avoid garbage collection pauses in V8. See [V8 issue 2070](https://code.google.com/p/v8/issues/detail?id=2070)
+ * for more details.
  *
  * @private
- * @param {Object} object The object to iterate over.
- * @param {Function} iteratee The function invoked per iteration.
- * @param {Function} keysFunc The function to get the keys of `object`.
- * @returns {Object} Returns `object`.
+ * @param {Function} func The function to associate metadata with.
+ * @param {*} data The metadata.
+ * @returns {Function} Returns `func`.
  */
-var baseFor = createBaseFor();
+var setData = (function() {
+  var count = 0,
+      lastCalled = 0;
 
-/**
- * Creates a base function for `_.forIn` or `_.forInRight`.
- *
- * @private
- * @param {boolean} [fromRight] Specify iterating from right to left.
- * @returns {Function} Returns the new base function.
- */
-function createBaseFor(fromRight) {
-  return function(object, iteratee, keysFunc) {
-    var iterable = toObject(object),
-        props = keysFunc(object),
-        length = props.length,
-        index = fromRight ? length : -1;
+  return function(key, value) {
+    var stamp = now(),
+        remaining = HOT_SPAN - (stamp - lastCalled);
 
-    while ((fromRight ? index-- : ++index < length)) {
-      var key = props[index];
-      if (iteratee(iterable[key], key, iterable) === false) {
-        break;
+    lastCalled = stamp;
+    if (remaining > 0) {
+      if (++count >= HOT_COUNT) {
+        return key;
       }
+    } else {
+      count = 0;
     }
-    return object;
+    return baseSetData(key, value);
   };
+}());
+
+module.exports = setData;
+
+},{"115":115,"95":95}],146:[function(require,module,exports){
+var isArguments = require(150),
+    isArray = require(151),
+    isIndex = require(135),
+    isLength = require(138),
+    keysIn = require(160);
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/**
+ * A fallback implementation of `Object.keys` which creates an array of the
+ * own enumerable property names of `object`.
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
+ */
+function shimKeys(object) {
+  var props = keysIn(object),
+      propsLength = props.length,
+      length = propsLength && object.length;
+
+  var allowIndexes = !!length && isLength(length) &&
+    (isArray(object) || isArguments(object));
+
+  var index = -1,
+      result = [];
+
+  while (++index < propsLength) {
+    var key = props[index];
+    if ((allowIndexes && isIndex(key, length)) || hasOwnProperty.call(object, key)) {
+      result.push(key);
+    }
+  }
+  return result;
 }
+
+module.exports = shimKeys;
+
+},{"135":135,"138":138,"150":150,"151":151,"160":160}],147:[function(require,module,exports){
+var isObject = require(154);
 
 /**
  * Converts `value` to an object if it's not one.
@@ -7369,6 +8583,254 @@ function toObject(value) {
   return isObject(value) ? value : Object(value);
 }
 
+module.exports = toObject;
+
+},{"154":154}],148:[function(require,module,exports){
+var LazyWrapper = require(99),
+    LodashWrapper = require(100),
+    arrayCopy = require(101);
+
+/**
+ * Creates a clone of `wrapper`.
+ *
+ * @private
+ * @param {Object} wrapper The wrapper to clone.
+ * @returns {Object} Returns the cloned wrapper.
+ */
+function wrapperClone(wrapper) {
+  return wrapper instanceof LazyWrapper
+    ? wrapper.clone()
+    : new LodashWrapper(wrapper.__wrapped__, wrapper.__chain__, arrayCopy(wrapper.__actions__));
+}
+
+module.exports = wrapperClone;
+
+},{"100":100,"101":101,"99":99}],149:[function(require,module,exports){
+var baseClone = require(106),
+    bindCallback = require(116);
+
+/**
+ * Creates a deep clone of `value`. If `customizer` is provided it's invoked
+ * to produce the cloned values. If `customizer` returns `undefined` cloning
+ * is handled by the method instead. The `customizer` is bound to `thisArg`
+ * and invoked with up to three argument; (value [, index|key, object]).
+ *
+ * **Note:** This method is loosely based on the
+ * [structured clone algorithm](http://www.w3.org/TR/html5/infrastructure.html#internal-structured-cloning-algorithm).
+ * The enumerable properties of `arguments` objects and objects created by
+ * constructors other than `Object` are cloned to plain `Object` objects. An
+ * empty object is returned for uncloneable values such as functions, DOM nodes,
+ * Maps, Sets, and WeakMaps.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to deep clone.
+ * @param {Function} [customizer] The function to customize cloning values.
+ * @param {*} [thisArg] The `this` binding of `customizer`.
+ * @returns {*} Returns the deep cloned value.
+ * @example
+ *
+ * var users = [
+ *   { 'user': 'barney' },
+ *   { 'user': 'fred' }
+ * ];
+ *
+ * var deep = _.cloneDeep(users);
+ * deep[0] === users[0];
+ * // => false
+ *
+ * // using a customizer callback
+ * var el = _.cloneDeep(document.body, function(value) {
+ *   if (_.isElement(value)) {
+ *     return value.cloneNode(true);
+ *   }
+ * });
+ *
+ * el === document.body
+ * // => false
+ * el.nodeName
+ * // => BODY
+ * el.childNodes.length;
+ * // => 20
+ */
+function cloneDeep(value, customizer, thisArg) {
+  return typeof customizer == 'function'
+    ? baseClone(value, true, bindCallback(customizer, thisArg, 3))
+    : baseClone(value, true);
+}
+
+module.exports = cloneDeep;
+
+},{"106":106,"116":116}],150:[function(require,module,exports){
+var isArrayLike = require(134),
+    isObjectLike = require(139);
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/** Native method references. */
+var propertyIsEnumerable = objectProto.propertyIsEnumerable;
+
+/**
+ * Checks if `value` is classified as an `arguments` object.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @example
+ *
+ * _.isArguments(function() { return arguments; }());
+ * // => true
+ *
+ * _.isArguments([1, 2, 3]);
+ * // => false
+ */
+function isArguments(value) {
+  return isObjectLike(value) && isArrayLike(value) &&
+    hasOwnProperty.call(value, 'callee') && !propertyIsEnumerable.call(value, 'callee');
+}
+
+module.exports = isArguments;
+
+},{"134":134,"139":139}],151:[function(require,module,exports){
+var getNative = require(130),
+    isLength = require(138),
+    isObjectLike = require(139);
+
+/** `Object#toString` result references. */
+var arrayTag = '[object Array]';
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/**
+ * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var objToString = objectProto.toString;
+
+/* Native method references for those with the same name as other `lodash` methods. */
+var nativeIsArray = getNative(Array, 'isArray');
+
+/**
+ * Checks if `value` is classified as an `Array` object.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @example
+ *
+ * _.isArray([1, 2, 3]);
+ * // => true
+ *
+ * _.isArray(function() { return arguments; }());
+ * // => false
+ */
+var isArray = nativeIsArray || function(value) {
+  return isObjectLike(value) && isLength(value.length) && objToString.call(value) == arrayTag;
+};
+
+module.exports = isArray;
+
+},{"130":130,"138":138,"139":139}],152:[function(require,module,exports){
+var isObject = require(154);
+
+/** `Object#toString` result references. */
+var funcTag = '[object Function]';
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/**
+ * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
+ * of values.
+ */
+var objToString = objectProto.toString;
+
+/**
+ * Checks if `value` is classified as a `Function` object.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @example
+ *
+ * _.isFunction(_);
+ * // => true
+ *
+ * _.isFunction(/abc/);
+ * // => false
+ */
+function isFunction(value) {
+  // The use of `Object#toString` avoids issues with the `typeof` operator
+  // in older versions of Chrome and Safari which return 'function' for regexes
+  // and Safari 8 which returns 'object' for typed array constructors.
+  return isObject(value) && objToString.call(value) == funcTag;
+}
+
+module.exports = isFunction;
+
+},{"154":154}],153:[function(require,module,exports){
+var isFunction = require(152),
+    isObjectLike = require(139);
+
+/** Used to detect host constructors (Safari > 5). */
+var reIsHostCtor = /^\[object .+?Constructor\]$/;
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
+/** Used to resolve the decompiled source of functions. */
+var fnToString = Function.prototype.toString;
+
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
+
+/** Used to detect if a method is native. */
+var reIsNative = RegExp('^' +
+  fnToString.call(hasOwnProperty).replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
+  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
+);
+
+/**
+ * Checks if `value` is a native function.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a native function, else `false`.
+ * @example
+ *
+ * _.isNative(Array.prototype.push);
+ * // => true
+ *
+ * _.isNative(_);
+ * // => false
+ */
+function isNative(value) {
+  if (value == null) {
+    return false;
+  }
+  if (isFunction(value)) {
+    return reIsNative.test(fnToString.call(value));
+  }
+  return isObjectLike(value) && reIsHostCtor.test(value);
+}
+
+module.exports = isNative;
+
+},{"139":139,"152":152}],154:[function(require,module,exports){
 /**
  * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
  * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
@@ -7396,30 +8858,94 @@ function isObject(value) {
   return !!value && (type == 'object' || type == 'function');
 }
 
-module.exports = baseFor;
+module.exports = isObject;
 
-},{}],107:[function(require,module,exports){
-arguments[4][99][0].apply(exports,arguments)
-},{"dup":99}],108:[function(require,module,exports){
-arguments[4][96][0].apply(exports,arguments)
-},{"dup":96,"lodash._getnative":109,"lodash.isarguments":110,"lodash.isarray":107}],109:[function(require,module,exports){
-arguments[4][97][0].apply(exports,arguments)
-},{"dup":97}],110:[function(require,module,exports){
-arguments[4][98][0].apply(exports,arguments)
-},{"dup":98}],111:[function(require,module,exports){
-arguments[4][93][0].apply(exports,arguments)
-},{"dup":93}],112:[function(require,module,exports){
+},{}],155:[function(require,module,exports){
+var isObjectLike = require(139);
+
+/** `Object#toString` result references. */
+var stringTag = '[object String]';
+
+/** Used for native method references. */
+var objectProto = Object.prototype;
+
 /**
- * lodash 3.1.1 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
+ * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
+ * of values.
  */
-var baseAssign = require('lodash._baseassign'),
-    baseCreate = require('lodash._basecreate'),
-    isIterateeCall = require('lodash._isiterateecall');
+var objToString = objectProto.toString;
+
+/**
+ * Checks if `value` is classified as a `String` primitive or object.
+ *
+ * @static
+ * @memberOf _
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @example
+ *
+ * _.isString('abc');
+ * // => true
+ *
+ * _.isString(1);
+ * // => false
+ */
+function isString(value) {
+  return typeof value == 'string' || (isObjectLike(value) && objToString.call(value) == stringTag);
+}
+
+module.exports = isString;
+
+},{"139":139}],156:[function(require,module,exports){
+var assignWith = require(104),
+    baseAssign = require(105),
+    createAssigner = require(120);
+
+/**
+ * Assigns own enumerable properties of source object(s) to the destination
+ * object. Subsequent sources overwrite property assignments of previous sources.
+ * If `customizer` is provided it's invoked to produce the assigned values.
+ * The `customizer` is bound to `thisArg` and invoked with five arguments:
+ * (objectValue, sourceValue, key, object, source).
+ *
+ * **Note:** This method mutates `object` and is based on
+ * [`Object.assign`](http://ecma-international.org/ecma-262/6.0/#sec-object.assign).
+ *
+ * @static
+ * @memberOf _
+ * @alias extend
+ * @category Object
+ * @param {Object} object The destination object.
+ * @param {...Object} [sources] The source objects.
+ * @param {Function} [customizer] The function to customize assigned values.
+ * @param {*} [thisArg] The `this` binding of `customizer`.
+ * @returns {Object} Returns `object`.
+ * @example
+ *
+ * _.assign({ 'user': 'barney' }, { 'age': 40 }, { 'user': 'fred' });
+ * // => { 'user': 'fred', 'age': 40 }
+ *
+ * // using a customizer callback
+ * var defaults = _.partialRight(_.assign, function(value, other) {
+ *   return _.isUndefined(value) ? other : value;
+ * });
+ *
+ * defaults({ 'user': 'barney' }, { 'age': 36 }, { 'user': 'fred' });
+ * // => { 'user': 'barney', 'age': 36 }
+ */
+var assign = createAssigner(function(object, source, customizer) {
+  return customizer
+    ? assignWith(object, source, customizer)
+    : baseAssign(object, source);
+});
+
+module.exports = assign;
+
+},{"104":104,"105":105,"120":120}],157:[function(require,module,exports){
+var baseAssign = require(105),
+    baseCreate = require(108),
+    isIterateeCall = require(136);
 
 /**
  * Creates an object that inherits from the given `prototype` object. If a
@@ -7465,285 +8991,188 @@ function create(prototype, properties, guard) {
 
 module.exports = create;
 
-},{"lodash._baseassign":113,"lodash._basecreate":119,"lodash._isiterateecall":120}],113:[function(require,module,exports){
-arguments[4][90][0].apply(exports,arguments)
-},{"dup":90,"lodash._basecopy":114,"lodash.keys":115}],114:[function(require,module,exports){
-arguments[4][91][0].apply(exports,arguments)
-},{"dup":91}],115:[function(require,module,exports){
-arguments[4][96][0].apply(exports,arguments)
-},{"dup":96,"lodash._getnative":116,"lodash.isarguments":117,"lodash.isarray":118}],116:[function(require,module,exports){
-arguments[4][97][0].apply(exports,arguments)
-},{"dup":97}],117:[function(require,module,exports){
-arguments[4][98][0].apply(exports,arguments)
-},{"dup":98}],118:[function(require,module,exports){
-arguments[4][99][0].apply(exports,arguments)
-},{"dup":99}],119:[function(require,module,exports){
-/**
- * lodash 3.0.3 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
+},{"105":105,"108":108,"136":136}],158:[function(require,module,exports){
+var baseFunctions = require(112),
+    keysIn = require(160);
 
 /**
- * The base implementation of `_.create` without support for assigning
- * properties to the created object.
- *
- * @private
- * @param {Object} prototype The object to inherit from.
- * @returns {Object} Returns the new object.
- */
-var baseCreate = (function() {
-  function object() {}
-  return function(prototype) {
-    if (isObject(prototype)) {
-      object.prototype = prototype;
-      var result = new object;
-      object.prototype = undefined;
-    }
-    return result || {};
-  };
-}());
-
-/**
- * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
- * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ * Creates an array of function property names from all enumerable properties,
+ * own and inherited, of `object`.
  *
  * @static
  * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @alias methods
+ * @category Object
+ * @param {Object} object The object to inspect.
+ * @returns {Array} Returns the new array of property names.
  * @example
  *
- * _.isObject({});
- * // => true
- *
- * _.isObject([1, 2, 3]);
- * // => true
- *
- * _.isObject(1);
- * // => false
+ * _.functions(_);
+ * // => ['after', 'ary', 'assign', ...]
  */
-function isObject(value) {
-  // Avoid a V8 JIT bug in Chrome 19-20.
-  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
-  var type = typeof value;
-  return !!value && (type == 'object' || type == 'function');
+function functions(object) {
+  return baseFunctions(object, keysIn(object));
 }
 
-module.exports = baseCreate;
+module.exports = functions;
 
-},{}],120:[function(require,module,exports){
-arguments[4][94][0].apply(exports,arguments)
-},{"dup":94}],121:[function(require,module,exports){
-/**
- * lodash 3.0.4 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-var isArguments = require('lodash.isarguments'),
-    isArray = require('lodash.isarray'),
-    isFunction = require('lodash.isfunction'),
-    isString = require('lodash.isstring'),
-    keys = require('lodash.keys');
+},{"112":112,"160":160}],159:[function(require,module,exports){
+var getNative = require(130),
+    isArrayLike = require(134),
+    isObject = require(154),
+    shimKeys = require(146);
+
+/* Native method references for those with the same name as other `lodash` methods. */
+var nativeKeys = getNative(Object, 'keys');
 
 /**
- * Checks if `value` is object-like.
+ * Creates an array of the own enumerable property names of `object`.
  *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
- */
-function isObjectLike(value) {
-  return !!value && typeof value == 'object';
-}
-
-/**
- * Used as the [maximum length](https://people.mozilla.org/~jorendorff/es6-draft.html#sec-number.max_safe_integer)
- * of an array-like value.
- */
-var MAX_SAFE_INTEGER = 9007199254740991;
-
-/**
- * The base implementation of `_.property` without support for deep paths.
+ * **Note:** Non-object values are coerced to objects. See the
+ * [ES spec](http://ecma-international.org/ecma-262/6.0/#sec-object.keys)
+ * for more details.
  *
- * @private
- * @param {string} key The key of the property to get.
- * @returns {Function} Returns the new function.
- */
-function baseProperty(key) {
-  return function(object) {
-    return object == null ? undefined : object[key];
-  };
-}
-
-/**
- * Gets the "length" property value of `object`.
- *
- * **Note:** This function is used to avoid a [JIT bug](https://bugs.webkit.org/show_bug.cgi?id=142792)
- * that affects Safari on at least iOS 8.1-8.3 ARM64.
- *
- * @private
+ * @static
+ * @memberOf _
+ * @category Object
  * @param {Object} object The object to query.
- * @returns {*} Returns the "length" value.
- */
-var getLength = baseProperty('length');
-
-/**
- * Checks if `value` is array-like.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is array-like, else `false`.
- */
-function isArrayLike(value) {
-  return value != null && isLength(getLength(value));
-}
-
-/**
- * Checks if `value` is a valid array-like length.
- *
- * **Note:** This function is based on [`ToLength`](https://people.mozilla.org/~jorendorff/es6-draft.html#sec-tolength).
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a valid length, else `false`.
- */
-function isLength(value) {
-  return typeof value == 'number' && value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
-}
-
-/**
- * Checks if `value` is empty. A value is considered empty unless it is an
- * `arguments` object, array, string, or jQuery-like collection with a length
- * greater than `0` or an object with own enumerable properties.
- *
- * @static
- * @memberOf _
- * @category Lang
- * @param {Array|Object|string} value The value to inspect.
- * @returns {boolean} Returns `true` if `value` is empty, else `false`.
+ * @returns {Array} Returns the array of property names.
  * @example
  *
- * _.isEmpty(null);
- * // => true
+ * function Foo() {
+ *   this.a = 1;
+ *   this.b = 2;
+ * }
  *
- * _.isEmpty(true);
- * // => true
+ * Foo.prototype.c = 3;
  *
- * _.isEmpty(1);
- * // => true
+ * _.keys(new Foo);
+ * // => ['a', 'b'] (iteration order is not guaranteed)
  *
- * _.isEmpty([1, 2, 3]);
- * // => false
- *
- * _.isEmpty({ 'a': 1 });
- * // => false
+ * _.keys('hi');
+ * // => ['0', '1']
  */
-function isEmpty(value) {
-  if (value == null) {
-    return true;
+var keys = !nativeKeys ? shimKeys : function(object) {
+  var Ctor = object == null ? undefined : object.constructor;
+  if ((typeof Ctor == 'function' && Ctor.prototype === object) ||
+      (typeof object != 'function' && isArrayLike(object))) {
+    return shimKeys(object);
   }
-  if (isArrayLike(value) && (isArray(value) || isString(value) || isArguments(value) ||
-      (isObjectLike(value) && isFunction(value.splice)))) {
-    return !value.length;
-  }
-  return !keys(value).length;
-}
+  return isObject(object) ? nativeKeys(object) : [];
+};
 
-module.exports = isEmpty;
+module.exports = keys;
 
-},{"lodash.isarguments":122,"lodash.isarray":123,"lodash.isfunction":124,"lodash.isstring":125,"lodash.keys":126}],122:[function(require,module,exports){
-arguments[4][98][0].apply(exports,arguments)
-},{"dup":98}],123:[function(require,module,exports){
-arguments[4][99][0].apply(exports,arguments)
-},{"dup":99}],124:[function(require,module,exports){
-/**
- * lodash 3.0.6 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern modularize exports="npm" -o ./`
- * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
- * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
- * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
- * Available under MIT license <https://lodash.com/license>
- */
-
-/** `Object#toString` result references. */
-var funcTag = '[object Function]';
+},{"130":130,"134":134,"146":146,"154":154}],160:[function(require,module,exports){
+var isArguments = require(150),
+    isArray = require(151),
+    isIndex = require(135),
+    isLength = require(138),
+    isObject = require(154);
 
 /** Used for native method references. */
 var objectProto = Object.prototype;
 
-/**
- * Used to resolve the [`toStringTag`](http://ecma-international.org/ecma-262/6.0/#sec-object.prototype.tostring)
- * of values.
- */
-var objToString = objectProto.toString;
+/** Used to check objects for own properties. */
+var hasOwnProperty = objectProto.hasOwnProperty;
 
 /**
- * Checks if `value` is classified as a `Function` object.
+ * Creates an array of the own and inherited enumerable property names of `object`.
+ *
+ * **Note:** Non-object values are coerced to objects.
  *
  * @static
  * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is correctly classified, else `false`.
+ * @category Object
+ * @param {Object} object The object to query.
+ * @returns {Array} Returns the array of property names.
  * @example
  *
- * _.isFunction(_);
- * // => true
+ * function Foo() {
+ *   this.a = 1;
+ *   this.b = 2;
+ * }
  *
- * _.isFunction(/abc/);
- * // => false
+ * Foo.prototype.c = 3;
+ *
+ * _.keysIn(new Foo);
+ * // => ['a', 'b', 'c'] (iteration order is not guaranteed)
  */
-function isFunction(value) {
-  // The use of `Object#toString` avoids issues with the `typeof` operator
-  // in older versions of Chrome and Safari which return 'function' for regexes
-  // and Safari 8 equivalents which return 'object' for typed array constructors.
-  return isObject(value) && objToString.call(value) == funcTag;
+function keysIn(object) {
+  if (object == null) {
+    return [];
+  }
+  if (!isObject(object)) {
+    object = Object(object);
+  }
+  var length = object.length;
+  length = (length && isLength(length) &&
+    (isArray(object) || isArguments(object)) && length) || 0;
+
+  var Ctor = object.constructor,
+      index = -1,
+      isProto = typeof Ctor == 'function' && Ctor.prototype === object,
+      result = Array(length),
+      skipIndexes = length > 0;
+
+  while (++index < length) {
+    result[index] = (index + '');
+  }
+  for (var key in object) {
+    if (!(skipIndexes && isIndex(key, length)) &&
+        !(key == 'constructor' && (isProto || !hasOwnProperty.call(object, key)))) {
+      result.push(key);
+    }
+  }
+  return result;
 }
 
+module.exports = keysIn;
+
+},{"135":135,"138":138,"150":150,"151":151,"154":154}],161:[function(require,module,exports){
 /**
- * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
- * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
+ * This method returns the first argument provided to it.
  *
  * @static
  * @memberOf _
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an object, else `false`.
+ * @category Utility
+ * @param {*} value Any value.
+ * @returns {*} Returns `value`.
  * @example
  *
- * _.isObject({});
- * // => true
+ * var object = { 'user': 'fred' };
  *
- * _.isObject([1, 2, 3]);
+ * _.identity(object) === object;
  * // => true
- *
- * _.isObject(1);
- * // => false
  */
-function isObject(value) {
-  // Avoid a V8 JIT bug in Chrome 19-20.
-  // See https://code.google.com/p/v8/issues/detail?id=2291 for more details.
-  var type = typeof value;
-  return !!value && (type == 'object' || type == 'function');
+function identity(value) {
+  return value;
 }
 
-module.exports = isFunction;
+module.exports = identity;
 
-},{}],125:[function(require,module,exports){
-arguments[4][52][0].apply(exports,arguments)
-},{"dup":52}],126:[function(require,module,exports){
-arguments[4][96][0].apply(exports,arguments)
-},{"dup":96,"lodash._getnative":127,"lodash.isarguments":122,"lodash.isarray":123}],127:[function(require,module,exports){
-arguments[4][97][0].apply(exports,arguments)
-},{"dup":97}],128:[function(require,module,exports){
+},{}],162:[function(require,module,exports){
+/**
+ * A no-operation function that returns `undefined` regardless of the
+ * arguments it receives.
+ *
+ * @static
+ * @memberOf _
+ * @category Utility
+ * @example
+ *
+ * var object = { 'user': 'fred' };
+ *
+ * _.noop(object) === undefined;
+ * // => true
+ */
+function noop() {
+  // No operation performed.
+}
+
+module.exports = noop;
+
+},{}],163:[function(require,module,exports){
 function nodeListToArray(nodeList) {
   try {
     return Array.prototype.slice.call(nodeList);
@@ -7760,12 +9189,12 @@ if (typeof module !== 'undefined') {
   module.exports = nodeListToArray;
 }
 
-},{}],129:[function(require,module,exports){
+},{}],164:[function(require,module,exports){
 'use strict';
 
-var bus = require('framebus');
-var events = require('./lib/events');
-var checkOrigin = require('./lib/check-origin').checkOrigin;
+var bus = require(90);
+var events = require(166);
+var checkOrigin = require(165).checkOrigin;
 
 function BraintreeBus(options) {
   options = options || {};
@@ -7886,7 +9315,7 @@ BraintreeBus.events = events;
 
 module.exports = BraintreeBus;
 
-},{"./lib/check-origin":130,"./lib/events":131,"framebus":84}],130:[function(require,module,exports){
+},{"165":165,"166":166,"90":90}],165:[function(require,module,exports){
 'use strict';
 
 var BT_ORIGIN_REGEX = /^https:\/\/([a-zA-Z0-9-]+\.)*(braintreepayments|braintreegateway|paypal)\.com(:\d{1,5})?$/;
@@ -7914,7 +9343,7 @@ module.exports = {
   checkOrigin: checkOrigin
 };
 
-},{}],131:[function(require,module,exports){
+},{}],166:[function(require,module,exports){
 'use strict';
 
 var i, evnt;
@@ -7946,7 +9375,7 @@ for (i = 0; i < eventList.length; i++) {
 
 module.exports = eventEnum;
 
-},{}],132:[function(require,module,exports){
+},{}],167:[function(require,module,exports){
 'use strict';
 /* eslint-disable consistent-return */
 
@@ -7975,29 +9404,33 @@ function toSnakeCase(string) {
 
 module.exports = {convertToLegacyShippingAddress: convertToLegacyShippingAddress};
 
-},{}],133:[function(require,module,exports){
+},{}],168:[function(require,module,exports){
 'use strict';
 
 module.exports = {
   ROOT_SUCCESS_CALLBACK: 'onPaymentMethodReceived',
   ROOT_ERROR_CALLBACK: 'onError',
-  ROOT_READY_CALLBACK: 'onReady'
+  ROOT_READY_CALLBACK: 'onReady',
+  TEARDOWN_STATE: {
+    IN_PROGRESS: 'inProgress',
+    COMPLETE: 'complete'
+  }
 };
 
-},{}],134:[function(require,module,exports){
+},{}],169:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var clone = require('lodash.clonedeep');
-var api = require('braintree-api');
-var Bus = require('../../bus');
-var Destructor = require('destructor');
-var bind = require('braintree-utilities').bind;
-var constants = require('../constants');
-var sanitizePayload = require('../lib/sanitize-payload');
-var lookupCallbackFor = require('../lib/lookup-callback-for');
-var fallbackErrorHandler = require('../lib/fallback-error-handler');
-var nodeType = require('../lib/node-type');
+var clone = require(149);
+var api = require(15);
+var Bus = require(164);
+var Destructor = require(86);
+var bind = require(96);
+var constants = require(168);
+var sanitizePayload = require(179);
+var lookupCallbackFor = require(177);
+var fallbackErrorHandler = require(175);
+var nodeType = require(178);
 var isJQueryElement = nodeType.isJQueryElement;
 var isHTMLElement = nodeType.isHTMLElement;
 
@@ -8031,7 +9464,6 @@ function BaseIntegration(configuration) {
     channel: this.configuration.channel,
     merchantUrl: global.location.href
   });
-
   this._createApiClient();
   this._configureCallbacks();
   this._configureAnalytics();
@@ -8122,50 +9554,68 @@ BaseIntegration.prototype._attachEvents = function () {
   this.bus.on(Bus.events.ASYNC_DEPENDENCY_READY, this._handleDependencyReady);
 };
 
-BaseIntegration.prototype._onIntegrationReady = function () {
-  var instance = {
-    teardown: bind(function (done) {
-      var key;
-      var message = 'Cannot call teardown while in progress';
+BaseIntegration.prototype.teardown = function (merchantCallback) {
+  if (this.teardownState === constants.TEARDOWN_STATE.IN_PROGRESS) {
+    throw new Error('Cannot call teardown while in progress');
+  }
 
-      done = done || noop;
+  if (this.teardownState === constants.TEARDOWN_STATE.COMPLETE) {
+    throw new Error('Cannot teardown integration more than once');
+  }
 
-      function teardownReply() {
-        throw new Error(message);
-      }
+  this.teardownMerchantCallback = merchantCallback || noop;
 
-      for (key in instance) {
-        if (instance.hasOwnProperty(key)) {
-          instance[key] = teardownReply;
-        }
-      }
+  this.teardownState = constants.TEARDOWN_STATE.IN_PROGRESS;
 
-      this.destructor.teardown(bind(function () { // eslint-disable-line no-invalid-this
-        message = 'Cannot teardown integration more than once';
+  this.destructor.teardown(bind(this._handleTeardown, this));
+};
 
-        this.bus.teardown(); // eslint-disable-line no-invalid-this
-        done();
-      }, this)); // eslint-disable-line no-invalid-this
-    }, this) // eslint-disable-line no-invalid-this
+BaseIntegration.prototype._handleTeardown = function () {
+  this.bus.teardown();
+
+  this.teardownState = constants.TEARDOWN_STATE.COMPLETE;
+
+  this.teardownMerchantCallback();
+};
+
+BaseIntegration.prototype._wrapWithTeardownReply = function (funcName, func) {
+  var self = this;
+
+  return function () {
+    if (self.teardownState === constants.TEARDOWN_STATE.IN_PROGRESS) {
+      throw new Error('Cannot call ' + funcName + ' while teardown is in progress');
+    }
+
+    if (self.teardownState === constants.TEARDOWN_STATE.COMPLETE) {
+      throw new Error('Cannot call ' + funcName + ' after teardown has completed');
+    }
+
+    func();
   };
+};
+
+BaseIntegration.prototype._onIntegrationReady = function (instance) {
+  this.returnedInstance = instance || {};
+
+  this.returnedInstance.teardown = bind(this.teardown, this);
 
   this.isReady = true;
-  this.onReady(instance);
+  this.onReady(this.returnedInstance);
 };
 
 module.exports = BaseIntegration;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../bus":129,"../constants":133,"../lib/fallback-error-handler":140,"../lib/lookup-callback-for":142,"../lib/node-type":143,"../lib/sanitize-payload":144,"braintree-api":15,"braintree-utilities":76,"destructor":80,"lodash.clonedeep":100}],135:[function(require,module,exports){
+},{"149":149,"15":15,"164":164,"168":168,"175":175,"177":177,"178":178,"179":179,"86":86,"96":96}],170:[function(require,module,exports){
 'use strict';
 
-var clone = require('lodash.clonedeep');
-var create = require('lodash.create');
-var api = require('braintree-api');
-var bind = require('braintree-utilities').bind;
-var coinbase = require('../../coinbase');
-var Bus = require('../../bus');
-var BaseIntegration = require('./base-integration');
+var clone = require(149);
+var create = require(157);
+var bind = require(96);
+var api = require(15);
+var coinbase = require(180);
+var Bus = require(164);
+var BaseIntegration = require(169);
 
 function CoinbaseIntegration() {
   var coinbaseConfiguration, coinbaseIntegration;
@@ -8207,25 +9657,26 @@ CoinbaseIntegration.prototype._onPaymentMethodGenerated = function (payload) {
 
 module.exports = CoinbaseIntegration;
 
-},{"../../bus":129,"../../coinbase":145,"./base-integration":134,"braintree-api":15,"braintree-utilities":76,"lodash.clonedeep":100,"lodash.create":112}],136:[function(require,module,exports){
+},{"149":149,"15":15,"157":157,"164":164,"169":169,"180":180,"96":96}],171:[function(require,module,exports){
 'use strict';
 
-var clone = require('lodash.clonedeep');
-var create = require('lodash.create');
-var form = require('../../form');
-var paypal = require('../../paypal');
-var coinbase = require('../../coinbase');
-var utils = require('braintree-utilities');
-var hostedFields = require('../../hosted-fields');
-var FormNapper = require('form-napper');
-var constants = require('../constants');
-var Bus = require('../../bus');
-var convertToLegacyShippingAddress = require('../compatibility').convertToLegacyShippingAddress;
-var BaseIntegration = require('./base-integration');
-var nodeType = require('../lib/node-type');
+var clone = require(149);
+var create = require(157);
+var form = require(198);
+var paypal = require(210);
+var coinbase = require(180);
+var bind = require(96);
+var isFunction = require(152);
+var hostedFields = require(204);
+var FormNapper = require(89);
+var constants = require(168);
+var Bus = require(164);
+var convertToLegacyShippingAddress = require(167).convertToLegacyShippingAddress;
+var BaseIntegration = require(169);
+var nodeType = require(178);
 var isJQueryElement = nodeType.isJQueryElement;
 var isHTMLElement = nodeType.isHTMLElement;
-var NonceManager = require('../lib/hosted-fields-nonce-manager');
+var NonceManager = require(176);
 
 function CustomIntegration() {
   BaseIntegration.apply(this, arguments);
@@ -8266,12 +9717,12 @@ CustomIntegration.prototype._setupHostedFields = function () {
     return;
   }
 
-  submitRequestHandler = utils.bind(nonceManager.handleSubmitRequest, nonceManager);
+  submitRequestHandler = bind(nonceManager.handleSubmitRequest, nonceManager);
 
   formNapper.hijack(submitRequestHandler);
   this.bus.on(Bus.events.USER_FORM_SUBMIT_REQUEST, submitRequestHandler);
 
-  this.destructor.registerFunctionForTeardown(utils.bind(function (done) {
+  this.destructor.registerFunctionForTeardown(bind(function (done) {
     nonceManager.teardown();
     formNapper.detach();
     hostedFieldsIntegration.teardown(done);
@@ -8285,10 +9736,10 @@ CustomIntegration.prototype._setupForm = function () {
   if (merchantConfiguration.id) {
     formIntegration = form.setup(this.apiClient, this.configuration);
 
-    formShouldAutoSubmit = !utils.isFunction(merchantConfiguration[constants.ROOT_SUCCESS_CALLBACK]);
+    formShouldAutoSubmit = !isFunction(merchantConfiguration[constants.ROOT_SUCCESS_CALLBACK]);
     if (!formShouldAutoSubmit) {
       successCallback = this.onSuccess;
-      formIntegration.onNonceReceived = utils.bind(function (err, payload) {
+      formIntegration.onNonceReceived = bind(function (err, payload) {
         if (err) {
           this.bus.emit(Bus.events.ERROR, err); // eslint-disable-line no-invalid-this
         } else {
@@ -8301,14 +9752,14 @@ CustomIntegration.prototype._setupForm = function () {
       formIntegration.teardown();
     });
   } else {
-    this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, utils.bind(function (payload) {
+    this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, bind(function (payload) {
       this.bus.emit(Bus.events.PAYMENT_METHOD_RECEIVED, payload); // eslint-disable-line no-invalid-this
     }, this));
   }
 };
 
 CustomIntegration.prototype._setupPayPal = function () {
-  var paypalCallbackLookup, legacyPaypalSuccessCallback, legacyPaypalCancelledCallback, dummyInput, paypalIntegration, paypalConfiguration;
+  var paypalCallbackLookup, legacyPaypalSuccessCallback, legacyPaypalCancelledCallback, dummyInput, paypalConfiguration;
   var merchantConfiguration = this.configuration.merchantConfiguration;
 
   if (!merchantConfiguration.paypal) { return; }
@@ -8347,12 +9798,12 @@ CustomIntegration.prototype._setupPayPal = function () {
     paypalConfiguration.enableCORS = true;
   }
 
-  paypalIntegration = paypal.create(this.configuration.gatewayConfiguration, paypalConfiguration, this.configuration.channel);
+  this.paypalIntegration = paypal.create(this.configuration.gatewayConfiguration, paypalConfiguration, this.configuration.channel);
 
-  if (paypalIntegration != null) {
-    this.destructor.registerFunctionForTeardown(function () {
-      paypalIntegration.teardown();
-    });
+  if (this.paypalIntegration != null) {
+    this.destructor.registerFunctionForTeardown(bind(function () {
+      this.paypalIntegration.teardown(); // eslint-disable-line no-invalid-this
+    }, this));
   }
 };
 
@@ -8376,9 +9827,29 @@ CustomIntegration.prototype._setupCoinbase = function () {
   });
 };
 
+CustomIntegration.prototype._onIntegrationReady = function () {
+  var self = this;
+  var returnedInstance = {};
+
+  if (this.paypalIntegration) {
+    returnedInstance.paypal = {
+      initAuthFlow: this._wrapWithTeardownReply('initAuthFlow', function () {
+        self.bus.emit(Bus.events.SEND_ANALYTICS_EVENTS, 'paypal.auth.init');
+        self.paypalIntegration.initAuthFlow();
+      }),
+      closeAuthFlow: this._wrapWithTeardownReply('closeAuthFlow', function () {
+        self.bus.emit(Bus.events.SEND_ANALYTICS_EVENTS, 'paypal.auth.close');
+        self.paypalIntegration.closeAuthFlow();
+      })
+    };
+  }
+
+  BaseIntegration.prototype._onIntegrationReady.call(this, returnedInstance);
+};
+
 function getIntegrationCallbackLookup(options, integration) {
   return function (funcName) {
-    if (integration in options && utils.isFunction(options[integration][funcName])) {
+    if (integration in options && isFunction(options[integration][funcName])) {
       return options[integration][funcName];
     }
     return function noop() {};
@@ -8387,19 +9858,20 @@ function getIntegrationCallbackLookup(options, integration) {
 
 module.exports = CustomIntegration;
 
-},{"../../bus":129,"../../coinbase":145,"../../form":163,"../../hosted-fields":169,"../../paypal":175,"../compatibility":132,"../constants":133,"../lib/hosted-fields-nonce-manager":141,"../lib/node-type":143,"./base-integration":134,"braintree-utilities":76,"form-napper":83,"lodash.clonedeep":100,"lodash.create":112}],137:[function(require,module,exports){
+},{"149":149,"152":152,"157":157,"164":164,"167":167,"168":168,"169":169,"176":176,"178":178,"180":180,"198":198,"204":204,"210":210,"89":89,"96":96}],172:[function(require,module,exports){
 'use strict';
 
-var create = require('lodash.create');
-var dropin = require('../../dropin');
-var utils = require('braintree-utilities');
-var Bus = require('../../bus');
-var constants = require('../constants');
-var sanitizePayload = require('../lib/sanitize-payload');
-var BaseIntegration = require('./base-integration');
+var create = require(157);
+var dropin = require(196);
+var bind = require(96);
+var isFunction = require(152);
+var Bus = require(164);
+var constants = require(168);
+var sanitizePayload = require(179);
+var BaseIntegration = require(169);
 
 function _getLegacyCallback(options) {
-  if (utils.isFunction(options.paymentMethodNonceReceived)) {
+  if (isFunction(options.paymentMethodNonceReceived)) {
     return options.paymentMethodNonceReceived;
   }
 
@@ -8407,7 +9879,7 @@ function _getLegacyCallback(options) {
 }
 
 function _hasRootCallback(options) {
-  return utils.isFunction(options[constants.ROOT_SUCCESS_CALLBACK]);
+  return isFunction(options[constants.ROOT_SUCCESS_CALLBACK]);
 }
 
 function DropinIntegration() {
@@ -8420,7 +9892,7 @@ function DropinIntegration() {
   hasRootCallback = _hasRootCallback(merchantConfiguration);
 
   if (legacyCallback || hasRootCallback) {
-    merchantConfiguration.paymentMethodNonceReceived = utils.bind(function (payload) {
+    merchantConfiguration.paymentMethodNonceReceived = bind(function (payload) {
       if (legacyCallback) {
         legacyCallback(payload.originalEvent, payload.nonce);
       }
@@ -8443,31 +9915,32 @@ DropinIntegration.prototype = create(BaseIntegration.prototype, {
 
 module.exports = DropinIntegration;
 
-},{"../../bus":129,"../../dropin":161,"../constants":133,"../lib/sanitize-payload":144,"./base-integration":134,"braintree-utilities":76,"lodash.create":112}],138:[function(require,module,exports){
+},{"152":152,"157":157,"164":164,"168":168,"169":169,"179":179,"196":196,"96":96}],173:[function(require,module,exports){
 'use strict';
 
 module.exports = {
-  custom: require('./custom'),
-  dropin: require('./dropin'),
-  paypal: require('./paypal'),
-  coinbase: require('./coinbase')
+  custom: require(171),
+  dropin: require(172),
+  paypal: require(174),
+  coinbase: require(170)
 };
 
-},{"./coinbase":135,"./custom":136,"./dropin":137,"./paypal":139}],139:[function(require,module,exports){
+},{"170":170,"171":171,"172":172,"174":174}],174:[function(require,module,exports){
 'use strict';
 
-var create = require('lodash.create');
-var paypal = require('../../paypal');
-var utils = require('braintree-utilities');
-var constants = require('../constants');
-var Bus = require('../../bus');
-var convertToLegacyShippingAddress = require('../compatibility').convertToLegacyShippingAddress;
-var BaseIntegration = require('./base-integration');
+var create = require(157);
+var paypal = require(210);
+var bind = require(96);
+var isFunction = require(152);
+var constants = require(168);
+var Bus = require(164);
+var convertToLegacyShippingAddress = require(167).convertToLegacyShippingAddress;
+var BaseIntegration = require(169);
 
 function _getLegacyCallback(options) {
-  if ('onSuccess' in options && utils.isFunction(options.onSuccess)) {
+  if ('onSuccess' in options && isFunction(options.onSuccess)) {
     return options.onSuccess;
-  } else if ('paypal' in options && utils.isFunction(options.paypal.onSuccess)) {
+  } else if ('paypal' in options && isFunction(options.paypal.onSuccess)) {
     return options.paypal.onSuccess;
   }
 
@@ -8475,11 +9948,11 @@ function _getLegacyCallback(options) {
 }
 
 function _hasRootCallback(options) {
-  return utils.isFunction(options[constants.ROOT_SUCCESS_CALLBACK]);
+  return isFunction(options[constants.ROOT_SUCCESS_CALLBACK]);
 }
 
 function PayPalIntegration() {
-  var merchantConfiguration, legacyCallback, hasRootCallback, paypalIntegration;
+  var merchantConfiguration, legacyCallback, hasRootCallback;
 
   BaseIntegration.apply(this, arguments);
 
@@ -8488,7 +9961,7 @@ function PayPalIntegration() {
   hasRootCallback = _hasRootCallback(merchantConfiguration);
 
   if (legacyCallback || hasRootCallback) {
-    merchantConfiguration.onSuccess = utils.bind(function (payload) {
+    merchantConfiguration.onSuccess = bind(function (payload) {
       if (legacyCallback) {
         legacyCallback(
           payload.nonce,
@@ -8501,11 +9974,11 @@ function PayPalIntegration() {
     }, this);
   }
 
-  paypalIntegration = paypal.create(this.configuration.gatewayConfiguration, merchantConfiguration, this.configuration.channel);
+  this.paypalIntegration = paypal.create(this.configuration.gatewayConfiguration, merchantConfiguration, this.configuration.channel);
 
-  this.destructor.registerFunctionForTeardown(function () {
-    paypalIntegration.teardown();
-  });
+  this.destructor.registerFunctionForTeardown(bind(function () {
+    this.paypalIntegration.teardown(); // eslint-disable-line no-invalid-this
+  }, this));
 
   this.bus.emit(Bus.events.ASYNC_DEPENDENCY_READY);
 }
@@ -8514,9 +9987,29 @@ PayPalIntegration.prototype = create(BaseIntegration.prototype, {
   constructor: PayPalIntegration
 });
 
+PayPalIntegration.prototype._onIntegrationReady = function () {
+  var self = this;
+  var returnedInstance = {};
+
+  if (this.paypalIntegration) {
+    returnedInstance.paypal = {
+      initAuthFlow: this._wrapWithTeardownReply('initAuthFlow', function () {
+        self.bus.emit(Bus.events.SEND_ANALYTICS_EVENTS, 'paypal.auth.init');
+        self.paypalIntegration.initAuthFlow();
+      }),
+      closeAuthFlow: this._wrapWithTeardownReply('closeAuthFlow', function () {
+        self.bus.emit(Bus.events.SEND_ANALYTICS_EVENTS, 'paypal.auth.close');
+        self.paypalIntegration.closeAuthFlow();
+      })
+    };
+  }
+
+  BaseIntegration.prototype._onIntegrationReady.call(this, returnedInstance);
+};
+
 module.exports = PayPalIntegration;
 
-},{"../../bus":129,"../../paypal":175,"../compatibility":132,"../constants":133,"./base-integration":134,"braintree-utilities":76,"lodash.create":112}],140:[function(require,module,exports){
+},{"152":152,"157":157,"164":164,"167":167,"168":168,"169":169,"210":210,"96":96}],175:[function(require,module,exports){
 'use strict';
 
 module.exports = function fallbackError(error) {
@@ -8533,11 +10026,11 @@ module.exports = function fallbackError(error) {
   }
 };
 
-},{}],141:[function(require,module,exports){
+},{}],176:[function(require,module,exports){
 'use strict';
 
-var Bus = require('../../bus');
-var hostedFields = require('../../hosted-fields');
+var Bus = require(164);
+var hostedFields = require(204);
 
 var ANALYTICS_STRING = 'web.custom.hosted-fields.via.';
 var INPUT_NAME = 'payment_method_nonce';
@@ -8613,10 +10106,10 @@ NonceManager.prototype.teardown = function () {
 
 module.exports = NonceManager;
 
-},{"../../bus":129,"../../hosted-fields":169}],142:[function(require,module,exports){
+},{"164":164,"204":204}],177:[function(require,module,exports){
 'use strict';
 
-var isFunction = require('braintree-utilities').isFunction;
+var isFunction = require(152);
 
 function noop() {}
 
@@ -8632,7 +10125,7 @@ module.exports = function lookupCallbackFor(model) {
   };
 };
 
-},{"braintree-utilities":76}],143:[function(require,module,exports){
+},{"152":152}],178:[function(require,module,exports){
 'use strict';
 
 function isJQueryElement(element) {
@@ -8648,7 +10141,7 @@ module.exports = {
   isHTMLElement: isHTMLElement
 };
 
-},{}],144:[function(require,module,exports){
+},{}],179:[function(require,module,exports){
 'use strict';
 
 module.exports = function sanitizePayload(payload) {
@@ -8659,18 +10152,20 @@ module.exports = function sanitizePayload(payload) {
   };
 };
 
-},{}],145:[function(require,module,exports){
+},{}],180:[function(require,module,exports){
 'use strict';
 
-var Coinbase = require('./lib/coinbase');
+var Coinbase = require(183);
 
 function create(options) {
-  return new Coinbase(options);
+  var result = new Coinbase(options);
+
+  return result.canCreateIntegration ? result : null;
 }
 
 module.exports = {create: create};
 
-},{"./lib/coinbase":148}],146:[function(require,module,exports){
+},{"183":183}],181:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -8716,10 +10211,10 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],147:[function(require,module,exports){
+},{}],182:[function(require,module,exports){
 'use strict';
 
-var busEvents = require('../../bus').events;
+var busEvents = require(164).events;
 
 function tokenize(err, payload, coinbase) {
   if (err) {
@@ -8735,18 +10230,19 @@ function tokenize(err, payload, coinbase) {
 
 module.exports = {tokenize: tokenize};
 
-},{"../../bus":129}],148:[function(require,module,exports){
+},{"164":164}],183:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var utils = require('braintree-utilities');
-var Destructor = require('destructor');
-var DOMComposer = require('./dom/composer');
-var urlComposer = require('./url-composer');
-var callbacks = require('./callbacks');
-var constants = require('./constants');
-var detector = require('./detector');
-var Bus = require('../../bus');
+var bind = require(96);
+var utils = require(82);
+var Destructor = require(86);
+var DOMComposer = require(187);
+var urlComposer = require(190);
+var callbacks = require(182);
+var constants = require(184);
+var detector = require(185);
+var Bus = require(164);
 
 function _getPopupParams(options) {
   return {
@@ -8813,8 +10309,8 @@ function Coinbase(options) {
   this.apiClient = options.apiClient;
   this.assetsUrl = options.configuration.assetsUrl;
   this.environment = options.configuration.coinbase.environment;
-  this._onOAuthSuccess = utils.bind(this._onOAuthSuccess, this);
-  this._handleButtonClick = utils.bind(this._handleButtonClick, this);
+  this._onOAuthSuccess = bind(this._onOAuthSuccess, this);
+  this._handleButtonClick = bind(this._handleButtonClick, this);
   this.popupParams = _getPopupParams(options);
   this.redirectDoneInterval = null;
 
@@ -8833,7 +10329,7 @@ function Coinbase(options) {
       self._closePopup();
     });
 
-    this.bus.on(constants.TEARDOWN_EVENT, utils.bind(this.destructor.teardown, this.destructor));
+    this.bus.on(constants.TEARDOWN_EVENT, bind(this.destructor.teardown, this.destructor));
   }
 }
 
@@ -8995,7 +10491,7 @@ Coinbase.prototype.teardown = function (done) {
 module.exports = Coinbase;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../bus":129,"./callbacks":147,"./constants":149,"./detector":150,"./dom/composer":152,"./url-composer":155,"braintree-utilities":76,"destructor":80}],149:[function(require,module,exports){
+},{"164":164,"182":182,"184":184,"185":185,"187":187,"190":190,"82":82,"86":86,"96":96}],184:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -9006,25 +10502,27 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "2.14.4",
+  VERSION: "2.15.0",
   INTEGRATION_NAME: 'Coinbase',
   CONFIGURATION_ERROR: 'CONFIGURATION',
   UNSUPPORTED_BROWSER_ERROR: 'UNSUPPORTED_BROWSER',
   TEARDOWN_EVENT: 'coinbase:TEARDOWN'
 };
 
-},{}],150:[function(require,module,exports){
+},{}],185:[function(require,module,exports){
 'use strict';
 
-var browser = require('./browser');
+var browser = require(181);
 
 function isSupportedBrowser() {
   var version = browser.ieVersion();
+
   return !version || version > 8;
 }
 
 function shouldDisplayLollipopClose() {
   var version = browser.androidVersion();
+
   if (version == null) { return false; }
 
   return /^5/.test(version);
@@ -9036,6 +10534,7 @@ function shouldCloseFromParent() {
 
 function shouldDisplayIOSClose() {
   var version = browser.iOSSafariVersion();
+
   if (version == null) { return false; }
 
   return /^8\.0/.test(version) || /^8\.1$/.test(version);
@@ -9048,7 +10547,7 @@ module.exports = {
   shouldDisplayLollipopClose: shouldDisplayLollipopClose
 };
 
-},{"./browser":146}],151:[function(require,module,exports){
+},{"181":181}],186:[function(require,module,exports){
 'use strict';
 
 function createButton(config) {
@@ -9069,12 +10568,12 @@ function createButton(config) {
 
 module.exports = {create: createButton};
 
-},{}],152:[function(require,module,exports){
+},{}],187:[function(require,module,exports){
 'use strict';
 
-var popup = require('./popup');
-var button = require('./button');
-var frame = require('./frame');
+var popup = require(189);
+var button = require(186);
+var frame = require(188);
 
 module.exports = {
   createButton: button.create,
@@ -9082,11 +10581,11 @@ module.exports = {
   createFrame: frame.create
 };
 
-},{"./button":151,"./frame":153,"./popup":154}],153:[function(require,module,exports){
+},{"186":186,"188":188,"189":189}],188:[function(require,module,exports){
 'use strict';
 
-var constants = require('../constants');
-var iframer = require('iframer');
+var constants = require(184);
+var iframer = require(91);
 
 function createFrame() {
   return iframer({
@@ -9104,11 +10603,11 @@ function createFrame() {
 
 module.exports = {create: createFrame};
 
-},{"../constants":149,"iframer":85}],154:[function(require,module,exports){
+},{"184":184,"91":91}],189:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var constants = require('../constants');
+var constants = require(184);
 
 function _stringifyParams(payload) {
   var param;
@@ -9142,10 +10641,10 @@ function createPopup(url) {
 module.exports = {create: createPopup};
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../constants":149}],155:[function(require,module,exports){
+},{"184":184}],190:[function(require,module,exports){
 'use strict';
 
-var constants = require('./constants');
+var constants = require(184);
 
 function getQueryString() {
   return 'version=' + constants.VERSION;
@@ -9179,7 +10678,7 @@ module.exports = {
   getQueryString: getQueryString
 };
 
-},{"./constants":149}],156:[function(require,module,exports){
+},{"184":184}],191:[function(require,module,exports){
 'use strict';
 
 var RPC_METHOD_NAMES = ['getCreditCards', 'unlockCreditCard', 'sendAnalyticsEvents'];
@@ -9206,25 +10705,25 @@ APIProxyServer.prototype.attach = function (rpcServer) {
 
 module.exports = APIProxyServer;
 
-},{}],157:[function(require,module,exports){
+},{}],192:[function(require,module,exports){
 (function (global){
 'use strict';
 
 var htmlNode, bodyNode;
-var api = require('braintree-api');
-var BraintreeBus = require('../../bus');
-var Destructor = require('destructor');
-var rpc = require('braintree-rpc');
-var utils = require('braintree-utilities');
+var api = require(15);
+var BraintreeBus = require(164);
+var Destructor = require(86);
+var rpc = require(64);
+var utils = require(82);
 var normalizeElement = utils.normalizeElement;
-var bind = utils.bind;
+var bind = require(96);
 var isBrowserHttps = utils.isBrowserHttps;
-var APIProxyServer = require('./api-proxy-server');
-var MerchantFormManager = require('./merchant-form-manager');
-var FrameContainer = require('./frame-container');
-var constants = require('../shared/constants');
-var version = "2.14.4";
-var PayPalModalView = require('../../paypal/src/external/views/app-view');
+var APIProxyServer = require(191);
+var MerchantFormManager = require(195);
+var FrameContainer = require(194);
+var constants = require(197);
+var version = "2.15.0";
+var PayPalModalView = require(214);
 
 function getElementStyle(element, style) {
   var computedStyle = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
@@ -9248,6 +10747,7 @@ function getMerchantPageDefaultStyles() {
 
 function isMobile() {
   var isMobileUserAgent = /Android|iPhone|iPod|iPad/i.test(window.navigator.userAgent);
+
   return isMobileUserAgent;
 }
 
@@ -9519,14 +11019,15 @@ Client.prototype.teardown = function (done) {
 module.exports = Client;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../bus":129,"../../paypal/src/external/views/app-view":179,"../shared/constants":162,"./api-proxy-server":156,"./frame-container":159,"./merchant-form-manager":160,"braintree-api":15,"braintree-rpc":58,"braintree-utilities":76,"destructor":80}],158:[function(require,module,exports){
+},{"15":15,"164":164,"191":191,"194":194,"195":195,"197":197,"214":214,"64":64,"82":82,"86":86,"96":96}],193:[function(require,module,exports){
 'use strict';
 
-var Client = require('./client');
-var VERSION = "2.14.4";
+var Client = require(192);
+var VERSION = "2.15.0";
 
 function create(options) {
   var client = new Client(options);
+
   client.initialize();
 
   return client;
@@ -9537,12 +11038,12 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"./client":157}],159:[function(require,module,exports){
+},{"192":192}],194:[function(require,module,exports){
 'use strict';
 
-var BraintreeBus = require('../../bus');
-var constants = require('../shared/constants');
-var iFramer = require('iframer');
+var BraintreeBus = require(164);
+var constants = require(197);
+var iFramer = require(91);
 
 // TODO: move to shared and deduplicate from src/internal/util/dropin-util.js
 var TRANSITION_END_EVENT_NAMES = {
@@ -9614,11 +11115,11 @@ function FrameContainer(endpoint, name, braintreeBus) {
 
 module.exports = FrameContainer;
 
-},{"../../bus":129,"../shared/constants":162,"iframer":85}],160:[function(require,module,exports){
+},{"164":164,"197":197,"91":91}],195:[function(require,module,exports){
 'use strict';
 
-var utils = require('braintree-utilities');
-var FormNapper = require('form-napper');
+var bind = require(96);
+var FormNapper = require(89);
 
 function MerchantFormManager(options) {
   this.formNapper = new FormNapper(options.form);
@@ -9658,7 +11159,7 @@ MerchantFormManager.prototype._setElements = function () {
 };
 
 MerchantFormManager.prototype._setEvents = function () {
-  this.formNapper.hijack(utils.bind(this._handleFormSubmit, this));
+  this.formNapper.hijack(bind(this._handleFormSubmit, this));
 };
 
 MerchantFormManager.prototype._handleFormSubmit = function (event) {
@@ -9699,6 +11200,7 @@ MerchantFormManager.prototype._handleNonceReply = function (event) {
 
 MerchantFormManager.prototype._triggerFormSubmission = function () {
   var self = this;
+
   this.nonceInput = this.formNapper.inject('payment_method_nonce', this.noncePayload.nonce);
 
   this.apiClient.sendAnalyticsEvents('dropin.web.end.auto-submit', function () {
@@ -9719,12 +11221,12 @@ MerchantFormManager.prototype.teardown = function () {
 
 module.exports = MerchantFormManager;
 
-},{"braintree-utilities":76,"form-napper":83}],161:[function(require,module,exports){
+},{"89":89,"96":96}],196:[function(require,module,exports){
 'use strict';
 
-module.exports = require('./external/core');
+module.exports = require(193);
 
-},{"./external/core":158}],162:[function(require,module,exports){
+},{"193":193}],197:[function(require,module,exports){
 module.exports={
   "PAYPAL_INTEGRATION_NAME": "PayPal",
   "INLINE_FRAME_NAME": "braintree-dropin-frame",
@@ -9748,11 +11250,11 @@ module.exports={
   "MODAL_FRAME_TEARDOWN_EVENT": "dropin:TEARDOWN_MODAL_FRAME"
 }
 
-},{}],163:[function(require,module,exports){
+},{}],198:[function(require,module,exports){
 'use strict';
 
-var Form = require('./lib/form');
-var validateAnnotations = require('./lib/validate-annotations');
+var Form = require(200);
+var validateAnnotations = require(203);
 
 function setup(apiClient, configuration) {
   var merchantConfiguration = configuration.merchantConfiguration || {};
@@ -9772,7 +11274,7 @@ function setup(apiClient, configuration) {
 
 module.exports = {setup: setup};
 
-},{"./lib/form":165,"./lib/validate-annotations":168}],164:[function(require,module,exports){
+},{"200":200,"203":203}],199:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -9829,16 +11331,17 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],165:[function(require,module,exports){
+},{}],200:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var util = require('braintree-utilities');
-var fields = require('./fields');
-var Destructor = require('destructor');
-var Bus = require('../../bus');
-var PaymentMethodModel = require('./models/payment-method-model');
-var getNonceInput = require('./get-nonce-input');
+var bind = require(96);
+var util = require(82);
+var fields = require(199);
+var Destructor = require(86);
+var Bus = require(164);
+var PaymentMethodModel = require(202);
+var getNonceInput = require(201);
 var ERROR_PAYLOAD = {
   message: 'Unable to process payments at this time',
   type: 'IMMEDIATE'
@@ -9883,9 +11386,9 @@ function Form(apiClient, configuration) {
 Form.prototype.setEvents = function () {
   var self = this;
 
-  this.onSubmitHandler = util.bind(this.handleSubmit, this);
-  this.onExternalNonceReceived = util.bind(this.onExternalNonceReceived, this);
-  this.clearExternalNonce = util.bind(this.clearExternalNonce, this);
+  this.onSubmitHandler = bind(this.handleSubmit, this);
+  this.onExternalNonceReceived = bind(this.onExternalNonceReceived, this);
+  this.clearExternalNonce = bind(this.clearExternalNonce, this);
 
   util.addEventListener(this.htmlForm, 'submit', this.onSubmitHandler);
   this.destructor.registerFunctionForTeardown(function () {
@@ -9975,7 +11478,7 @@ Form.prototype.teardown = function () {
 module.exports = Form;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../bus":129,"./fields":164,"./get-nonce-input":166,"./models/payment-method-model":167,"braintree-utilities":76,"destructor":80}],166:[function(require,module,exports){
+},{"164":164,"199":199,"201":201,"202":202,"82":82,"86":86,"96":96}],201:[function(require,module,exports){
 'use strict';
 
 module.exports = function getNonceInput(paymentMethodNonceInputField) {
@@ -9998,7 +11501,7 @@ module.exports = function getNonceInput(paymentMethodNonceInputField) {
   return nonceInput;
 };
 
-},{}],167:[function(require,module,exports){
+},{}],202:[function(require,module,exports){
 'use strict';
 
 function PaymentMethodModel() {
@@ -10019,7 +11522,7 @@ PaymentMethodModel.prototype.reset = function () {
 
 module.exports = PaymentMethodModel;
 
-},{}],168:[function(require,module,exports){
+},{}],203:[function(require,module,exports){
 'use strict';
 
 module.exports = function validateAnnotations(htmlForm) {
@@ -10055,12 +11558,12 @@ module.exports = function validateAnnotations(htmlForm) {
   }
 };
 
-},{}],169:[function(require,module,exports){
+},{}],204:[function(require,module,exports){
 'use strict';
 
-var HostedFields = require('./lib/external');
-var events = require('./lib/shared/constants').events;
-var VERSION = "2.14.4";
+var HostedFields = require(206);
+var events = require(208).events;
+var VERSION = "2.15.0";
 
 module.exports = {
   create: function (configuration) {
@@ -10070,10 +11573,10 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"./lib/external":171,"./lib/shared/constants":173}],170:[function(require,module,exports){
+},{"206":206,"208":208}],205:[function(require,module,exports){
 'use strict';
 
-var constants = require('../shared/constants');
+var constants = require(208);
 
 module.exports = function composeUrl(assetsUrl, channel) {
   return assetsUrl +
@@ -10083,19 +11586,19 @@ module.exports = function composeUrl(assetsUrl, channel) {
     channel;
 };
 
-},{"../shared/constants":173}],171:[function(require,module,exports){
+},{"208":208}],206:[function(require,module,exports){
 'use strict';
 
-var Destructor = require('destructor');
-var classListManager = require('classlist');
-var iFramer = require('iframer');
-var Bus = require('../../../bus');
-var composeUrl = require('./compose-url');
-var constants = require('../shared/constants');
-var nodeListToArray = require('nodelist-to-array');
-var utils = require('braintree-utilities');
-var findParentTags = require('../shared/find-parent-tags');
-var shouldUseLabelFocus = require('./should-use-label-focus');
+var Destructor = require(86);
+var classListManager = require(83);
+var iFramer = require(91);
+var Bus = require(164);
+var composeUrl = require(205);
+var constants = require(208);
+var nodeListToArray = require(163);
+var utils = require(82);
+var findParentTags = require(209);
+var shouldUseLabelFocus = require(207);
 var events = constants.events;
 
 function injectFrame(frame, container) {
@@ -10143,7 +11646,7 @@ function inputEventHandler(fields, onFieldEvent) {
 }
 
 function HostedFieldsIntegration(configuration) {
-  var type, field, container, frame, i, msg;
+  var field, container, frame, key, msg;
   var self = this;
   var fields = {};
   var fieldCount = 0;
@@ -10163,50 +11666,51 @@ function HostedFieldsIntegration(configuration) {
   this.bus.emit(Bus.events.ASYNC_DEPENDENCY_INITIALIZING);
   this.bus.emit(Bus.events.SEND_ANALYTICS_EVENTS, 'hosted-fields.initialized');
 
-  for (i = 0; i < constants.whitelistedFields.length; i++) {
-    type = constants.whitelistedFields[i];
-    field = configuration.merchantConfiguration.hostedFields[type];
+  for (key in constants.whitelistedFields) {
+    if (constants.whitelistedFields.hasOwnProperty(key)) {
+      field = configuration.merchantConfiguration.hostedFields[key];
 
-    if (!field) { continue; }
+      if (!field) { continue; }
 
-    container = document.querySelector(field.selector);
+      container = document.querySelector(field.selector);
 
-    if (!container) {
-      msg = 'Unable to find element with selector "' + field.selector + '" for hostedFields.' + type;
-      this.bus.emit(Bus.events.ERROR, {
-        message: msg
+      if (!container) {
+        msg = 'Unable to find element with selector "' + field.selector + '" for hostedFields.' + key;
+        this.bus.emit(Bus.events.ERROR, {
+          message: msg
+        });
+        continue;
+      } else if (container.querySelector('iframe[name^="braintree-"]')) {
+        this.bus.emit(Bus.events.ERROR, {
+          message: 'Cannot place two elements in "' + field.selector + '"'
+        });
+        continue;
+      }
+
+      frame = iFramer({
+        type: key,
+        name: 'braintree-hosted-field-' + key,
+        style: constants.defaultIFrameStyle
       });
-      continue;
-    } else if (container.querySelector('iframe[name^="braintree-"]')) {
-      this.bus.emit(Bus.events.ERROR, {
-        message: 'Cannot place two elements in "' + field.selector + '"'
-      });
-      continue;
-    }
 
-    frame = iFramer({
-      type: type,
-      name: 'braintree-hosted-field-' + type,
-      style: constants.defaultIFrameStyle
-    });
-
-    this.injectedNodes.push(injectFrame(frame, container));
-    this.setupLabelFocus(type, container);
-    fields[type] = {
-      frameElement: frame,
-      containerElement: container
-    };
-    fieldCount++;
-
-    /* eslint-disable no-loop-func */
-    setTimeout((function (f) {
-      return function () {
-        f.src = composeUrl(
-          configuration.gatewayConfiguration.assetsUrl,
-          configuration.channel
-        );
+      this.injectedNodes.push(injectFrame(frame, container));
+      this.setupLabelFocus(key, container);
+      fields[key] = {
+        frameElement: frame,
+        containerElement: container
       };
-    })(frame), 0);
+      fieldCount++;
+
+      /* eslint-disable no-loop-func */
+      setTimeout((function (f) {
+        return function () {
+          f.src = composeUrl(
+            configuration.gatewayConfiguration.assetsUrl,
+            configuration.channel
+          );
+        };
+      })(frame), 0);
+    }
   } /* eslint-enable no-loop-func */
 
   this.bus.on(events.FRAME_READY, function (reply) {
@@ -10273,18 +11777,18 @@ HostedFieldsIntegration.prototype.teardown = function (done) {
 
 module.exports = HostedFieldsIntegration;
 
-},{"../../../bus":129,"../shared/constants":173,"../shared/find-parent-tags":174,"./compose-url":170,"./should-use-label-focus":172,"braintree-utilities":76,"classlist":77,"destructor":80,"iframer":85,"nodelist-to-array":128}],172:[function(require,module,exports){
+},{"163":163,"164":164,"205":205,"207":207,"208":208,"209":209,"82":82,"83":83,"86":86,"91":91}],207:[function(require,module,exports){
 'use strict';
 
 module.exports = function shouldUseLabelFocus() {
   return !/(iPad|iPhone|iPod)/i.test(navigator.userAgent);
 };
 
-},{}],173:[function(require,module,exports){
+},{}],208:[function(require,module,exports){
 'use strict';
 /* eslint-disable no-reserved-keys */
 
-var VERSION = "2.14.4";
+var VERSION = "2.15.0";
 
 module.exports = {
   VERSION: VERSION,
@@ -10320,14 +11824,6 @@ module.exports = {
     height: '100%',
     'float': 'left'
   },
-  whitelistedFields: [
-    'number',
-    'cvv',
-    'expirationDate',
-    'expirationMonth',
-    'expirationYear',
-    'postalCode'
-  ],
   whitelistedStyles: [
     '-moz-osx-font-smoothing',
     '-moz-transition',
@@ -10353,14 +11849,26 @@ module.exports = {
     'text-shadow',
     'transition'
   ],
-  passwordManagerFields: {
+  whitelistedFields: {
     number: {
       name: 'credit-card-number',
       label: 'Credit Card Number'
     },
+    cvv: {
+      name: 'cvv',
+      label: 'CVV'
+    },
     expirationDate: {
       name: 'expiration',
       label: 'Expiration Date'
+    },
+    expirationMonth: {
+      name: 'expiration-month',
+      label: 'Expiration Month'
+    },
+    expirationYear: {
+      name: 'expiration-year',
+      label: 'Expiration Year'
     },
     postalCode: {
       name: 'postal-code',
@@ -10369,7 +11877,7 @@ module.exports = {
   }
 };
 
-},{}],174:[function(require,module,exports){
+},{}],209:[function(require,module,exports){
 'use strict';
 
 function findParentTags(element, tag) {
@@ -10389,28 +11897,31 @@ function findParentTags(element, tag) {
 
 module.exports = findParentTags;
 
-},{}],175:[function(require,module,exports){
+},{}],210:[function(require,module,exports){
 'use strict';
 
-module.exports = require('./src/external/core');
+module.exports = require(212);
 
-},{"./src/external/core":177}],176:[function(require,module,exports){
+},{"212":212}],211:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var braintreeUtil = require('braintree-utilities');
-var Destructor = require('destructor');
-var Bus = require('../../../bus');
-var AppView = require('./views/app-view');
-var LoggedInView = require('./views/logged-in-view');
-var LoggedOutView = require('./views/logged-out-view');
-var OverlayView = require('./views/overlay-view');
-var MerchantPageView = require('./views/merchant-page-view');
-var PaymentMethodNonceInputFieldView = require('./views/payment-method-nonce-input-field-view');
-var BridgeIframeView = require('./views/bridge-iframe-view');
-var browser = require('../shared/util/browser');
-var constants = require('../shared/constants');
-var util = require('../shared/util/util');
+var braintreeUtil = require(82);
+var bind = require(96);
+var isFunction = require(152);
+var Destructor = require(86);
+var Bus = require(164);
+var AppView = require(214);
+var LoggedInView = require(216);
+var LoggedOutView = require(217);
+var OverlayView = require(220);
+var MerchantPageView = require(218);
+var PaymentMethodNonceInputFieldView = require(221);
+var BridgeIframeView = require(215);
+var browser = require(231);
+var constants = require(223);
+var util = require(233);
+var bindAll = require(97);
 
 function Client(clientToken, options, channel) {
   options = options || {};
@@ -10428,7 +11939,7 @@ function Client(clientToken, options, channel) {
     channel: this.channel
   });
 
-  this.container = braintreeUtil.normalizeElement(options.container);
+  this.container = braintreeUtil.normalizeElement(options.container || document.body);
   this.paymentMethodNonceInputField = options.paymentMethodNonceInputField;
 
   this.insertFrameFunction = options.insertFrame;
@@ -10441,28 +11952,31 @@ function Client(clientToken, options, channel) {
   this.paymentMethodNonceInputFieldView = null;
   this.overlayView = null;
   this.bridgeIframeView = null;
-  this.insertUI = options.headless !== true;
+  this.headless = options.headless;
+  this.isDropin = options.isDropin;
+
+  bindAll(this, ['initAuthFlow', 'closeAuthFlow']);
 }
 
 Client.prototype.initialize = function () {
-  var clickLoginHandler = braintreeUtil.bind(this._handleClickLogin, this);
+  var clickLoginHandler = bind(this._handleClickLogin, this);
 
   this._createViews();
 
   this.bus.on(
     constants.events.GET_CLIENT_TOKEN,
-    braintreeUtil.bind(this._handleGetClientToken, this)
+    bind(this._handleGetClientToken, this)
   );
 
   this.bus.on(
     constants.events.GET_CLIENT_OPTIONS,
-    braintreeUtil.bind(this._handleGetClientOptions, this)
+    bind(this._handleGetClientOptions, this)
   );
 
-  if (this.insertUI) {
+  if (!this.isDropin) {
     this.bus.on(
       Bus.events.PAYMENT_METHOD_GENERATED,
-      braintreeUtil.bind(this._handlePaymentMethodGenerated, this)
+      bind(this._handlePaymentMethodGenerated, this)
     );
   }
 
@@ -10491,23 +12005,36 @@ Client.prototype._createViews = function () {
     insertFrameFunction: this.insertFrameFunction,
     paypalAssetsUrl: this._clientToken.paypal.assetsUrl,
     isHermes: util.isHermesConfiguration(this._clientToken, this._clientOptions),
-    headless: this._clientOptions.headless,
+    isDropin: this.isDropin,
     channel: this.channel
   });
   views.push(this.appView);
 
-  if (this.insertUI) {
+  if (!this.isDropin) {
+    this.merchantPageView = new MerchantPageView({
+      channel: this.channel
+    });
+    views.push(this.merchantPageView);
+
+    if (browser.isPopupSupported() && browser.isOverlaySupported()) {
+      this.overlayView = new OverlayView({
+        paypalAssetsUrl: this._clientToken.paypal.assetsUrl,
+        onFocus: function () { self.bus.emit(constants.events.FOCUS_APP); },
+        onClose: function () { self.bus.emit(constants.events.CLOSE_APP); },
+        locale: this._clientOptions.locale,
+        channel: this.channel
+      });
+      views.push(this.overlayView);
+    }
+  }
+
+  if (!(this.isDropin || this.headless)) {
     this.paymentMethodNonceInputFieldView = new PaymentMethodNonceInputFieldView({
       container: this.container,
       el: this.paymentMethodNonceInputField,
       channel: this.channel
     });
     views.push(this.paymentMethodNonceInputFieldView);
-
-    this.merchantPageView = new MerchantPageView({
-      channel: this.channel
-    });
-    views.push(this.merchantPageView);
 
     this.loggedInView = new LoggedInView({
       paypalAssetsUrl: this._clientToken.paypal.assetsUrl,
@@ -10525,16 +12052,6 @@ Client.prototype._createViews = function () {
       channel: this.channel
     });
     views.push(this.loggedOutView);
-
-    if (browser.isPopupSupported() && browser.isOverlaySupported()) {
-      this.overlayView = new OverlayView({
-        paypalAssetsUrl: this._clientToken.paypal.assetsUrl,
-        onFocus: function () { self.bus.emit(constants.events.FOCUS_APP); },
-        onClose: function () { self.bus.emit(constants.events.CLOSE_APP); },
-        channel: this.channel
-      });
-      views.push(this.overlayView);
-    }
   }
 
   this.destructor.registerFunctionForTeardown(function () {
@@ -10557,11 +12074,15 @@ Client.prototype._handleClickLogin = function (event) {
 
   util.preventDefault(event);
 
-  this.launch();
+  this.initAuthFlow();
 };
 
-Client.prototype.launch = function () {
+Client.prototype.initAuthFlow = function () {
   this.appView.open();
+};
+
+Client.prototype.closeAuthFlow = function () {
+  this.appView.close();
 };
 
 Client.prototype._isButton = function (node) {
@@ -10573,7 +12094,7 @@ Client.prototype._isButton = function (node) {
 };
 
 Client.prototype._handlePaymentMethodGenerated = function (bundle) {
-  if (bundle.type === constants.NONCE_TYPE && braintreeUtil.isFunction(this.onSuccess)) {
+  if (bundle.type === constants.NONCE_TYPE && isFunction(this.onSuccess)) {
     this.onSuccess(bundle);
   }
 };
@@ -10633,21 +12154,22 @@ Client.prototype.teardown = function () {
 module.exports = Client;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../../bus":129,"../shared/constants":188,"../shared/util/browser":196,"../shared/util/util":198,"./views/app-view":179,"./views/bridge-iframe-view":180,"./views/logged-in-view":181,"./views/logged-out-view":182,"./views/merchant-page-view":183,"./views/overlay-view":185,"./views/payment-method-nonce-input-field-view":186,"braintree-utilities":76,"destructor":80}],177:[function(require,module,exports){
+},{"152":152,"164":164,"214":214,"215":215,"216":216,"217":217,"218":218,"220":220,"221":221,"223":223,"231":231,"233":233,"82":82,"86":86,"96":96,"97":97}],212:[function(require,module,exports){
 'use strict';
 
-var Client = require('./client');
-var browser = require('../shared/util/browser');
-var constants = require('../shared/constants');
-var getLocale = require('../shared/get-locale');
-var isHermesConfiguration = require('../shared/util/util').isHermesConfiguration;
-var isOnetimeHermesConfiguration = require('../shared/util/util').isOnetimeHermesConfiguration;
-var VERSION = "2.14.4";
-var braintreeUtil = require('braintree-utilities');
-var braintreeApi = require('braintree-api');
+var Client = require(211);
+var browser = require(231);
+var constants = require(223);
+var getLocale = require(225);
+var isHermesConfiguration = require(233).isHermesConfiguration;
+var isOnetimeHermesConfiguration = require(233).isOnetimeHermesConfiguration;
+var VERSION = "2.15.0";
+var braintreeUtil = require(82);
+var braintreeApi = require(15);
 
 function create(clientToken, options, channel) {
   var client, onUnsupported;
+
   options = options || {};
   onUnsupported = options.onUnsupported;
 
@@ -10676,7 +12198,7 @@ function create(clientToken, options, channel) {
     return null;
   }
 
-  if (!options.container) {
+  if (!options.container && !options.headless) {
     onUnsupported(new Error('Please supply a container for the PayPal button to be appended to'));
     return null;
   }
@@ -10760,96 +12282,147 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"../shared/constants":188,"../shared/get-locale":190,"../shared/util/browser":196,"../shared/util/util":198,"./client":176,"braintree-api":15,"braintree-utilities":76}],178:[function(require,module,exports){
+},{"15":15,"211":211,"223":223,"225":225,"231":231,"233":233,"82":82}],213:[function(require,module,exports){
 module.exports={
   "en_us": {
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "overlay_text": "Don't see the secure PayPal browser? We'll help you re-launch the window to complete your purchase.",
+    "continue_link": "Continue"
   },
   "en_uk": {
-    "cancel":  "Cancel"
+    "cancel":  "Cancel",
+    "overlay_text": "Don't see the secure PayPal browser? We'll help you re-launch the window to complete your purchase.",
+    "continue_link": "Continue"
   },
   "en_au": {
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "overlay_text": "Don't see the secure PayPal browser? We'll help you re-launch the window to complete your purchase.",
+    "continue_link": "Continue"
   },
   "sv_se": {
-    "cancel": "Avbryt"
+    "cancel": "Avbryt",
+    "overlay_text": "Ser du inte den säkra PayPal-webbl&auml;saren? Vi hj&auml;lper dig att starta om f&ouml;nstret f&ouml;r att slutf&ouml;ra k&ouml;pet.",
+    "continue_link": "Forts&auml;tt"
   },
   "de_de": {
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "overlay_text": "Sie sehen das sichere Browserfenster von PayPal nicht? Das Fenster wird neu ge&ouml;ffnet, damit Sie Ihren Einkauf abschlie&szlig;en k&ouml;nnen.",
+    "continue_link": "Weiter"
   },
   "fr_fr": {
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "overlay_text": "Vous ne voyez pas le navigateur s&eacute;curis&eacute; PayPal ? Nous allons vous aider &agrave; relancer la fen&ecirc;tre pour effectuer votre achat.",
+    "continue_link": "Continuer"
   },
   "en_ca": {
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "overlay_text": "Don't see the secure PayPal browser? We'll help you re-launch the window to complete your purchase.",
+    "continue_link": "Continue"
   },
   "fr_ca": {
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "overlay_text": "Vous ne voyez pas le navigateur s&eacute;curis&eacute; de PayPal ? Nous vous aiderons &agrave; relancer la fen&ecirc;tre afin d'effectuer votre achat.",
+    "continue_link": "Continuer"
   },
   "es_es": {
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "overlay_text": "&iquest;No ves el s&iacute;mbolo de navegaci&oacute;n segura de PayPal? Te ayudaremos a abrir de nuevo la ventana para completar la compra.",
+    "continue_link": "Continuar"
   },
   "es_xc": {
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "overlay_text": "&iquest;No ve el s&iacute;mbolo de navegaci&oacute;n segura de PayPal? Abriremos la ventana nuevamente para que pueda completar su compra.",
+    "continue_link": "Continuar"
   },
   "fr_xc": {
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "overlay_text": "Le navigateur s&eacute;curis&eacute; de PayPal n'appara&icirc;t pas ? Nous allons vous aider &agrave; rouvrir la fen&ecirc;tre pour finaliser votre achat.",
+    "continue_link": "Continuer"
   },
   "nl_nl": {
-    "cancel": "Annuleren"
+    "cancel": "Annuleren",
+    "overlay_text": "Ziet u de beveiligde PayPal-browser niet? We helpen u het venster opnieuw te openen zodat u uw aankoop kunt voltooien.",
+    "continue_link": "Doorgaan"
   },
   "pt_pt": {
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "overlay_text": "N&atilde;o est&aacute; a ver a indica&ccedil;&atilde;o de liga&ccedil;&atilde;o segura PayPal no browser? Vamos ent&atilde;o voltar a abrir a janela para concluir a sua compra.",
+    "continue_link": "Continuar"
   },
   "ru_ru": {
-    "cancel": "Отмена"
+    "cancel": "Отмена",
+    "overlay_text": "Не отображается безопасная страница PayPal в браузере? Мы поможем вам повторно загрузить окно, чтобы завершить покупку.",
+    "continue_link": "Продолжить"
   },
   "da_dk": {
-    "cancel": "Annuller"
+    "cancel": "Annuller",
+    "overlay_text": "Kan du ikke se PayPals sikre browser? Vi hj&aelig;lper dig med at &aring;bne vinduet igen, s&aring; du kan betale.",
+    "continue_link": "Forts&aelig;t"
   },
   "it_it": {
-    "cancel": "Annulla"
+    "cancel": "Annulla",
+    "overlay_text": "Non vedi il browser sicuro di PayPal? Ti aiuteremo a riavviare la pagina per completare l'acquisto.",
+    "continue_link": "Continua"
   },
   "no_no": {
-    "cancel": "Avbryt"
+    "cancel": "Avbryt",
+    "overlay_text": "Ser du ikke den sikre PayPal-nettleseren? Vi hjelper deg med &aring; &aring;pne vinduet p&aring; nytt s&aring; du kan fullf&oslash;re kj&oslash;pet.",
+    "continue_link": "Fortsett"
   },
   "pl_pl": {
-    "cancel": "Anuluj"
+    "cancel": "Anuluj",
+    "overlay_text": "Nie widzisz bezpiecznej przeglądarki PayPal? Pomożemy Ci ponownie uruchomić to okno w celu dokonania zakupu.",
+    "continue_link": "Kontynuuj"
   },
   "tr_tr": {
-    "cancel": "İptal"
+    "cancel": "İptal",
+    "overlay_text": "G&uuml;venli PayPal tarayıcısını g&ouml;rm&uuml;yor musunuz? Alışverişinizi tamamlamak i&ccedil;in pencereyi yeniden başlatmanıza yardımcı olacağız.",
+    "continue_link": "Devam"
   },
   "zh_xc": {
-    "cancel": "取消"
+    "cancel": "取消",
+    "overlay_text": "没有看到安全的PayPal浏览器？我们将帮助您重启窗口以完成购物。",
+    "continue_link": "继续"
   },
   "en_hk": {
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "overlay_text": "Don't see the secure PayPal browser? We'll help you re-launch the window to complete your purchase.",
+    "continue_link": "Continue"
   },
   "zh_hk": {
-    "cancel": "取消"
+    "cancel": "取消",
+    "overlay_text": "看不到安全的 PayPal 瀏覽器視窗？我們會助你重新啟動視窗，以完成購物。",
+    "continue_link": "繼續"
   },
   "en_my": {
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "overlay_text": "Don't see the secure PayPal browser? We'll help you re-launch the window to complete your purchase.",
+    "continue_link": "Continue"
   },
   "en_nz": {
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "overlay_text": "Don't see the secure PayPal browser? We'll help you re-launch the window to complete your purchase.",
+    "continue_link": "Continue"
   },
   "en_sg": {
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "overlay_text": "Don't see the secure PayPal browser? We'll help you re-launch the window to complete your purchase.",
+    "continue_link": "Continue"
   }
 }
 
-},{}],179:[function(require,module,exports){
+},{}],214:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var braintreeUtil = require('braintree-utilities');
-var browser = require('../../shared/util/browser');
-var Destructor = require('destructor');
-var Bus = require('../../../../bus');
-var constants = require('../../shared/constants');
-var PopupView = require('./popup-view');
-var ModalView = require('./modal-view');
+var bind = require(96);
+var isFunction = require(152);
+var browser = require(231);
+var Destructor = require(86);
+var Bus = require(164);
+var constants = require(223);
+var PopupView = require(222);
+var ModalView = require(219);
 
 function AppView(options) {
   var self = this;
@@ -10882,7 +12455,7 @@ AppView.prototype._initialize = function () {
   } else {
     this.app = new ModalView({
       src: this._buildUrl(),
-      headless: this.options.headless,
+      isDropin: this.options.isDropin,
       isHermes: this.options.isHermes,
       insertFrameFunction: this.options.insertFrameFunction,
       channel: this.options.channel
@@ -10893,14 +12466,15 @@ AppView.prototype._initialize = function () {
     self.app.teardown();
   });
 
-  this.bus.on(constants.events.CLOSE_APP, braintreeUtil.bind(this.close, this));
-  this.bus.on(constants.events.FOCUS_APP, braintreeUtil.bind(this.focus, this));
-  this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, braintreeUtil.bind(this._handlePaymentMethodGenerated, this));
-  this.bus.on(Bus.events.UI_POPUP_FORCE_CLOSE, braintreeUtil.bind(this._handleForceClose, this));
+  this.bus.on(constants.events.CLOSE_APP, bind(this.close, this));
+  this.bus.on(constants.events.FOCUS_APP, bind(this.focus, this));
+  this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, bind(this._handlePaymentMethodGenerated, this));
+  this.bus.on(Bus.events.UI_POPUP_FORCE_CLOSE, bind(this._handleForceClose, this));
 };
 
 AppView.prototype._buildUrl = function () {
   var url = this.options.paypalAssetsUrl;
+
   url += '/pwpp/';
   url += constants.VERSION;
   url += '/html/braintree-frame.html';
@@ -10926,7 +12500,7 @@ AppView.prototype.close = function () {
 };
 
 AppView.prototype.focus = function () {
-  if (braintreeUtil.isFunction(this.app.focus)) {
+  if (isFunction(this.app.focus)) {
     this.app.focus();
   }
 };
@@ -10972,11 +12546,11 @@ AppView.prototype.teardown = function () {
 module.exports = AppView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../../../bus":129,"../../shared/constants":188,"../../shared/util/browser":196,"./modal-view":184,"./popup-view":187,"braintree-utilities":76,"destructor":80}],180:[function(require,module,exports){
+},{"152":152,"164":164,"219":219,"222":222,"223":223,"231":231,"86":86,"96":96}],215:[function(require,module,exports){
 'use strict';
 
-var constants = require('../../shared/constants');
-var iframer = require('iframer');
+var constants = require(223);
+var iframer = require(91);
 
 function BridgeIframeView(options) {
   this.options = options || {};
@@ -11004,6 +12578,7 @@ function BridgeIframeView(options) {
 
 BridgeIframeView.prototype._buildUrl = function () {
   var url = this.options.paypalAssetsUrl;
+
   url += '/pwpp/';
   url += constants.VERSION;
   url += '/html/bridge-frame.html';
@@ -11018,18 +12593,19 @@ BridgeIframeView.prototype.teardown = function () {
 
 module.exports = BridgeIframeView;
 
-},{"../../shared/constants":188,"iframer":85}],181:[function(require,module,exports){
+},{"223":223,"91":91}],216:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var braintreeUtil = require('braintree-utilities');
-var Destructor = require('destructor');
-var Bus = require('../../../../bus');
-var util = require('../../shared/util/util');
-var dom = require('../../shared/util/dom');
-var constants = require('../../shared/constants');
-var getLocalizationData = require('../../shared/get-localization-data');
-var translations = require('../data/translations.json');
+var braintreeUtil = require(82);
+var bind = require(96);
+var Destructor = require(86);
+var Bus = require(164);
+var util = require(233);
+var dom = require(232);
+var constants = require(223);
+var getLocalizationData = require(226);
+var translations = require(213);
 
 function LoggedInView(options) {
   var localizationData;
@@ -11052,7 +12628,7 @@ function LoggedInView(options) {
 
 LoggedInView.prototype._initialize = function () {
   var self = this;
-  var clickLogoutHandler = braintreeUtil.bind(this._handleClickLogout, this);
+  var clickLogoutHandler = bind(this._handleClickLogout, this);
 
   this._createViewContainer();
   this._createPayPalName();
@@ -11065,8 +12641,8 @@ LoggedInView.prototype._initialize = function () {
     braintreeUtil.removeEventListener(self.logoutNode, 'click', clickLogoutHandler);
   });
 
-  this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, braintreeUtil.bind(this._handlePaymentMethodGenerated, this));
-  this.bus.on(Bus.events.PAYMENT_METHOD_CANCELLED, braintreeUtil.bind(this._handlePaymentMethodCancelled, this));
+  this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, bind(this._handlePaymentMethodGenerated, this));
+  this.bus.on(Bus.events.PAYMENT_METHOD_CANCELLED, bind(this._handlePaymentMethodCancelled, this));
 };
 
 LoggedInView.prototype._createViewContainer = function () {
@@ -11197,14 +12773,14 @@ LoggedInView.prototype.teardown = function () {
 module.exports = LoggedInView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../../../bus":129,"../../shared/constants":188,"../../shared/get-localization-data":191,"../../shared/util/dom":197,"../../shared/util/util":198,"../data/translations.json":178,"braintree-utilities":76,"destructor":80}],182:[function(require,module,exports){
+},{"164":164,"213":213,"223":223,"226":226,"232":232,"233":233,"82":82,"86":86,"96":96}],217:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var braintreeUtil = require('braintree-utilities');
-var Bus = require('../../../../bus');
-var constants = require('../../shared/constants');
-var getLocale = require('../../shared/get-locale');
+var bind = require(96);
+var Bus = require(164);
+var constants = require(223);
+var getLocale = require(225);
 
 function LoggedOutView(options) {
   this.options = options;
@@ -11227,8 +12803,8 @@ LoggedOutView.prototype._initialize = function () {
     this.createPayWithPayPalButton();
   }
 
-  this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, braintreeUtil.bind(this._handlePaymentMethodGenerated, this));
-  this.bus.on(Bus.events.PAYMENT_METHOD_CANCELLED, braintreeUtil.bind(this._handlePaymentMethodCancelled, this));
+  this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, bind(this._handlePaymentMethodGenerated, this));
+  this.bus.on(Bus.events.PAYMENT_METHOD_CANCELLED, bind(this._handlePaymentMethodCancelled, this));
 };
 
 LoggedOutView.prototype.createViewContainer = function () {
@@ -11320,13 +12896,13 @@ LoggedOutView.prototype.teardown = function () {
 module.exports = LoggedOutView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../../../bus":129,"../../shared/constants":188,"../../shared/get-locale":190,"braintree-utilities":76}],183:[function(require,module,exports){
+},{"164":164,"223":223,"225":225,"96":96}],218:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var Bus = require('../../../../bus');
-var braintreeUtil = require('braintree-utilities');
-var constants = require('../../shared/constants');
+var Bus = require(164);
+var bind = require(96);
+var constants = require(223);
 
 function MerchantPageView(options) {
   this.options = options;
@@ -11336,8 +12912,8 @@ function MerchantPageView(options) {
     channel: options.channel
   });
 
-  this.bus.on(constants.events.UI_MODAL_DID_OPEN, braintreeUtil.bind(this.lockWindowSize, this));
-  this.bus.on(constants.events.UI_MODAL_DID_CLOSE, braintreeUtil.bind(this.unlockWindowSize, this));
+  this.bus.on(constants.events.UI_MODAL_DID_OPEN, bind(this.lockWindowSize, this));
+  this.bus.on(constants.events.UI_MODAL_DID_CLOSE, bind(this.unlockWindowSize, this));
 }
 
 MerchantPageView.prototype.lockWindowSize = function () {
@@ -11377,6 +12953,7 @@ MerchantPageView.prototype.teardown = function () {
 
 function getStyles(element) {
   var computedStyles = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
+
   return {
     overflow: computedStyles.overflow || '',
     height: element.style.height || ''
@@ -11399,15 +12976,16 @@ function getMerchantPageDefaultStyles() {
 module.exports = MerchantPageView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../../../bus":129,"../../shared/constants":188,"braintree-utilities":76}],184:[function(require,module,exports){
+},{"164":164,"223":223,"96":96}],219:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var braintreeUtil = require('braintree-utilities');
-var browser = require('../../shared/util/browser');
-var constants = require('../../shared/constants');
-var Bus = require('../../../../bus');
-var iframer = require('iframer');
+var bind = require(96);
+var isFunction = require(152);
+var browser = require(231);
+var constants = require(223);
+var Bus = require(164);
+var iframer = require(91);
 
 function ModalView(options) {
   this.options = options || {};
@@ -11418,7 +12996,7 @@ function ModalView(options) {
     channel: options.channel
   });
 
-  if (this.options.headless) {
+  if (this.options.isDropin) {
     this._open = this._openHeadless;
   } else {
     this._attachBusEvents();
@@ -11428,7 +13006,7 @@ function ModalView(options) {
 }
 
 ModalView.prototype._attachBusEvents = function () {
-  this.bus.on(constants.events.OPEN_MODAL, braintreeUtil.bind(this.open, this));
+  this.bus.on(constants.events.OPEN_MODAL, bind(this.open, this));
 };
 
 ModalView.prototype._initialize = function () {
@@ -11463,7 +13041,7 @@ ModalView.prototype._openHeadless = function () {
 };
 
 ModalView.prototype._open = function () {
-  if (braintreeUtil.isFunction(this.options.insertFrameFunction)) {
+  if (isFunction(this.options.insertFrameFunction)) {
     this.options.insertFrameFunction(this.el.src);
   } else {
     this.container.appendChild(this.el);
@@ -11494,15 +13072,22 @@ ModalView.prototype.teardown = function () {
 module.exports = ModalView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../../../bus":129,"../../shared/constants":188,"../../shared/util/browser":196,"braintree-utilities":76,"iframer":85}],185:[function(require,module,exports){
+},{"152":152,"164":164,"223":223,"231":231,"91":91,"96":96}],220:[function(require,module,exports){
 (function (global){
 'use strict';
-var braintreeUtil = require('braintree-utilities');
-var Destructor = require('destructor');
-var Bus = require('../../../../bus');
-var constants = require('../../shared/constants');
+
+var braintreeUtil = require(82);
+var bind = require(96);
+var isFunction = require(152);
+var Destructor = require(86);
+var Bus = require(164);
+var constants = require(223);
+var getLocalizationData = require(226);
+var translations = require(213);
 
 function OverlayView(options) {
+  var localizationData;
+
   this.options = options;
   this.spriteSrc = this.options.paypalAssetsUrl + '/pwpp/' + constants.VERSION + '/images/pp_overlay_sprite.png';
 
@@ -11513,11 +13098,14 @@ function OverlayView(options) {
 
   this.destructor = new Destructor();
 
+  localizationData = getLocalizationData(this.options.locale, translations);
+  this.translation = localizationData.translation;
+
   this._create();
   this._setupEvents();
 
-  this.bus.on(Bus.events.UI_POPUP_DID_OPEN, braintreeUtil.bind(this._handleUIPopupDidOpen, this));
-  this.bus.on(Bus.events.UI_POPUP_DID_CLOSE, braintreeUtil.bind(this._handleUIPopupDidClose, this));
+  this.bus.on(Bus.events.UI_POPUP_DID_OPEN, bind(this._handleUIPopupDidOpen, this));
+  this.bus.on(Bus.events.UI_POPUP_DID_CLOSE, bind(this._handleUIPopupDidClose, this));
 }
 
 OverlayView.prototype.open = function () {
@@ -11607,16 +13195,16 @@ OverlayView.prototype._createMessage = function () {
 };
 
 OverlayView.prototype._createExplanation = function () {
-  var explanation = document.createElement('div');
+  this.explanation = document.createElement('div');
 
-  this._setStyles(explanation, [
+  this._setStyles(this.explanation, [
     'color: #FFF',
     'margin-bottom: 20px'
   ]);
 
-  explanation.innerHTML = 'Don\'t see the secure PayPal browser? We\'ll help you re-launch the window to complete your purchase.';
+  this.explanation.innerHTML = this.translation.overlay_text;
 
-  return explanation;
+  return this.explanation;
 };
 
 OverlayView.prototype._createLogo = function () {
@@ -11640,20 +13228,21 @@ OverlayView.prototype._createFocusLink = function () {
     'cursor: pointer'
   ]);
 
-  this.focusLink.innerHTML = 'Continue';
+  this.focusLink.innerHTML = this.translation.continue_link;
 
   return this.focusLink;
 };
 
 OverlayView.prototype._setStyles = function (el, styles) {
   var cssStyles = styles.join(';');
+
   el.style.cssText = cssStyles;
 };
 
 OverlayView.prototype._setupEvents = function () {
   var self = this;
-  var clickCloseHandler = braintreeUtil.bind(this._handleClose, this);
-  var clickFocusHandler = braintreeUtil.bind(this._handleFocus, this);
+  var clickCloseHandler = bind(this._handleClose, this);
+  var clickFocusHandler = bind(this._handleFocus, this);
 
   braintreeUtil.addEventListener(this.closeIcon, 'click', clickCloseHandler);
   braintreeUtil.addEventListener(this.focusLink, 'click', clickFocusHandler);
@@ -11668,7 +13257,7 @@ OverlayView.prototype._handleClose = function (event) {
   event.preventDefault();
   this.close();
 
-  if (braintreeUtil.isFunction(this.options.onClose)) {
+  if (isFunction(this.options.onClose)) {
     this.options.onClose();
   }
 };
@@ -11676,7 +13265,7 @@ OverlayView.prototype._handleClose = function (event) {
 OverlayView.prototype._handleFocus = function (event) {
   event.preventDefault();
 
-  if (braintreeUtil.isFunction(this.options.onFocus)) {
+  if (isFunction(this.options.onFocus)) {
     this.options.onFocus();
   }
 };
@@ -11690,14 +13279,16 @@ OverlayView.prototype.teardown = function () {
 module.exports = OverlayView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../../../bus":129,"../../shared/constants":188,"braintree-utilities":76,"destructor":80}],186:[function(require,module,exports){
+},{"152":152,"164":164,"213":213,"223":223,"226":226,"82":82,"86":86,"96":96}],221:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var braintreeUtil = require('braintree-utilities');
-var Destructor = require('destructor');
-var Bus = require('../../../../bus');
-var constants = require('../../shared/constants');
+var braintreeUtil = require(82);
+var bind = require(96);
+var isFunction = require(152);
+var Destructor = require(86);
+var Bus = require(164);
+var constants = require(223);
 
 function PaymentMethodNonceInputFieldView(options) {
   this.options = options || {};
@@ -11717,7 +13308,7 @@ function PaymentMethodNonceInputFieldView(options) {
 PaymentMethodNonceInputFieldView.prototype._initialize = function () {
   var self = this;
 
-  if (!braintreeUtil.isFunction(this.el)) {
+  if (!isFunction(this.el)) {
     if (this.el != null) {
       this.el = braintreeUtil.normalizeElement(this.el);
 
@@ -11729,8 +13320,8 @@ PaymentMethodNonceInputFieldView.prototype._initialize = function () {
     }
   }
 
-  this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, braintreeUtil.bind(this._handlePaymentMethodGenerated, this));
-  this.bus.on(Bus.events.PAYMENT_METHOD_CANCELLED, braintreeUtil.bind(this._handlePaymentMethodCancelled, this));
+  this.bus.on(Bus.events.PAYMENT_METHOD_GENERATED, bind(this._handlePaymentMethodGenerated, this));
+  this.bus.on(Bus.events.PAYMENT_METHOD_CANCELLED, bind(this._handlePaymentMethodCancelled, this));
 };
 
 PaymentMethodNonceInputFieldView.prototype.create = function () {
@@ -11749,7 +13340,7 @@ PaymentMethodNonceInputFieldView.prototype.create = function () {
 };
 
 PaymentMethodNonceInputFieldView.prototype.value = function (value) {
-  if (braintreeUtil.isFunction(this.el)) {
+  if (isFunction(this.el)) {
     this.el(value);
   } else {
     this.el.value = value;
@@ -11780,13 +13371,13 @@ PaymentMethodNonceInputFieldView.prototype.teardown = function () {
 module.exports = PaymentMethodNonceInputFieldView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../../../bus":129,"../../shared/constants":188,"braintree-utilities":76,"destructor":80}],187:[function(require,module,exports){
+},{"152":152,"164":164,"223":223,"82":82,"86":86,"96":96}],222:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var constants = require('../../shared/constants');
-var Bus = require('../../../../bus');
-var browser = require('../../shared/useragent/browser');
+var constants = require(223);
+var Bus = require(164);
+var browser = require(227);
 
 function PopupView(options) {
   this.options = options;
@@ -11874,11 +13465,11 @@ PopupView.prototype.teardown = function () {
 module.exports = PopupView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../../../../bus":129,"../../shared/constants":188,"../../shared/useragent/browser":192}],188:[function(require,module,exports){
+},{"164":164,"223":223,"227":227}],223:[function(require,module,exports){
 'use strict';
 
 var i;
-var version = "2.14.4";
+var version = "2.15.0";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
@@ -11920,7 +13511,7 @@ for (i = 0; i < events.length; i++) {
   exports.events[events[i]] = 'paypal:' + events[i];
 }
 
-},{}],189:[function(require,module,exports){
+},{}],224:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -11952,10 +13543,10 @@ module.exports = {
   ru: 'ru_ru'
 };
 
-},{}],190:[function(require,module,exports){
+},{}],225:[function(require,module,exports){
 'use strict';
 
-var countryCodeLookupTable = require('../shared/data/country-code-lookup');
+var countryCodeLookupTable = require(224);
 
 function isFormatted(code) {
   return code.indexOf('_') !== -1 && code.length === 5;
@@ -11995,11 +13586,11 @@ function getLocale(code) {
 
 module.exports = getLocale;
 
-},{"../shared/data/country-code-lookup":189}],191:[function(require,module,exports){
+},{"224":224}],226:[function(require,module,exports){
 'use strict';
 
-var countryCodeLookupTable = require('./data/country-code-lookup');
-var getLocale = require('./get-locale');
+var countryCodeLookupTable = require(224);
+var getLocale = require(225);
 
 function getCountry(code) {
   var country = code ? code.toLowerCase().replace(/-/g, '_') : 'us';
@@ -12037,11 +13628,11 @@ function getLocalizationData(code, translations) {
 
 module.exports = getLocalizationData;
 
-},{"./data/country-code-lookup":189,"./get-locale":190}],192:[function(require,module,exports){
+},{"224":224,"225":225}],227:[function(require,module,exports){
 'use strict';
 
-var userAgent = require('./useragent');
-var platform = require('./platform');
+var userAgent = require(230);
+var platform = require(229);
 
 function isAndroid() {
   return userAgent.matchUserAgent('Android') && !isChrome();
@@ -12081,6 +13672,7 @@ function isIosWebView() {
 
 function isAndroidWebView() {
   var androidWebviewRegExp = /Version\/[\w\.]+ Chrome\/[\w\.]+ Mobile/;
+
   return platform.isAndroid() && userAgent.matchUserAgent(androidWebviewRegExp);
 }
 
@@ -12097,11 +13689,11 @@ module.exports = {
   isAndroidWebView: isAndroidWebView
 };
 
-},{"./platform":194,"./useragent":195}],193:[function(require,module,exports){
+},{"229":229,"230":230}],228:[function(require,module,exports){
 'use strict';
 
-var userAgent = require('./useragent');
-var platform = require('./platform');
+var userAgent = require(230);
+var platform = require(229);
 
 function isMobile() {
   return !isTablet() &&
@@ -12124,10 +13716,10 @@ module.exports = {
   isDesktop: isDesktop
 };
 
-},{"./platform":194,"./useragent":195}],194:[function(require,module,exports){
+},{"229":229,"230":230}],229:[function(require,module,exports){
 'use strict';
 
-var userAgent = require('./useragent');
+var userAgent = require(230);
 
 function isAndroid() {
   return userAgent.matchUserAgent('Android');
@@ -12157,7 +13749,7 @@ module.exports = {
   isIos: isIos
 };
 
-},{"./useragent":195}],195:[function(require,module,exports){
+},{"230":230}],230:[function(require,module,exports){
 'use strict';
 
 var nativeUserAgent = window.navigator.userAgent;
@@ -12169,6 +13761,7 @@ function getNativeUserAgent() {
 function matchUserAgent(pattern) {
   var userAgent = exports.getNativeUserAgent();
   var matches = userAgent.match(pattern);
+
   if (matches) {
     return true;
   }
@@ -12178,14 +13771,14 @@ function matchUserAgent(pattern) {
 exports.getNativeUserAgent = getNativeUserAgent;
 exports.matchUserAgent = matchUserAgent;
 
-},{}],196:[function(require,module,exports){
+},{}],231:[function(require,module,exports){
 'use strict';
 /* globals ActiveXObject */
 
-var browser = require('../useragent/browser');
-var device = require('../useragent/device');
-var platform = require('../useragent/platform');
-var userAgent = require('../useragent/useragent');
+var browser = require(227);
+var device = require(228);
+var platform = require(229);
+var userAgent = require(230);
 
 var uaString = window.navigator.userAgent;
 var mobileRe = /[Mm]obi|tablet|iOS|Android|IEMobile|Windows\sPhone/;
@@ -12295,11 +13888,12 @@ module.exports = {
   isMetroBrowser: isMetroBrowser
 };
 
-},{"../useragent/browser":192,"../useragent/device":193,"../useragent/platform":194,"../useragent/useragent":195}],197:[function(require,module,exports){
+},{"227":227,"228":228,"229":229,"230":230}],232:[function(require,module,exports){
 'use strict';
 
 function setTextContent(element, content) {
   var property = 'innerText';
+
   if (document && document.body) {
     if ('textContent' in document.body) {
       property = 'textContent';
@@ -12312,10 +13906,10 @@ module.exports = {
   setTextContent: setTextContent
 };
 
-},{}],198:[function(require,module,exports){
+},{}],233:[function(require,module,exports){
 'use strict';
 
-var constants = require('../constants');
+var constants = require(223);
 
 var trim = typeof String.prototype.trim === 'function' ?
   function (str) { return str.trim(); } :
@@ -12480,5 +14074,5 @@ module.exports = {
   getConfigurationType: getConfigurationType
 };
 
-},{"../constants":188}]},{},[1])(1)
+},{"223":223}]},{},[1])(1)
 });
