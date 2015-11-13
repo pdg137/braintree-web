@@ -16,7 +16,6 @@
  */
 
 (function () {
-
 // ASN.1 JavaScript decoder
 // Copyright (c) 2008-2009 Lapo Luchini <lapo@lapo.it>
 
@@ -382,7 +381,6 @@ ASN1.decode = function(stream) {
         stream.pos += len; // skip content
     return new ASN1(streamStart, header, len, tag, sub);
 }
-
 var b64map="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 var b64padchar="=";
 
@@ -455,7 +453,6 @@ function b64toBA(s) {
   }
   return a;
 }
-
 // Copyright (c) 2005  Tom Wu
 // All Rights Reserved.
 // See "LICENSE" for details.
@@ -1015,7 +1012,6 @@ BigInteger.prototype.modPowInt = bnModPowInt;
 // "constants"
 BigInteger.ZERO = nbv(0);
 BigInteger.ONE = nbv(1);
-
 // Depends on jsbn.js and rng.js
 
 // Version 1.1: support utf-8 encoding in pkcs1pad2
@@ -1134,7 +1130,6 @@ RSAKey.prototype.doPublic = RSADoPublic;
 RSAKey.prototype.setPublic = RSASetPublic;
 RSAKey.prototype.encrypt = RSAEncrypt;
 //RSAKey.prototype.encrypt_b64 = RSAEncryptB64;
-
 /** @fileOverview Javascript cryptography implementation.
  *
  * Crush to remove comments, shorten variable names and
@@ -1208,7 +1203,6 @@ var sjcl = {
 if(typeof module != 'undefined' && module.exports){
   module.exports = sjcl;
 }
-
 /** @fileOverview Low-level AES implementation.
  *
  * This file contains a low-level implementation of AES, optimized for
@@ -1417,7 +1411,6 @@ sjcl.cipher.aes.prototype = {
   }
 };
 
-
 /** @fileOverview Arrays of bits, encoded as arrays of Numbers.
  *
  * @author Emily Stark
@@ -1605,7 +1598,6 @@ sjcl.bitArray = {
     return [x[0]^y[0],x[1]^y[1],x[2]^y[2],x[3]^y[3]];
   }
 };
-
 /** @fileOverview Bit array codec implementations.
  *
  * @author Emily Stark
@@ -1635,7 +1627,6 @@ sjcl.codec.hex = {
     return sjcl.bitArray.clamp(out, len*4);
   }
 };
-
 
 /** @fileOverview Bit array codec implementations.
  *
@@ -1676,7 +1667,6 @@ sjcl.codec.utf8String = {
     return out;
   }
 };
-
 /** @fileOverview Bit array codec implementations.
  *
  * @author Emily Stark
@@ -1740,7 +1730,6 @@ sjcl.codec.base64url = {
   fromBits: function (arr) { return sjcl.codec.base64.fromBits(arr,1,1); },
   toBits: function (str) { return sjcl.codec.base64.toBits(str,1); }
 };
-
 /** @fileOverview CBC mode implementation
  *
  * @author Emily Stark
@@ -1856,7 +1845,6 @@ sjcl.beware["CBC mode is dangerous because it doesn't protect message integrity.
     }
   };
 };
-
 /** @fileOverview HMAC implementation.
  *
  * @author Emily Stark
@@ -1896,7 +1884,6 @@ sjcl.misc.hmac.prototype.encrypt = sjcl.misc.hmac.prototype.mac = function (data
   var w = new (this._hash)(this._baseHash[0]).update(data, encoding).finalize();
   return new (this._hash)(this._baseHash[1]).update(w).finalize();
 };
-
 
 /** @fileOverview Javascript SHA-256 implementation.
  *
@@ -2112,7 +2099,6 @@ sjcl.hash.sha256.prototype = {
     h[7] = h[7]+h7 | 0;
   }
 };
-
 
 
 /** @fileOverview Random number generator.
@@ -2515,7 +2501,6 @@ sjcl.random = {
     // no getRandomValues :-(
   }
 })();
-
 (function () {
   for (var key in sjcl.beware) {
     if (sjcl.beware.hasOwnProperty(key)) {
@@ -2737,83 +2722,24 @@ Braintree.EncryptionClient = function (publicKey) {
 };
 
 window.Braintree = Braintree;
-
 })();
-
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.braintree = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var VERSION = "2.15.2";
-var api = require(15);
-var paypal = require(210);
-var dropin = require(196);
-var integrations = require(173);
-var constants = require(168);
-var fallbackErrorHandler = require(175);
-var lookupCallbackFor = require(177);
-var uuid = require(82).uuid;
-
-function setup(clientToken, integrationType, merchantConfiguration) {
-  if (!integrations.hasOwnProperty(integrationType)) {
-    throw new Error(integrationType + ' is an unsupported integration');
-  }
-
-  merchantConfiguration = merchantConfiguration || {};
-
-  api._getConfiguration({
-    enableCORS: merchantConfiguration.enableCORS || false,
-    clientToken: clientToken
-  }, function (err, gatewayConfiguration) {
-    var errorFallback;
-
-    if (err) {
-      errorFallback = lookupCallbackFor(merchantConfiguration)(constants.ROOT_ERROR_CALLBACK, fallbackErrorHandler);
-      errorFallback({message: err.errors});
-      return;
-    }
-
-    new integrations[integrationType]({ // eslint-disable-line no-new
-      channel: uuid(),
-      gatewayConfiguration: gatewayConfiguration,
-      integrationType: integrationType,
-      merchantConfiguration: merchantConfiguration,
-      analyticsConfiguration: {
-        sdkVersion: 'braintree/web/' + VERSION,
-        merchantAppId: global.location.host
-      }
-    });
-  });
-}
-
-module.exports = {
-  api: api,
-  cse: global.Braintree,
-  paypal: paypal,
-  dropin: dropin,
-  hostedFields: {VERSION: require(204).VERSION},
-  setup: setup,
-  VERSION: VERSION
-};
-
-}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"15":15,"168":168,"173":173,"175":175,"177":177,"196":196,"204":204,"210":210,"82":82}],2:[function(require,module,exports){
-(function (global){
-'use strict';
-
-var bind = require(96);
-var braintree3ds = require(27);
-var parseClientToken = require(9);
-var util = require(14);
-var SEPAMandate = require(12);
-var EuropeBankAccount = require(6);
-var CreditCard = require(5);
-var CoinbaseAccount = require(3);
-var PayPalAccount = require(10);
-var normalizeCreditCardFields = require(8).normalizeCreditCardFields;
-var chooseRequestDriver = require(41).chooseDriver;
-var shouldEnableCORS = require(13);
-var constants = require(4);
+var bind = require(95);
+var braintree3ds = require(26);
+var parseClientToken = require(8);
+var util = require(13);
+var SEPAMandate = require(11);
+var EuropeBankAccount = require(5);
+var CreditCard = require(4);
+var CoinbaseAccount = require(2);
+var PayPalAccount = require(9);
+var normalizeCreditCardFields = require(7).normalizeCreditCardFields;
+var chooseRequestDriver = require(40).chooseDriver;
+var shouldEnableCORS = require(12);
+var constants = require(3);
 
 function getAnalyticsConfiguration(options) {
   var analyticsConfiguration = options.analyticsConfiguration || {};
@@ -3144,7 +3070,7 @@ Client.prototype.getAmexExpressCheckoutNonceProfile = function (attrs, callback)
 module.exports = Client;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"10":10,"12":12,"13":13,"14":14,"27":27,"3":3,"4":4,"41":41,"5":5,"6":6,"8":8,"9":9,"96":96}],3:[function(require,module,exports){
+},{"11":11,"12":12,"13":13,"2":2,"26":26,"3":3,"4":4,"40":40,"5":5,"7":7,"8":8,"9":9,"95":95}],2:[function(require,module,exports){
 'use strict';
 
 var ATTRIBUTES = [
@@ -3165,20 +3091,26 @@ function CoinbaseAccount(attributes) {
 
 module.exports = CoinbaseAccount;
 
-},{}],4:[function(require,module,exports){
-module.exports={
-  "apiUrls": {
-    "production": "https://api.braintreegateway.com:443",
-    "sandbox": "https://api.sandbox.braintreegateway.com:443"
-  },
-  "errors": {
-    "UNKNOWN_ERROR": "Unknown error",
-    "INVALID_TIMEOUT": "Timeout must be a number"
-  },
-  "ANALYTICS_TIMEOUT_MS": 4000
+},{}],3:[function(require,module,exports){
+'use strict';
+
+var apiUrls = {
+  production: 'https://api.braintreegateway.com:443',
+  sandbox: 'https://api.sandbox.braintreegateway.com:443'
 };
 
-},{}],5:[function(require,module,exports){
+/* eslint-enable no-undef,block-scoped-var */
+
+module.exports = {
+  apiUrls: apiUrls,
+  errors: {
+    UNKNOWN_ERROR: 'Unknown error',
+    INVALID_TIMEOUT: 'Timeout must be a number'
+  },
+  ANALYTICS_TIMEOUT_MS: 4000
+};
+
+},{}],4:[function(require,module,exports){
 'use strict';
 
 var ATTRIBUTES = [
@@ -3209,7 +3141,7 @@ function CreditCard(attributes) {
 
 module.exports = CreditCard;
 
-},{}],6:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 'use strict';
 
 function EuropeBankAccount(attributes) {
@@ -3230,14 +3162,14 @@ function EuropeBankAccount(attributes) {
 
 module.exports = EuropeBankAccount;
 
-},{}],7:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 'use strict';
 
-var parseClientToken = require(9);
-var util = require(14);
-var chooseRequestDriver = require(41).chooseDriver;
-var shouldEnableCORS = require(13);
-var constants = require(4);
+var parseClientToken = require(8);
+var util = require(13);
+var chooseRequestDriver = require(40).chooseDriver;
+var shouldEnableCORS = require(12);
+var constants = require(3);
 
 function _tokenizeClientKey(clientKey) {
   var tokens = clientKey.split('_');
@@ -3282,7 +3214,7 @@ function getConfiguration(options, callback) {
 
 module.exports = getConfiguration;
 
-},{"13":13,"14":14,"4":4,"41":41,"9":9}],8:[function(require,module,exports){
+},{"12":12,"13":13,"3":3,"40":40,"8":8}],7:[function(require,module,exports){
 'use strict';
 
 function normalizeCreditCardFields(attrs) {
@@ -3321,11 +3253,11 @@ module.exports = {
   normalizeCreditCardFields: normalizeCreditCardFields
 };
 
-},{}],9:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 'use strict';
 
-var braintreeUtils = require(58);
-require(11);
+var braintreeUtils = require(57);
+require(10);
 
 function parseClientToken(rawClientToken) {
   var clientToken;
@@ -3357,7 +3289,7 @@ function parseClientToken(rawClientToken) {
 
 module.exports = parseClientToken;
 
-},{"11":11,"58":58}],10:[function(require,module,exports){
+},{"10":10,"57":57}],9:[function(require,module,exports){
 'use strict';
 
 var ATTRIBUTES = [
@@ -3378,7 +3310,7 @@ function PayPalAccount(attributes) {
 
 module.exports = PayPalAccount;
 
-},{}],11:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -3416,7 +3348,7 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],12:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 'use strict';
 
 function SEPAMandate(attributes) {
@@ -3439,7 +3371,7 @@ function SEPAMandate(attributes) {
 
 module.exports = SEPAMandate;
 
-},{}],13:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 'use strict';
 
 module.exports = function (options) {
@@ -3454,7 +3386,7 @@ module.exports = function (options) {
   return false;
 };
 
-},{}],14:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 'use strict';
 
 function joinUrlFragments(fragments) {
@@ -3503,13 +3435,13 @@ module.exports = {
   mergeOptions: mergeOptions
 };
 
-},{}],15:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 'use strict';
 
-var Client = require(2);
-var util = require(14);
-var parseClientToken = require(9);
-var getConfiguration = require(7);
+var Client = require(1);
+var util = require(13);
+var parseClientToken = require(8);
+var getConfiguration = require(6);
 
 function configure(options) {
   return new Client(options);
@@ -3523,7 +3455,7 @@ module.exports = {
   _getConfiguration: getConfiguration
 };
 
-},{"14":14,"2":2,"7":7,"9":9}],16:[function(require,module,exports){
+},{"1":1,"13":13,"6":6,"8":8}],15:[function(require,module,exports){
 'use strict';
 
 var nativeIndexOf = Array.prototype.indexOf;
@@ -3548,7 +3480,7 @@ module.exports = {
   indexOf: indexOf
 };
 
-},{}],17:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 'use strict';
 
 function _escape(string) {
@@ -3577,7 +3509,7 @@ module.exports = {
   decodeUtf8: decodeUtf8
 };
 
-},{}],18:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 'use strict';
 
 function normalizeElement (element, errorMessage) {
@@ -3601,7 +3533,7 @@ module.exports = {
   normalizeElement: normalizeElement
 };
 
-},{}],19:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 'use strict';
 
 function addEventListener(element, type, listener, useCapture) {
@@ -3634,7 +3566,7 @@ module.exports = {
   preventDefault: preventDefault
 };
 
-},{}],20:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 'use strict';
 
 var toString = Object.prototype.toString;
@@ -3654,7 +3586,7 @@ module.exports = {
   isFunction: isFunction
 };
 
-},{}],21:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 'use strict';
 
 function getMaxCharLength(width) {
@@ -3707,10 +3639,10 @@ module.exports = {
   getMaxCharLength: getMaxCharLength
 };
 
-},{}],22:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 'use strict';
 
-var array = require(16);
+var array = require(15);
 
 function isBrowserHttps() {
   return window.location.protocol === 'https:';
@@ -3809,7 +3741,7 @@ module.exports = {
   isWhitelistedDomain: isWhitelistedDomain
 };
 
-},{"16":16}],23:[function(require,module,exports){
+},{"15":15}],22:[function(require,module,exports){
 'use strict';
 
 // RFC 4122 v4 (pseudo-random) UUID
@@ -3823,15 +3755,15 @@ function generate() {
 
 module.exports = generate;
 
-},{}],24:[function(require,module,exports){
-var dom = require(18);
-var url = require(22);
-var fn = require(20);
-var events = require(19);
-var string = require(21);
-var array = require(16);
-var base64 = require(17);
-var uuid = require(23);
+},{}],23:[function(require,module,exports){
+var dom = require(17);
+var url = require(21);
+var fn = require(19);
+var events = require(18);
+var string = require(20);
+var array = require(15);
+var base64 = require(16);
+var uuid = require(22);
 
 module.exports = {
   string: string,
@@ -3851,12 +3783,13 @@ module.exports = {
   uuid: uuid
 };
 
-},{"16":16,"17":17,"18":18,"19":19,"20":20,"21":21,"22":22,"23":23}],25:[function(require,module,exports){
+},{"15":15,"16":16,"17":17,"18":18,"19":19,"20":20,"21":21,"22":22}],24:[function(require,module,exports){
 'use strict';
 
-var utils = require(24);
-var Receiver = require(32);
-var version = "1.3.1";
+var utils = require(23);
+var isFunction = require(151);
+var Receiver = require(31);
+var version = "1.3.3";
 
 var htmlNode, bodyNode;
 
@@ -3894,14 +3827,14 @@ AuthenticationService.prototype.get = function (response, callback) {
   var self = this,
   url = this.constructAuthorizationURL(response);
 
-  if (this.container && utils.isFunction(this.container)) {
+  if (this.container && isFunction(this.container)) {
     this.container(url + '&no_style=1');
   } else {
     this.insertIframe(url);
   }
 
   new Receiver(function (response) {
-    if (!utils.isFunction(self.container)) {
+    if (!isFunction(self.container)) {
       self.removeIframe();
     }
     callback(response);
@@ -3986,12 +3919,14 @@ AuthenticationService.prototype.constructAuthorizationURL = function (response) 
 
 module.exports = AuthenticationService;
 
-},{"24":24,"32":32}],26:[function(require,module,exports){
+},{"151":151,"23":23,"31":31}],25:[function(require,module,exports){
 'use strict';
 
-var utils = require(24);
-var AuthenticationService = require(25);
-var Loader = require(28);
+var utils = require(23);
+var bind = require(95);
+var isFunction = require(151);
+var AuthenticationService = require(24);
+var Loader = require(27);
 
 function noop() {}
 
@@ -4003,18 +3938,18 @@ function Client(api, options) {
   this.nonce = null;
 
   this._loader = null;
-  this._boundHandleUserClose = utils.bind(this._handleUserClose, this);
+  this._boundHandleUserClose = bind(this._handleUserClose, this);
 }
 
 Client.prototype.verify = function (data, callback) {
-  if (!utils.isFunction(callback)) {
+  if (!isFunction(callback)) {
     this.api.sendAnalyticsEvents('3ds.web.no_callback');
     throw new Error('No suitable callback argument was given');
   }
-  if (utils.isFunction(data.onUserClose)) {
+  if (isFunction(data.onUserClose)) {
     this._onUserClose = data.onUserClose;
   }
-  if (utils.isFunction(data.onLookupComplete)) {
+  if (isFunction(data.onLookupComplete)) {
     this._onLookupComplete = data.onLookupComplete;
   }
   if (data.useDefaultLoader === undefined || data.useDefaultLoader === true) {
@@ -4045,7 +3980,7 @@ Client.prototype.verify = function (data, callback) {
 };
 
 Client.prototype.startVerification = function (data, merchantCallback) {
-  this.api.lookup3DS(data, utils.bind(this.handleLookupResponse(merchantCallback), this));
+  this.api.lookup3DS(data, bind(this.handleLookupResponse(merchantCallback), this));
 };
 
 Client.prototype.handleLookupResponse = function (merchantCallback) {
@@ -4060,7 +3995,7 @@ Client.prototype.handleLookupResponse = function (merchantCallback) {
     } else if (lookupResponse.lookup && lookupResponse.lookup.acsUrl && lookupResponse.lookup.acsUrl.length > 0) {
       self.nonce = lookupResponse.paymentMethod.nonce;
       authenticationService = new AuthenticationService(this.clientToken.assetsUrl, this.container);
-      authenticationService.get(lookupResponse.lookup, utils.bind(this.handleAuthenticationResponse(merchantCallback), this));
+      authenticationService.get(lookupResponse.lookup, bind(this.handleAuthenticationResponse(merchantCallback), this));
 
       this._detachListeners();
       this._attachListeners();
@@ -4145,10 +4080,10 @@ Client.prototype._onLookupComplete = function () {
 
 module.exports = Client;
 
-},{"24":24,"25":25,"28":28}],27:[function(require,module,exports){
+},{"151":151,"23":23,"24":24,"27":27,"95":95}],26:[function(require,module,exports){
 'use strict';
 
-var Client = require(26);
+var Client = require(25);
 
 module.exports = {
   create: function (clientToken, options) {
@@ -4157,12 +4092,12 @@ module.exports = {
   }
 };
 
-},{"26":26}],28:[function(require,module,exports){
+},{"25":25}],27:[function(require,module,exports){
 'use strict';
 
-var LoaderDisplay = require(29);
-var LoaderMessage = require(30);
-var LoaderSpinner = require(31);
+var LoaderDisplay = require(28);
+var LoaderMessage = require(29);
+var LoaderSpinner = require(30);
 
 function Loader() {
   this._element = document.createElement('div');
@@ -4212,7 +4147,7 @@ Loader.prototype._initialize = function () {
 
 module.exports = Loader;
 
-},{"29":29,"30":30,"31":31}],29:[function(require,module,exports){
+},{"28":28,"29":29,"30":30}],28:[function(require,module,exports){
 'use strict';
 
 function LoaderDisplay(displayObject) {
@@ -4246,7 +4181,7 @@ LoaderDisplay.prototype._initialize = function () {
 
 module.exports = LoaderDisplay;
 
-},{}],30:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 'use strict';
 
 function LoaderMessage(text) {
@@ -4272,7 +4207,7 @@ LoaderMessage.prototype.dispose = function () {
 
 module.exports = LoaderMessage;
 
-},{}],31:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 'use strict';
 
 function LoaderSpinner() {
@@ -4316,10 +4251,10 @@ LoaderSpinner.prototype.dispose = function () {
 
 module.exports = LoaderSpinner;
 
-},{}],32:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 'use strict';
 
-var utils = require(24);
+var utils = require(23);
 
 function Receiver (callback) {
   this.postMessageReceiver(callback);
@@ -4372,14 +4307,14 @@ Receiver.prototype.stopListening = function () {
 
 module.exports = Receiver;
 
-},{"24":24}],33:[function(require,module,exports){
+},{"23":23}],32:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var util = require(40);
-var prepBody = require(39);
-var parseBody = require(38);
-var constants = require(35);
+var util = require(39);
+var prepBody = require(38);
+var parseBody = require(37);
+var constants = require(34);
 var isXHRAvailable = global.XMLHttpRequest && 'withCredentials' in new global.XMLHttpRequest();
 
 function getRequestObject() {
@@ -4449,12 +4384,12 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"35":35,"38":38,"39":39,"40":40}],34:[function(require,module,exports){
+},{"34":34,"37":37,"38":38,"39":39}],33:[function(require,module,exports){
 'use strict';
 
-var JSONPDriver = require(36);
-var AJAXDriver = require(33);
-var util = require(40);
+var JSONPDriver = require(35);
+var AJAXDriver = require(32);
+var util = require(39);
 
 function chooseRequestDriver(options) {
   var ua = util.getUserAgent();
@@ -4471,7 +4406,7 @@ function chooseRequestDriver(options) {
 
 module.exports = chooseRequestDriver;
 
-},{"33":33,"36":36,"40":40}],35:[function(require,module,exports){
+},{"32":32,"35":35,"39":39}],34:[function(require,module,exports){
 module.exports={
   "errors": {
     "UNKNOWN_ERROR": "Unknown error",
@@ -4479,11 +4414,11 @@ module.exports={
   }
 };
 
-},{}],36:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 'use strict';
 
-var JSONP = require(37);
-var constants = require(35);
+var JSONP = require(36);
+var constants = require(34);
 var timeoutWatchers = [];
 
 function deserialize(response, mapper) {
@@ -4536,11 +4471,11 @@ module.exports = {
   post: post
 };
 
-},{"35":35,"37":37}],37:[function(require,module,exports){
+},{"34":34,"36":36}],36:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var util = require(40);
+var util = require(39);
 
 /*
 * Lightweight JSONP fetcher
@@ -4610,7 +4545,7 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"40":40}],38:[function(require,module,exports){
+},{"39":39}],37:[function(require,module,exports){
 'use strict';
 
 module.exports = function (body) {
@@ -4621,10 +4556,10 @@ module.exports = function (body) {
   return body;
 };
 
-},{}],39:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 'use strict';
 
-var isString = require(49);
+var isString = require(48);
 
 module.exports = function (method, body) {
   if (!isString(method)) {
@@ -4638,12 +4573,12 @@ module.exports = function (method, body) {
   return body;
 };
 
-},{"49":49}],40:[function(require,module,exports){
+},{"48":48}],39:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var isEmpty = require(42);
-var isObject = require(48);
+var isEmpty = require(41);
+var isObject = require(47);
 
 function isArray(value) {
   return value && typeof value === 'object' && typeof value.length === 'number' &&
@@ -4717,13 +4652,13 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"42":42,"48":48}],41:[function(require,module,exports){
+},{"41":41,"47":47}],40:[function(require,module,exports){
 'use strict';
 
-var AJAXDriver = require(33);
-var JSONPDriver = require(36);
-var chooseDriver = require(34);
-var util = require(40);
+var AJAXDriver = require(32);
+var JSONPDriver = require(35);
+var chooseDriver = require(33);
+var util = require(39);
 
 module.exports = {
   AJAXDriver: AJAXDriver,
@@ -4732,7 +4667,7 @@ module.exports = {
   util: util
 };
 
-},{"33":33,"34":34,"36":36,"40":40}],42:[function(require,module,exports){
+},{"32":32,"33":33,"35":35,"39":39}],41:[function(require,module,exports){
 /**
  * lodash 3.0.4 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -4741,11 +4676,11 @@ module.exports = {
  * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
  * Available under MIT license <https://lodash.com/license>
  */
-var isArguments = require(43),
-    isArray = require(44),
-    isFunction = require(45),
-    isString = require(49),
-    keys = require(46);
+var isArguments = require(42),
+    isArray = require(43),
+    isFunction = require(44),
+    isString = require(48),
+    keys = require(45);
 
 /**
  * Checks if `value` is object-like.
@@ -4853,7 +4788,7 @@ function isEmpty(value) {
 
 module.exports = isEmpty;
 
-},{"43":43,"44":44,"45":45,"46":46,"49":49}],43:[function(require,module,exports){
+},{"42":42,"43":43,"44":44,"45":45,"48":48}],42:[function(require,module,exports){
 /**
  * lodash 3.0.4 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -4961,7 +4896,7 @@ function isArguments(value) {
 
 module.exports = isArguments;
 
-},{}],44:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 /**
  * lodash 3.0.4 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -5143,7 +5078,7 @@ function isNative(value) {
 
 module.exports = isArray;
 
-},{}],45:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 /**
  * lodash 3.0.6 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -5217,7 +5152,7 @@ function isObject(value) {
 
 module.exports = isFunction;
 
-},{}],46:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 /**
  * lodash 3.1.2 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -5226,9 +5161,9 @@ module.exports = isFunction;
  * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
  * Available under MIT license <https://lodash.com/license>
  */
-var getNative = require(47),
-    isArguments = require(43),
-    isArray = require(44);
+var getNative = require(46),
+    isArguments = require(42),
+    isArray = require(43);
 
 /** Used to detect unsigned integer values. */
 var reIsUint = /^\d+$/;
@@ -5455,7 +5390,7 @@ function keysIn(object) {
 
 module.exports = keys;
 
-},{"43":43,"44":44,"47":47}],47:[function(require,module,exports){
+},{"42":42,"43":43,"46":46}],46:[function(require,module,exports){
 /**
  * lodash 3.9.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -5594,7 +5529,7 @@ function isNative(value) {
 
 module.exports = getNative;
 
-},{}],48:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 /**
  * lodash 3.0.2 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -5633,7 +5568,7 @@ function isObject(value) {
 
 module.exports = isObject;
 
-},{}],49:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 /**
  * lodash 3.0.1 (Custom Build) <https://lodash.com/>
  * Build: `lodash modern modularize exports="npm" -o ./`
@@ -5688,7 +5623,9 @@ function isString(value) {
 
 module.exports = isString;
 
-},{}],50:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
+arguments[4][15][0].apply(exports,arguments)
+},{"15":15}],50:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
 },{"16":16}],51:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
@@ -5700,16 +5637,14 @@ arguments[4][19][0].apply(exports,arguments)
 arguments[4][20][0].apply(exports,arguments)
 },{"20":20}],55:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"21":21}],56:[function(require,module,exports){
+},{"21":21,"49":49}],56:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"22":22,"50":50}],57:[function(require,module,exports){
+},{"22":22}],57:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
-},{"23":23}],58:[function(require,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"24":24,"50":50,"51":51,"52":52,"53":53,"54":54,"55":55,"56":56,"57":57}],59:[function(require,module,exports){
+},{"23":23,"49":49,"50":50,"51":51,"52":52,"53":53,"54":54,"55":55,"56":56}],58:[function(require,module,exports){
 'use strict';
 
-var utils = require(73);
+var utils = require(72);
 
 function MessageBus(host, channel) {
   this.host = host || window;
@@ -5776,10 +5711,10 @@ MessageBus.Message.prototype.reply = function (type, data) {
 
 module.exports = MessageBus;
 
-},{"73":73}],60:[function(require,module,exports){
+},{"72":72}],59:[function(require,module,exports){
 'use strict';
 
-var utils = require(73);
+var utils = require(72);
 
 function PubsubClient(bus, target) {
   this.bus = bus;
@@ -5825,7 +5760,7 @@ PubsubClient.prototype.unsubscribe = function (channel, handler) {
 
 module.exports = PubsubClient;
 
-},{"73":73}],61:[function(require,module,exports){
+},{"72":72}],60:[function(require,module,exports){
 'use strict';
 
 function PubsubServer(bus) {
@@ -5884,10 +5819,10 @@ PubsubServer.prototype.unsubscribe = function (channel, handler) {
 
 module.exports = PubsubServer;
 
-},{}],62:[function(require,module,exports){
+},{}],61:[function(require,module,exports){
 'use strict';
 
-var utils = require(73);
+var utils = require(72);
 
 function RPCClient(bus, target) {
   this.bus = bus;
@@ -5917,10 +5852,10 @@ RPCClient.prototype.invoke = function (method, args, callback) {
 
 module.exports = RPCClient;
 
-},{"73":73}],63:[function(require,module,exports){
+},{"72":72}],62:[function(require,module,exports){
 'use strict';
 
-var utils = require(73);
+var utils = require(72);
 
 function RPCServer(bus) {
   this.bus = bus;
@@ -5959,12 +5894,12 @@ RPCServer.prototype.define = function (method, handler) {
 
 module.exports = RPCServer;
 
-},{"73":73}],64:[function(require,module,exports){
-var MessageBus = require(59);
-var PubsubClient = require(60);
-var PubsubServer = require(61);
-var RPCClient = require(62);
-var RPCServer = require(63);
+},{"72":72}],63:[function(require,module,exports){
+var MessageBus = require(58);
+var PubsubClient = require(59);
+var PubsubServer = require(60);
+var RPCClient = require(61);
+var RPCServer = require(62);
 
 module.exports = {
   MessageBus: MessageBus,
@@ -5974,7 +5909,9 @@ module.exports = {
   RPCServer: RPCServer
 };
 
-},{"59":59,"60":60,"61":61,"62":62,"63":63}],65:[function(require,module,exports){
+},{"58":58,"59":59,"60":60,"61":61,"62":62}],64:[function(require,module,exports){
+arguments[4][15][0].apply(exports,arguments)
+},{"15":15}],65:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
 },{"16":16}],66:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
@@ -5986,13 +5923,13 @@ arguments[4][19][0].apply(exports,arguments)
 arguments[4][20][0].apply(exports,arguments)
 },{"20":20}],70:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"21":21}],71:[function(require,module,exports){
+},{"21":21,"64":64}],71:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"22":22,"65":65}],72:[function(require,module,exports){
+},{"22":22}],72:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
-},{"23":23}],73:[function(require,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"24":24,"65":65,"66":66,"67":67,"68":68,"69":69,"70":70,"71":71,"72":72}],74:[function(require,module,exports){
+},{"23":23,"64":64,"65":65,"66":66,"67":67,"68":68,"69":69,"70":70,"71":71}],73:[function(require,module,exports){
+arguments[4][15][0].apply(exports,arguments)
+},{"15":15}],74:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
 },{"16":16}],75:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
@@ -6004,19 +5941,17 @@ arguments[4][19][0].apply(exports,arguments)
 arguments[4][20][0].apply(exports,arguments)
 },{"20":20}],79:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"21":21}],80:[function(require,module,exports){
+},{"21":21,"73":73}],80:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"22":22,"74":74}],81:[function(require,module,exports){
+},{"22":22}],81:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
-},{"23":23}],82:[function(require,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"24":24,"74":74,"75":75,"76":76,"77":77,"78":78,"79":79,"80":80,"81":81}],83:[function(require,module,exports){
+},{"23":23,"73":73,"74":74,"75":75,"76":76,"77":77,"78":78,"79":79,"80":80}],82:[function(require,module,exports){
 'use strict';
 
 module.exports = ClassList
 
-var indexOf = require(84),
-    trim = require(85),
+var indexOf = require(83),
+    trim = require(84),
     arr = Array.prototype
 
 /**
@@ -6130,7 +6065,7 @@ ClassList.prototype.toString = function () {
   return arr.join.call(this, ' ')
 }
 
-},{"84":84,"85":85}],84:[function(require,module,exports){
+},{"83":83,"84":84}],83:[function(require,module,exports){
 module.exports = function(arr, obj){
   if (arr.indexOf) return arr.indexOf(obj);
   for (var i = 0; i < arr.length; ++i) {
@@ -6138,7 +6073,7 @@ module.exports = function(arr, obj){
   }
   return -1;
 };
-},{}],85:[function(require,module,exports){
+},{}],84:[function(require,module,exports){
 
 exports = module.exports = trim;
 
@@ -6154,13 +6089,13 @@ exports.right = function(str){
   return str.replace(/\s*$/, '');
 };
 
-},{}],86:[function(require,module,exports){
+},{}],85:[function(require,module,exports){
 'use strict';
 
-var batchExecuteFunctions = require(87);
+var batchExecuteFunctions = require(86);
 // Reach into lib for isFunction. This lib requires a DOM and cannot be
 // tested otherwise
-var fnUtil = require(88);
+var fnUtil = require(87);
 
 function Destructor() {
   this._teardownRegistry = [];
@@ -6184,7 +6119,7 @@ Destructor.prototype.teardown = function (callback) {
 
 module.exports = Destructor;
 
-},{"87":87,"88":88}],87:[function(require,module,exports){
+},{"86":86,"87":87}],86:[function(require,module,exports){
 'use strict';
 
 function call(fn, callback) {
@@ -6234,9 +6169,9 @@ module.exports = function (functions, callback) {
   }
 };
 
-},{}],88:[function(require,module,exports){
-arguments[4][20][0].apply(exports,arguments)
-},{"20":20}],89:[function(require,module,exports){
+},{}],87:[function(require,module,exports){
+arguments[4][19][0].apply(exports,arguments)
+},{"19":19}],88:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -6310,7 +6245,7 @@ FormNapper.prototype.detach = function () {
 module.exports = FormNapper;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],90:[function(require,module,exports){
+},{}],89:[function(require,module,exports){
 'use strict';
 (function (root, factory) {
   if (typeof exports === 'object' && typeof module !== 'undefined') {
@@ -6573,13 +6508,13 @@ module.exports = FormNapper;
   return framebus;
 });
 
-},{}],91:[function(require,module,exports){
+},{}],90:[function(require,module,exports){
 'use strict';
 
-var assign = require(156);
-var isString = require(155);
-var setAttributes = require(93);
-var defaultAttributes = require(92);
+var assign = require(155);
+var isString = require(154);
+var setAttributes = require(92);
+var defaultAttributes = require(91);
 
 module.exports = function createFrame(options) {
   var iframe = document.createElement('iframe');
@@ -6599,7 +6534,7 @@ module.exports = function createFrame(options) {
   return iframe;
 };
 
-},{"155":155,"156":156,"92":92,"93":93}],92:[function(require,module,exports){
+},{"154":154,"155":155,"91":91,"92":92}],91:[function(require,module,exports){
 module.exports={
   "src": "about:blank",
   "frameBorder": 0,
@@ -6607,7 +6542,7 @@ module.exports={
   "scrolling": "no"
 }
 
-},{}],93:[function(require,module,exports){
+},{}],92:[function(require,module,exports){
 module.exports = function setAttributes(element, attributes) {
   var value;
 
@@ -6624,13 +6559,13 @@ module.exports = function setAttributes(element, attributes) {
   }
 };
 
-},{}],94:[function(require,module,exports){
-var LazyWrapper = require(99),
-    LodashWrapper = require(100),
-    baseLodash = require(113),
-    isArray = require(151),
-    isObjectLike = require(139),
-    wrapperClone = require(148);
+},{}],93:[function(require,module,exports){
+var LazyWrapper = require(98),
+    LodashWrapper = require(99),
+    baseLodash = require(112),
+    isArray = require(150),
+    isObjectLike = require(138),
+    wrapperClone = require(147);
 
 /** Used for native method references. */
 var objectProto = Object.prototype;
@@ -6751,8 +6686,8 @@ lodash.prototype = baseLodash.prototype;
 
 module.exports = lodash;
 
-},{"100":100,"113":113,"139":139,"148":148,"151":151,"99":99}],95:[function(require,module,exports){
-var getNative = require(130);
+},{"112":112,"138":138,"147":147,"150":150,"98":98,"99":99}],94:[function(require,module,exports){
+var getNative = require(129);
 
 /* Native method references for those with the same name as other `lodash` methods. */
 var nativeNow = getNative(Date, 'now');
@@ -6777,10 +6712,10 @@ var now = nativeNow || function() {
 
 module.exports = now;
 
-},{"130":130}],96:[function(require,module,exports){
-var createWrapper = require(126),
-    replaceHolders = require(144),
-    restParam = require(98);
+},{"129":129}],95:[function(require,module,exports){
+var createWrapper = require(125),
+    replaceHolders = require(143),
+    restParam = require(97);
 
 /** Used to compose bitmasks for wrapper metadata. */
 var BIND_FLAG = 1,
@@ -6835,11 +6770,11 @@ bind.placeholder = {};
 
 module.exports = bind;
 
-},{"126":126,"144":144,"98":98}],97:[function(require,module,exports){
-var baseFlatten = require(109),
-    createWrapper = require(126),
-    functions = require(158),
-    restParam = require(98);
+},{"125":125,"143":143,"97":97}],96:[function(require,module,exports){
+var baseFlatten = require(108),
+    createWrapper = require(125),
+    functions = require(157),
+    restParam = require(97);
 
 /** Used to compose bitmasks for wrapper metadata. */
 var BIND_FLAG = 1;
@@ -6887,7 +6822,7 @@ var bindAll = restParam(function(object, methodNames) {
 
 module.exports = bindAll;
 
-},{"109":109,"126":126,"158":158,"98":98}],98:[function(require,module,exports){
+},{"108":108,"125":125,"157":157,"97":97}],97:[function(require,module,exports){
 /** Used as the `TypeError` message for "Functions" methods. */
 var FUNC_ERROR_TEXT = 'Expected a function';
 
@@ -6947,9 +6882,9 @@ function restParam(func, start) {
 
 module.exports = restParam;
 
-},{}],99:[function(require,module,exports){
-var baseCreate = require(108),
-    baseLodash = require(113);
+},{}],98:[function(require,module,exports){
+var baseCreate = require(107),
+    baseLodash = require(112);
 
 /** Used as references for `-Infinity` and `Infinity`. */
 var POSITIVE_INFINITY = Number.POSITIVE_INFINITY;
@@ -6975,9 +6910,9 @@ LazyWrapper.prototype.constructor = LazyWrapper;
 
 module.exports = LazyWrapper;
 
-},{"108":108,"113":113}],100:[function(require,module,exports){
-var baseCreate = require(108),
-    baseLodash = require(113);
+},{"107":107,"112":112}],99:[function(require,module,exports){
+var baseCreate = require(107),
+    baseLodash = require(112);
 
 /**
  * The base constructor for creating `lodash` wrapper objects.
@@ -6998,7 +6933,7 @@ LodashWrapper.prototype.constructor = LodashWrapper;
 
 module.exports = LodashWrapper;
 
-},{"108":108,"113":113}],101:[function(require,module,exports){
+},{"107":107,"112":112}],100:[function(require,module,exports){
 /**
  * Copies the values of `source` to `array`.
  *
@@ -7020,7 +6955,7 @@ function arrayCopy(source, array) {
 
 module.exports = arrayCopy;
 
-},{}],102:[function(require,module,exports){
+},{}],101:[function(require,module,exports){
 /**
  * A specialized version of `_.forEach` for arrays without support for callback
  * shorthands and `this` binding.
@@ -7044,7 +6979,7 @@ function arrayEach(array, iteratee) {
 
 module.exports = arrayEach;
 
-},{}],103:[function(require,module,exports){
+},{}],102:[function(require,module,exports){
 /**
  * Appends the elements of `values` to `array`.
  *
@@ -7066,8 +7001,8 @@ function arrayPush(array, values) {
 
 module.exports = arrayPush;
 
-},{}],104:[function(require,module,exports){
-var keys = require(159);
+},{}],103:[function(require,module,exports){
+var keys = require(158);
 
 /**
  * A specialized version of `_.assign` for customizing assigned values without
@@ -7100,9 +7035,9 @@ function assignWith(object, source, customizer) {
 
 module.exports = assignWith;
 
-},{"159":159}],105:[function(require,module,exports){
-var baseCopy = require(107),
-    keys = require(159);
+},{"158":158}],104:[function(require,module,exports){
+var baseCopy = require(106),
+    keys = require(158);
 
 /**
  * The base implementation of `_.assign` without support for argument juggling,
@@ -7121,16 +7056,16 @@ function baseAssign(object, source) {
 
 module.exports = baseAssign;
 
-},{"107":107,"159":159}],106:[function(require,module,exports){
-var arrayCopy = require(101),
-    arrayEach = require(102),
-    baseAssign = require(105),
-    baseForOwn = require(111),
-    initCloneArray = require(131),
-    initCloneByTag = require(132),
-    initCloneObject = require(133),
-    isArray = require(151),
-    isObject = require(154);
+},{"106":106,"158":158}],105:[function(require,module,exports){
+var arrayCopy = require(100),
+    arrayEach = require(101),
+    baseAssign = require(104),
+    baseForOwn = require(110),
+    initCloneArray = require(130),
+    initCloneByTag = require(131),
+    initCloneObject = require(132),
+    isArray = require(150),
+    isObject = require(153);
 
 /** `Object#toString` result references. */
 var argsTag = '[object Arguments]',
@@ -7251,7 +7186,7 @@ function baseClone(value, isDeep, customizer, key, object, stackA, stackB) {
 
 module.exports = baseClone;
 
-},{"101":101,"102":102,"105":105,"111":111,"131":131,"132":132,"133":133,"151":151,"154":154}],107:[function(require,module,exports){
+},{"100":100,"101":101,"104":104,"110":110,"130":130,"131":131,"132":132,"150":150,"153":153}],106:[function(require,module,exports){
 /**
  * Copies properties of `source` to `object`.
  *
@@ -7276,8 +7211,8 @@ function baseCopy(source, props, object) {
 
 module.exports = baseCopy;
 
-},{}],108:[function(require,module,exports){
-var isObject = require(154);
+},{}],107:[function(require,module,exports){
+var isObject = require(153);
 
 /**
  * The base implementation of `_.create` without support for assigning
@@ -7301,12 +7236,12 @@ var baseCreate = (function() {
 
 module.exports = baseCreate;
 
-},{"154":154}],109:[function(require,module,exports){
-var arrayPush = require(103),
-    isArguments = require(150),
-    isArray = require(151),
-    isArrayLike = require(134),
-    isObjectLike = require(139);
+},{"153":153}],108:[function(require,module,exports){
+var arrayPush = require(102),
+    isArguments = require(149),
+    isArray = require(150),
+    isArrayLike = require(133),
+    isObjectLike = require(138);
 
 /**
  * The base implementation of `_.flatten` with added support for restricting
@@ -7344,8 +7279,8 @@ function baseFlatten(array, isDeep, isStrict, result) {
 
 module.exports = baseFlatten;
 
-},{"103":103,"134":134,"139":139,"150":150,"151":151}],110:[function(require,module,exports){
-var createBaseFor = require(121);
+},{"102":102,"133":133,"138":138,"149":149,"150":150}],109:[function(require,module,exports){
+var createBaseFor = require(120);
 
 /**
  * The base implementation of `baseForIn` and `baseForOwn` which iterates
@@ -7363,9 +7298,9 @@ var baseFor = createBaseFor();
 
 module.exports = baseFor;
 
-},{"121":121}],111:[function(require,module,exports){
-var baseFor = require(110),
-    keys = require(159);
+},{"120":120}],110:[function(require,module,exports){
+var baseFor = require(109),
+    keys = require(158);
 
 /**
  * The base implementation of `_.forOwn` without support for callback
@@ -7382,8 +7317,8 @@ function baseForOwn(object, iteratee) {
 
 module.exports = baseForOwn;
 
-},{"110":110,"159":159}],112:[function(require,module,exports){
-var isFunction = require(152);
+},{"109":109,"158":158}],111:[function(require,module,exports){
+var isFunction = require(151);
 
 /**
  * The base implementation of `_.functions` which creates an array of
@@ -7411,7 +7346,7 @@ function baseFunctions(object, props) {
 
 module.exports = baseFunctions;
 
-},{"152":152}],113:[function(require,module,exports){
+},{"151":151}],112:[function(require,module,exports){
 /**
  * The function whose prototype all chaining wrappers inherit from.
  *
@@ -7423,7 +7358,7 @@ function baseLodash() {
 
 module.exports = baseLodash;
 
-},{}],114:[function(require,module,exports){
+},{}],113:[function(require,module,exports){
 /**
  * The base implementation of `_.property` without support for deep paths.
  *
@@ -7439,9 +7374,9 @@ function baseProperty(key) {
 
 module.exports = baseProperty;
 
-},{}],115:[function(require,module,exports){
-var identity = require(161),
-    metaMap = require(141);
+},{}],114:[function(require,module,exports){
+var identity = require(160),
+    metaMap = require(140);
 
 /**
  * The base implementation of `setData` without support for hot loop detection.
@@ -7458,8 +7393,8 @@ var baseSetData = !metaMap ? identity : function(func, data) {
 
 module.exports = baseSetData;
 
-},{"141":141,"161":161}],116:[function(require,module,exports){
-var identity = require(161);
+},{"140":140,"160":160}],115:[function(require,module,exports){
+var identity = require(160);
 
 /**
  * A specialized version of `baseCallback` which only supports `this` binding
@@ -7499,7 +7434,7 @@ function bindCallback(func, thisArg, argCount) {
 
 module.exports = bindCallback;
 
-},{"161":161}],117:[function(require,module,exports){
+},{"160":160}],116:[function(require,module,exports){
 (function (global){
 /** Native method references. */
 var ArrayBuffer = global.ArrayBuffer,
@@ -7523,7 +7458,7 @@ function bufferClone(buffer) {
 module.exports = bufferClone;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],118:[function(require,module,exports){
+},{}],117:[function(require,module,exports){
 /* Native method references for those with the same name as other `lodash` methods. */
 var nativeMax = Math.max;
 
@@ -7559,7 +7494,7 @@ function composeArgs(args, partials, holders) {
 
 module.exports = composeArgs;
 
-},{}],119:[function(require,module,exports){
+},{}],118:[function(require,module,exports){
 /* Native method references for those with the same name as other `lodash` methods. */
 var nativeMax = Math.max;
 
@@ -7597,10 +7532,10 @@ function composeArgsRight(args, partials, holders) {
 
 module.exports = composeArgsRight;
 
-},{}],120:[function(require,module,exports){
-var bindCallback = require(116),
-    isIterateeCall = require(136),
-    restParam = require(98);
+},{}],119:[function(require,module,exports){
+var bindCallback = require(115),
+    isIterateeCall = require(135),
+    restParam = require(97);
 
 /**
  * Creates a `_.assign`, `_.defaults`, or `_.merge` function.
@@ -7640,8 +7575,8 @@ function createAssigner(assigner) {
 
 module.exports = createAssigner;
 
-},{"116":116,"136":136,"98":98}],121:[function(require,module,exports){
-var toObject = require(147);
+},{"115":115,"135":135,"97":97}],120:[function(require,module,exports){
+var toObject = require(146);
 
 /**
  * Creates a base function for `_.forIn` or `_.forInRight`.
@@ -7669,9 +7604,9 @@ function createBaseFor(fromRight) {
 
 module.exports = createBaseFor;
 
-},{"147":147}],122:[function(require,module,exports){
+},{"146":146}],121:[function(require,module,exports){
 (function (global){
-var createCtorWrapper = require(123);
+var createCtorWrapper = require(122);
 
 /**
  * Creates a function that wraps `func` and invokes it with the `this`
@@ -7695,9 +7630,9 @@ function createBindWrapper(func, thisArg) {
 module.exports = createBindWrapper;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"123":123}],123:[function(require,module,exports){
-var baseCreate = require(108),
-    isObject = require(154);
+},{"122":122}],122:[function(require,module,exports){
+var baseCreate = require(107),
+    isObject = require(153);
 
 /**
  * Creates a function that produces an instance of `Ctor` regardless of
@@ -7734,16 +7669,16 @@ function createCtorWrapper(Ctor) {
 
 module.exports = createCtorWrapper;
 
-},{"108":108,"154":154}],124:[function(require,module,exports){
+},{"107":107,"153":153}],123:[function(require,module,exports){
 (function (global){
-var arrayCopy = require(101),
-    composeArgs = require(118),
-    composeArgsRight = require(119),
-    createCtorWrapper = require(123),
-    isLaziable = require(137),
-    reorder = require(143),
-    replaceHolders = require(144),
-    setData = require(145);
+var arrayCopy = require(100),
+    composeArgs = require(117),
+    composeArgsRight = require(118),
+    createCtorWrapper = require(122),
+    isLaziable = require(136),
+    reorder = require(142),
+    replaceHolders = require(143),
+    setData = require(144);
 
 /** Used to compose bitmasks for wrapper metadata. */
 var BIND_FLAG = 1,
@@ -7849,9 +7784,9 @@ function createHybridWrapper(func, bitmask, thisArg, partials, holders, partials
 module.exports = createHybridWrapper;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"101":101,"118":118,"119":119,"123":123,"137":137,"143":143,"144":144,"145":145}],125:[function(require,module,exports){
+},{"100":100,"117":117,"118":118,"122":122,"136":136,"142":142,"143":143,"144":144}],124:[function(require,module,exports){
 (function (global){
-var createCtorWrapper = require(123);
+var createCtorWrapper = require(122);
 
 /** Used to compose bitmasks for wrapper metadata. */
 var BIND_FLAG = 1;
@@ -7896,14 +7831,14 @@ function createPartialWrapper(func, bitmask, thisArg, partials) {
 module.exports = createPartialWrapper;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"123":123}],126:[function(require,module,exports){
-var baseSetData = require(115),
-    createBindWrapper = require(122),
-    createHybridWrapper = require(124),
-    createPartialWrapper = require(125),
-    getData = require(127),
-    mergeData = require(140),
-    setData = require(145);
+},{"122":122}],125:[function(require,module,exports){
+var baseSetData = require(114),
+    createBindWrapper = require(121),
+    createHybridWrapper = require(123),
+    createPartialWrapper = require(124),
+    getData = require(126),
+    mergeData = require(139),
+    setData = require(144);
 
 /** Used to compose bitmasks for wrapper metadata. */
 var BIND_FLAG = 1,
@@ -7984,9 +7919,9 @@ function createWrapper(func, bitmask, thisArg, partials, holders, argPos, ary, a
 
 module.exports = createWrapper;
 
-},{"115":115,"122":122,"124":124,"125":125,"127":127,"140":140,"145":145}],127:[function(require,module,exports){
-var metaMap = require(141),
-    noop = require(162);
+},{"114":114,"121":121,"123":123,"124":124,"126":126,"139":139,"144":144}],126:[function(require,module,exports){
+var metaMap = require(140),
+    noop = require(161);
 
 /**
  * Gets metadata for `func`.
@@ -8001,8 +7936,8 @@ var getData = !metaMap ? noop : function(func) {
 
 module.exports = getData;
 
-},{"141":141,"162":162}],128:[function(require,module,exports){
-var realNames = require(142);
+},{"140":140,"161":161}],127:[function(require,module,exports){
+var realNames = require(141);
 
 /**
  * Gets the name of `func`.
@@ -8028,8 +7963,8 @@ function getFuncName(func) {
 
 module.exports = getFuncName;
 
-},{"142":142}],129:[function(require,module,exports){
-var baseProperty = require(114);
+},{"141":141}],128:[function(require,module,exports){
+var baseProperty = require(113);
 
 /**
  * Gets the "length" property value of `object`.
@@ -8045,8 +7980,8 @@ var getLength = baseProperty('length');
 
 module.exports = getLength;
 
-},{"114":114}],130:[function(require,module,exports){
-var isNative = require(153);
+},{"113":113}],129:[function(require,module,exports){
+var isNative = require(152);
 
 /**
  * Gets the native function at `key` of `object`.
@@ -8063,7 +7998,7 @@ function getNative(object, key) {
 
 module.exports = getNative;
 
-},{"153":153}],131:[function(require,module,exports){
+},{"152":152}],130:[function(require,module,exports){
 /** Used for native method references. */
 var objectProto = Object.prototype;
 
@@ -8091,8 +8026,8 @@ function initCloneArray(array) {
 
 module.exports = initCloneArray;
 
-},{}],132:[function(require,module,exports){
-var bufferClone = require(117);
+},{}],131:[function(require,module,exports){
+var bufferClone = require(116);
 
 /** `Object#toString` result references. */
 var boolTag = '[object Boolean]',
@@ -8156,7 +8091,7 @@ function initCloneByTag(object, tag, isDeep) {
 
 module.exports = initCloneByTag;
 
-},{"117":117}],133:[function(require,module,exports){
+},{"116":116}],132:[function(require,module,exports){
 /**
  * Initializes an object clone.
  *
@@ -8174,9 +8109,9 @@ function initCloneObject(object) {
 
 module.exports = initCloneObject;
 
-},{}],134:[function(require,module,exports){
-var getLength = require(129),
-    isLength = require(138);
+},{}],133:[function(require,module,exports){
+var getLength = require(128),
+    isLength = require(137);
 
 /**
  * Checks if `value` is array-like.
@@ -8191,7 +8126,7 @@ function isArrayLike(value) {
 
 module.exports = isArrayLike;
 
-},{"129":129,"138":138}],135:[function(require,module,exports){
+},{"128":128,"137":137}],134:[function(require,module,exports){
 /** Used to detect unsigned integer values. */
 var reIsUint = /^\d+$/;
 
@@ -8217,10 +8152,10 @@ function isIndex(value, length) {
 
 module.exports = isIndex;
 
-},{}],136:[function(require,module,exports){
-var isArrayLike = require(134),
-    isIndex = require(135),
-    isObject = require(154);
+},{}],135:[function(require,module,exports){
+var isArrayLike = require(133),
+    isIndex = require(134),
+    isObject = require(153);
 
 /**
  * Checks if the provided arguments are from an iteratee call.
@@ -8247,11 +8182,11 @@ function isIterateeCall(value, index, object) {
 
 module.exports = isIterateeCall;
 
-},{"134":134,"135":135,"154":154}],137:[function(require,module,exports){
-var LazyWrapper = require(99),
-    getData = require(127),
-    getFuncName = require(128),
-    lodash = require(94);
+},{"133":133,"134":134,"153":153}],136:[function(require,module,exports){
+var LazyWrapper = require(98),
+    getData = require(126),
+    getFuncName = require(127),
+    lodash = require(93);
 
 /**
  * Checks if `func` has a lazy counterpart.
@@ -8276,7 +8211,7 @@ function isLaziable(func) {
 
 module.exports = isLaziable;
 
-},{"127":127,"128":128,"94":94,"99":99}],138:[function(require,module,exports){
+},{"126":126,"127":127,"93":93,"98":98}],137:[function(require,module,exports){
 /**
  * Used as the [maximum length](http://ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer)
  * of an array-like value.
@@ -8298,7 +8233,7 @@ function isLength(value) {
 
 module.exports = isLength;
 
-},{}],139:[function(require,module,exports){
+},{}],138:[function(require,module,exports){
 /**
  * Checks if `value` is object-like.
  *
@@ -8312,11 +8247,11 @@ function isObjectLike(value) {
 
 module.exports = isObjectLike;
 
-},{}],140:[function(require,module,exports){
-var arrayCopy = require(101),
-    composeArgs = require(118),
-    composeArgsRight = require(119),
-    replaceHolders = require(144);
+},{}],139:[function(require,module,exports){
+var arrayCopy = require(100),
+    composeArgs = require(117),
+    composeArgsRight = require(118),
+    replaceHolders = require(143);
 
 /** Used to compose bitmasks for wrapper metadata. */
 var BIND_FLAG = 1,
@@ -8403,9 +8338,9 @@ function mergeData(data, source) {
 
 module.exports = mergeData;
 
-},{"101":101,"118":118,"119":119,"144":144}],141:[function(require,module,exports){
+},{"100":100,"117":117,"118":118,"143":143}],140:[function(require,module,exports){
 (function (global){
-var getNative = require(130);
+var getNative = require(129);
 
 /** Native method references. */
 var WeakMap = getNative(global, 'WeakMap');
@@ -8416,15 +8351,15 @@ var metaMap = WeakMap && new WeakMap;
 module.exports = metaMap;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"130":130}],142:[function(require,module,exports){
+},{"129":129}],141:[function(require,module,exports){
 /** Used to lookup unminified function names. */
 var realNames = {};
 
 module.exports = realNames;
 
-},{}],143:[function(require,module,exports){
-var arrayCopy = require(101),
-    isIndex = require(135);
+},{}],142:[function(require,module,exports){
+var arrayCopy = require(100),
+    isIndex = require(134);
 
 /* Native method references for those with the same name as other `lodash` methods. */
 var nativeMin = Math.min;
@@ -8453,7 +8388,7 @@ function reorder(array, indexes) {
 
 module.exports = reorder;
 
-},{"101":101,"135":135}],144:[function(require,module,exports){
+},{"100":100,"134":134}],143:[function(require,module,exports){
 /** Used as the internal argument placeholder. */
 var PLACEHOLDER = '__lodash_placeholder__';
 
@@ -8483,9 +8418,9 @@ function replaceHolders(array, placeholder) {
 
 module.exports = replaceHolders;
 
-},{}],145:[function(require,module,exports){
-var baseSetData = require(115),
-    now = require(95);
+},{}],144:[function(require,module,exports){
+var baseSetData = require(114),
+    now = require(94);
 
 /** Used to detect when a function becomes hot. */
 var HOT_COUNT = 150,
@@ -8526,12 +8461,12 @@ var setData = (function() {
 
 module.exports = setData;
 
-},{"115":115,"95":95}],146:[function(require,module,exports){
-var isArguments = require(150),
-    isArray = require(151),
-    isIndex = require(135),
-    isLength = require(138),
-    keysIn = require(160);
+},{"114":114,"94":94}],145:[function(require,module,exports){
+var isArguments = require(149),
+    isArray = require(150),
+    isIndex = require(134),
+    isLength = require(137),
+    keysIn = require(159);
 
 /** Used for native method references. */
 var objectProto = Object.prototype;
@@ -8569,8 +8504,8 @@ function shimKeys(object) {
 
 module.exports = shimKeys;
 
-},{"135":135,"138":138,"150":150,"151":151,"160":160}],147:[function(require,module,exports){
-var isObject = require(154);
+},{"134":134,"137":137,"149":149,"150":150,"159":159}],146:[function(require,module,exports){
+var isObject = require(153);
 
 /**
  * Converts `value` to an object if it's not one.
@@ -8585,10 +8520,10 @@ function toObject(value) {
 
 module.exports = toObject;
 
-},{"154":154}],148:[function(require,module,exports){
-var LazyWrapper = require(99),
-    LodashWrapper = require(100),
-    arrayCopy = require(101);
+},{"153":153}],147:[function(require,module,exports){
+var LazyWrapper = require(98),
+    LodashWrapper = require(99),
+    arrayCopy = require(100);
 
 /**
  * Creates a clone of `wrapper`.
@@ -8605,9 +8540,9 @@ function wrapperClone(wrapper) {
 
 module.exports = wrapperClone;
 
-},{"100":100,"101":101,"99":99}],149:[function(require,module,exports){
-var baseClone = require(106),
-    bindCallback = require(116);
+},{"100":100,"98":98,"99":99}],148:[function(require,module,exports){
+var baseClone = require(105),
+    bindCallback = require(115);
 
 /**
  * Creates a deep clone of `value`. If `customizer` is provided it's invoked
@@ -8662,9 +8597,9 @@ function cloneDeep(value, customizer, thisArg) {
 
 module.exports = cloneDeep;
 
-},{"106":106,"116":116}],150:[function(require,module,exports){
-var isArrayLike = require(134),
-    isObjectLike = require(139);
+},{"105":105,"115":115}],149:[function(require,module,exports){
+var isArrayLike = require(133),
+    isObjectLike = require(138);
 
 /** Used for native method references. */
 var objectProto = Object.prototype;
@@ -8698,10 +8633,10 @@ function isArguments(value) {
 
 module.exports = isArguments;
 
-},{"134":134,"139":139}],151:[function(require,module,exports){
-var getNative = require(130),
-    isLength = require(138),
-    isObjectLike = require(139);
+},{"133":133,"138":138}],150:[function(require,module,exports){
+var getNative = require(129),
+    isLength = require(137),
+    isObjectLike = require(138);
 
 /** `Object#toString` result references. */
 var arrayTag = '[object Array]';
@@ -8740,8 +8675,8 @@ var isArray = nativeIsArray || function(value) {
 
 module.exports = isArray;
 
-},{"130":130,"138":138,"139":139}],152:[function(require,module,exports){
-var isObject = require(154);
+},{"129":129,"137":137,"138":138}],151:[function(require,module,exports){
+var isObject = require(153);
 
 /** `Object#toString` result references. */
 var funcTag = '[object Function]';
@@ -8780,9 +8715,9 @@ function isFunction(value) {
 
 module.exports = isFunction;
 
-},{"154":154}],153:[function(require,module,exports){
-var isFunction = require(152),
-    isObjectLike = require(139);
+},{"153":153}],152:[function(require,module,exports){
+var isFunction = require(151),
+    isObjectLike = require(138);
 
 /** Used to detect host constructors (Safari > 5). */
 var reIsHostCtor = /^\[object .+?Constructor\]$/;
@@ -8830,7 +8765,7 @@ function isNative(value) {
 
 module.exports = isNative;
 
-},{"139":139,"152":152}],154:[function(require,module,exports){
+},{"138":138,"151":151}],153:[function(require,module,exports){
 /**
  * Checks if `value` is the [language type](https://es5.github.io/#x8) of `Object`.
  * (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
@@ -8860,8 +8795,8 @@ function isObject(value) {
 
 module.exports = isObject;
 
-},{}],155:[function(require,module,exports){
-var isObjectLike = require(139);
+},{}],154:[function(require,module,exports){
+var isObjectLike = require(138);
 
 /** `Object#toString` result references. */
 var stringTag = '[object String]';
@@ -8897,10 +8832,10 @@ function isString(value) {
 
 module.exports = isString;
 
-},{"139":139}],156:[function(require,module,exports){
-var assignWith = require(104),
-    baseAssign = require(105),
-    createAssigner = require(120);
+},{"138":138}],155:[function(require,module,exports){
+var assignWith = require(103),
+    baseAssign = require(104),
+    createAssigner = require(119);
 
 /**
  * Assigns own enumerable properties of source object(s) to the destination
@@ -8942,10 +8877,10 @@ var assign = createAssigner(function(object, source, customizer) {
 
 module.exports = assign;
 
-},{"104":104,"105":105,"120":120}],157:[function(require,module,exports){
-var baseAssign = require(105),
-    baseCreate = require(108),
-    isIterateeCall = require(136);
+},{"103":103,"104":104,"119":119}],156:[function(require,module,exports){
+var baseAssign = require(104),
+    baseCreate = require(107),
+    isIterateeCall = require(135);
 
 /**
  * Creates an object that inherits from the given `prototype` object. If a
@@ -8991,9 +8926,9 @@ function create(prototype, properties, guard) {
 
 module.exports = create;
 
-},{"105":105,"108":108,"136":136}],158:[function(require,module,exports){
-var baseFunctions = require(112),
-    keysIn = require(160);
+},{"104":104,"107":107,"135":135}],157:[function(require,module,exports){
+var baseFunctions = require(111),
+    keysIn = require(159);
 
 /**
  * Creates an array of function property names from all enumerable properties,
@@ -9016,11 +8951,11 @@ function functions(object) {
 
 module.exports = functions;
 
-},{"112":112,"160":160}],159:[function(require,module,exports){
-var getNative = require(130),
-    isArrayLike = require(134),
-    isObject = require(154),
-    shimKeys = require(146);
+},{"111":111,"159":159}],158:[function(require,module,exports){
+var getNative = require(129),
+    isArrayLike = require(133),
+    isObject = require(153),
+    shimKeys = require(145);
 
 /* Native method references for those with the same name as other `lodash` methods. */
 var nativeKeys = getNative(Object, 'keys');
@@ -9063,12 +8998,12 @@ var keys = !nativeKeys ? shimKeys : function(object) {
 
 module.exports = keys;
 
-},{"130":130,"134":134,"146":146,"154":154}],160:[function(require,module,exports){
-var isArguments = require(150),
-    isArray = require(151),
-    isIndex = require(135),
-    isLength = require(138),
-    isObject = require(154);
+},{"129":129,"133":133,"145":145,"153":153}],159:[function(require,module,exports){
+var isArguments = require(149),
+    isArray = require(150),
+    isIndex = require(134),
+    isLength = require(137),
+    isObject = require(153);
 
 /** Used for native method references. */
 var objectProto = Object.prototype;
@@ -9129,7 +9064,7 @@ function keysIn(object) {
 
 module.exports = keysIn;
 
-},{"135":135,"138":138,"150":150,"151":151,"154":154}],161:[function(require,module,exports){
+},{"134":134,"137":137,"149":149,"150":150,"153":153}],160:[function(require,module,exports){
 /**
  * This method returns the first argument provided to it.
  *
@@ -9151,7 +9086,7 @@ function identity(value) {
 
 module.exports = identity;
 
-},{}],162:[function(require,module,exports){
+},{}],161:[function(require,module,exports){
 /**
  * A no-operation function that returns `undefined` regardless of the
  * arguments it receives.
@@ -9172,7 +9107,7 @@ function noop() {
 
 module.exports = noop;
 
-},{}],163:[function(require,module,exports){
+},{}],162:[function(require,module,exports){
 function nodeListToArray(nodeList) {
   try {
     return Array.prototype.slice.call(nodeList);
@@ -9189,12 +9124,12 @@ if (typeof module !== 'undefined') {
   module.exports = nodeListToArray;
 }
 
-},{}],164:[function(require,module,exports){
+},{}],163:[function(require,module,exports){
 'use strict';
 
-var bus = require(90);
-var events = require(166);
-var checkOrigin = require(165).checkOrigin;
+var bus = require(89);
+var events = require(165);
+var checkOrigin = require(164).checkOrigin;
 
 function BraintreeBus(options) {
   options = options || {};
@@ -9315,7 +9250,7 @@ BraintreeBus.events = events;
 
 module.exports = BraintreeBus;
 
-},{"165":165,"166":166,"90":90}],165:[function(require,module,exports){
+},{"164":164,"165":165,"89":89}],164:[function(require,module,exports){
 'use strict';
 
 var BT_ORIGIN_REGEX = /^https:\/\/([a-zA-Z0-9-]+\.)*(braintreepayments|braintreegateway|paypal)\.com(:\d{1,5})?$/;
@@ -9343,7 +9278,7 @@ module.exports = {
   checkOrigin: checkOrigin
 };
 
-},{}],166:[function(require,module,exports){
+},{}],165:[function(require,module,exports){
 'use strict';
 
 var i, evnt;
@@ -9375,7 +9310,7 @@ for (i = 0; i < eventList.length; i++) {
 
 module.exports = eventEnum;
 
-},{}],167:[function(require,module,exports){
+},{}],166:[function(require,module,exports){
 'use strict';
 /* eslint-disable consistent-return */
 
@@ -9404,7 +9339,7 @@ function toSnakeCase(string) {
 
 module.exports = {convertToLegacyShippingAddress: convertToLegacyShippingAddress};
 
-},{}],168:[function(require,module,exports){
+},{}],167:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -9417,20 +9352,20 @@ module.exports = {
   }
 };
 
-},{}],169:[function(require,module,exports){
+},{}],168:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var clone = require(149);
-var api = require(15);
-var Bus = require(164);
-var Destructor = require(86);
-var bind = require(96);
-var constants = require(168);
-var sanitizePayload = require(179);
-var lookupCallbackFor = require(177);
-var fallbackErrorHandler = require(175);
-var nodeType = require(178);
+var clone = require(148);
+var api = require(14);
+var Bus = require(163);
+var Destructor = require(85);
+var bind = require(95);
+var constants = require(167);
+var sanitizePayload = require(178);
+var lookupCallbackFor = require(176);
+var fallbackErrorHandler = require(174);
+var nodeType = require(177);
 var isJQueryElement = nodeType.isJQueryElement;
 var isHTMLElement = nodeType.isHTMLElement;
 
@@ -9606,16 +9541,16 @@ BaseIntegration.prototype._onIntegrationReady = function (instance) {
 module.exports = BaseIntegration;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"149":149,"15":15,"164":164,"168":168,"175":175,"177":177,"178":178,"179":179,"86":86,"96":96}],170:[function(require,module,exports){
+},{"14":14,"148":148,"163":163,"167":167,"174":174,"176":176,"177":177,"178":178,"85":85,"95":95}],169:[function(require,module,exports){
 'use strict';
 
-var clone = require(149);
-var create = require(157);
-var bind = require(96);
-var api = require(15);
+var clone = require(148);
+var create = require(156);
+var bind = require(95);
+var api = require(14);
 var coinbase = require(180);
-var Bus = require(164);
-var BaseIntegration = require(169);
+var Bus = require(163);
+var BaseIntegration = require(168);
 
 function CoinbaseIntegration() {
   var coinbaseConfiguration, coinbaseIntegration;
@@ -9660,26 +9595,26 @@ CoinbaseIntegration.prototype._onPaymentMethodGenerated = function (payload) {
 
 module.exports = CoinbaseIntegration;
 
-},{"149":149,"15":15,"157":157,"164":164,"169":169,"180":180,"96":96}],171:[function(require,module,exports){
+},{"14":14,"148":148,"156":156,"163":163,"168":168,"180":180,"95":95}],170:[function(require,module,exports){
 'use strict';
 
-var clone = require(149);
-var create = require(157);
+var clone = require(148);
+var create = require(156);
 var form = require(198);
 var paypal = require(210);
 var coinbase = require(180);
-var bind = require(96);
-var isFunction = require(152);
+var bind = require(95);
+var isFunction = require(151);
 var hostedFields = require(204);
-var FormNapper = require(89);
-var constants = require(168);
-var Bus = require(164);
-var convertToLegacyShippingAddress = require(167).convertToLegacyShippingAddress;
-var BaseIntegration = require(169);
-var nodeType = require(178);
+var FormNapper = require(88);
+var constants = require(167);
+var Bus = require(163);
+var convertToLegacyShippingAddress = require(166).convertToLegacyShippingAddress;
+var BaseIntegration = require(168);
+var nodeType = require(177);
 var isJQueryElement = nodeType.isJQueryElement;
 var isHTMLElement = nodeType.isHTMLElement;
-var NonceManager = require(176);
+var NonceManager = require(175);
 
 function CustomIntegration() {
   BaseIntegration.apply(this, arguments);
@@ -9863,17 +9798,17 @@ function getIntegrationCallbackLookup(options, integration) {
 
 module.exports = CustomIntegration;
 
-},{"149":149,"152":152,"157":157,"164":164,"167":167,"168":168,"169":169,"176":176,"178":178,"180":180,"198":198,"204":204,"210":210,"89":89,"96":96}],172:[function(require,module,exports){
+},{"148":148,"151":151,"156":156,"163":163,"166":166,"167":167,"168":168,"175":175,"177":177,"180":180,"198":198,"204":204,"210":210,"88":88,"95":95}],171:[function(require,module,exports){
 'use strict';
 
-var create = require(157);
+var create = require(156);
 var dropin = require(196);
-var bind = require(96);
-var isFunction = require(152);
-var Bus = require(164);
-var constants = require(168);
-var sanitizePayload = require(179);
-var BaseIntegration = require(169);
+var bind = require(95);
+var isFunction = require(151);
+var Bus = require(163);
+var constants = require(167);
+var sanitizePayload = require(178);
+var BaseIntegration = require(168);
 
 function _getLegacyCallback(options) {
   if (isFunction(options.paymentMethodNonceReceived)) {
@@ -9920,27 +9855,27 @@ DropinIntegration.prototype = create(BaseIntegration.prototype, {
 
 module.exports = DropinIntegration;
 
-},{"152":152,"157":157,"164":164,"168":168,"169":169,"179":179,"196":196,"96":96}],173:[function(require,module,exports){
+},{"151":151,"156":156,"163":163,"167":167,"168":168,"178":178,"196":196,"95":95}],172:[function(require,module,exports){
 'use strict';
 
 module.exports = {
-  custom: require(171),
-  dropin: require(172),
-  paypal: require(174),
-  coinbase: require(170)
+  custom: require(170),
+  dropin: require(171),
+  paypal: require(173),
+  coinbase: require(169)
 };
 
-},{"170":170,"171":171,"172":172,"174":174}],174:[function(require,module,exports){
+},{"169":169,"170":170,"171":171,"173":173}],173:[function(require,module,exports){
 'use strict';
 
-var create = require(157);
+var create = require(156);
 var paypal = require(210);
-var bind = require(96);
-var isFunction = require(152);
-var constants = require(168);
-var Bus = require(164);
-var convertToLegacyShippingAddress = require(167).convertToLegacyShippingAddress;
-var BaseIntegration = require(169);
+var bind = require(95);
+var isFunction = require(151);
+var constants = require(167);
+var Bus = require(163);
+var convertToLegacyShippingAddress = require(166).convertToLegacyShippingAddress;
+var BaseIntegration = require(168);
 
 function _getLegacyCallback(options) {
   if ('onSuccess' in options && isFunction(options.onSuccess)) {
@@ -10014,7 +9949,7 @@ PayPalIntegration.prototype._onIntegrationReady = function () {
 
 module.exports = PayPalIntegration;
 
-},{"152":152,"157":157,"164":164,"167":167,"168":168,"169":169,"210":210,"96":96}],175:[function(require,module,exports){
+},{"151":151,"156":156,"163":163,"166":166,"167":167,"168":168,"210":210,"95":95}],174:[function(require,module,exports){
 'use strict';
 
 module.exports = function fallbackError(error) {
@@ -10031,10 +9966,10 @@ module.exports = function fallbackError(error) {
   }
 };
 
-},{}],176:[function(require,module,exports){
+},{}],175:[function(require,module,exports){
 'use strict';
 
-var Bus = require(164);
+var Bus = require(163);
 var hostedFields = require(204);
 
 var ANALYTICS_STRING = 'web.custom.hosted-fields.via.';
@@ -10050,6 +9985,12 @@ function NonceManager(configuration) {
 
   this._attachEvents();
 }
+
+NonceManager.prototype._shouldStrictlyValidate = function (payload) {
+  if (payload != null) { return false; }
+
+  return this.paymentMethod == null || this.paymentMethod.type === 'CreditCard';
+};
 
 NonceManager.prototype._clearNonce = function () {
   this.paymentMethod = null;
@@ -10083,7 +10024,7 @@ NonceManager.prototype.handleSubmitRequest = function () {
 
     self.paymentMethod = payload || self.paymentMethod;
 
-    if (self.paymentMethod == null) {
+    if (self._shouldStrictlyValidate(payload)) {
       self.bus.emit(hostedFields.events.VALIDATE_STRICT);
       self.bus.emit(Bus.events.ERROR, {
         type: 'VALIDATION',
@@ -10111,10 +10052,10 @@ NonceManager.prototype.teardown = function () {
 
 module.exports = NonceManager;
 
-},{"164":164,"204":204}],177:[function(require,module,exports){
+},{"163":163,"204":204}],176:[function(require,module,exports){
 'use strict';
 
-var isFunction = require(152);
+var isFunction = require(151);
 
 function noop() {}
 
@@ -10130,7 +10071,7 @@ module.exports = function lookupCallbackFor(model) {
   };
 };
 
-},{"152":152}],178:[function(require,module,exports){
+},{"151":151}],177:[function(require,module,exports){
 'use strict';
 
 function isJQueryElement(element) {
@@ -10146,7 +10087,7 @@ module.exports = {
   isHTMLElement: isHTMLElement
 };
 
-},{}],179:[function(require,module,exports){
+},{}],178:[function(require,module,exports){
 'use strict';
 
 module.exports = function sanitizePayload(payload) {
@@ -10157,7 +10098,64 @@ module.exports = function sanitizePayload(payload) {
   };
 };
 
-},{}],180:[function(require,module,exports){
+},{}],179:[function(require,module,exports){
+(function (global){
+'use strict';
+
+var VERSION = "2.15.3";
+var api = require(14);
+var paypal = require(210);
+var dropin = require(196);
+var integrations = require(172);
+var constants = require(167);
+var fallbackErrorHandler = require(174);
+var lookupCallbackFor = require(176);
+var uuid = require(81).uuid;
+
+function setup(clientToken, integrationType, merchantConfiguration) {
+  if (!integrations.hasOwnProperty(integrationType)) {
+    throw new Error(integrationType + ' is an unsupported integration');
+  }
+
+  merchantConfiguration = merchantConfiguration || {};
+
+  api._getConfiguration({
+    enableCORS: merchantConfiguration.enableCORS || false,
+    clientToken: clientToken
+  }, function (err, gatewayConfiguration) {
+    var errorFallback;
+
+    if (err) {
+      errorFallback = lookupCallbackFor(merchantConfiguration)(constants.ROOT_ERROR_CALLBACK, fallbackErrorHandler);
+      errorFallback({message: err.errors});
+      return;
+    }
+
+    new integrations[integrationType]({ // eslint-disable-line no-new
+      channel: uuid(),
+      gatewayConfiguration: gatewayConfiguration,
+      integrationType: integrationType,
+      merchantConfiguration: merchantConfiguration,
+      analyticsConfiguration: {
+        sdkVersion: 'braintree/web/' + VERSION,
+        merchantAppId: global.location.host
+      }
+    });
+  });
+}
+
+module.exports = {
+  api: api,
+  cse: global.Braintree,
+  paypal: paypal,
+  dropin: dropin,
+  hostedFields: {VERSION: require(204).VERSION},
+  setup: setup,
+  VERSION: VERSION
+};
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"14":14,"167":167,"172":172,"174":174,"176":176,"196":196,"204":204,"210":210,"81":81}],180:[function(require,module,exports){
 'use strict';
 
 var Coinbase = require(183);
@@ -10219,7 +10217,7 @@ module.exports = {
 },{}],182:[function(require,module,exports){
 'use strict';
 
-var busEvents = require(164).events;
+var busEvents = require(163).events;
 
 function tokenize(err, payload, coinbase) {
   if (err) {
@@ -10235,19 +10233,19 @@ function tokenize(err, payload, coinbase) {
 
 module.exports = {tokenize: tokenize};
 
-},{"164":164}],183:[function(require,module,exports){
+},{"163":163}],183:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var bind = require(96);
-var utils = require(82);
-var Destructor = require(86);
+var bind = require(95);
+var utils = require(81);
+var Destructor = require(85);
 var DOMComposer = require(187);
 var urlComposer = require(190);
 var callbacks = require(182);
 var constants = require(184);
 var detector = require(185);
-var Bus = require(164);
+var Bus = require(163);
 
 function _getPopupParams(options) {
   return {
@@ -10496,7 +10494,7 @@ Coinbase.prototype.teardown = function (done) {
 module.exports = Coinbase;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"164":164,"182":182,"184":184,"185":185,"187":187,"190":190,"82":82,"86":86,"96":96}],184:[function(require,module,exports){
+},{"163":163,"182":182,"184":184,"185":185,"187":187,"190":190,"81":81,"85":85,"95":95}],184:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -10507,7 +10505,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "2.15.2",
+  VERSION: "2.15.3",
   INTEGRATION_NAME: 'Coinbase',
   CONFIGURATION_ERROR: 'CONFIGURATION',
   UNSUPPORTED_BROWSER_ERROR: 'UNSUPPORTED_BROWSER',
@@ -10590,7 +10588,7 @@ module.exports = {
 'use strict';
 
 var constants = require(184);
-var iframer = require(91);
+var iframer = require(90);
 
 function createFrame() {
   return iframer({
@@ -10608,7 +10606,7 @@ function createFrame() {
 
 module.exports = {create: createFrame};
 
-},{"184":184,"91":91}],189:[function(require,module,exports){
+},{"184":184,"90":90}],189:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -10715,19 +10713,19 @@ module.exports = APIProxyServer;
 'use strict';
 
 var htmlNode, bodyNode;
-var api = require(15);
-var BraintreeBus = require(164);
-var Destructor = require(86);
-var rpc = require(64);
-var utils = require(82);
+var api = require(14);
+var BraintreeBus = require(163);
+var Destructor = require(85);
+var rpc = require(63);
+var utils = require(81);
 var normalizeElement = utils.normalizeElement;
-var bind = require(96);
+var bind = require(95);
 var isBrowserHttps = utils.isBrowserHttps;
 var APIProxyServer = require(191);
 var MerchantFormManager = require(195);
 var FrameContainer = require(194);
 var constants = require(197);
-var version = "2.15.2";
+var version = "2.15.3";
 var PayPalModalView = require(214);
 
 function getElementStyle(element, style) {
@@ -11024,11 +11022,11 @@ Client.prototype.teardown = function (done) {
 module.exports = Client;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"15":15,"164":164,"191":191,"194":194,"195":195,"197":197,"214":214,"64":64,"82":82,"86":86,"96":96}],193:[function(require,module,exports){
+},{"14":14,"163":163,"191":191,"194":194,"195":195,"197":197,"214":214,"63":63,"81":81,"85":85,"95":95}],193:[function(require,module,exports){
 'use strict';
 
 var Client = require(192);
-var VERSION = "2.15.2";
+var VERSION = "2.15.3";
 
 function create(options) {
   var client = new Client(options);
@@ -11046,9 +11044,9 @@ module.exports = {
 },{"192":192}],194:[function(require,module,exports){
 'use strict';
 
-var BraintreeBus = require(164);
+var BraintreeBus = require(163);
 var constants = require(197);
-var iFramer = require(91);
+var iFramer = require(90);
 
 // TODO: move to shared and deduplicate from src/internal/util/dropin-util.js
 var TRANSITION_END_EVENT_NAMES = {
@@ -11120,11 +11118,11 @@ function FrameContainer(endpoint, name, braintreeBus) {
 
 module.exports = FrameContainer;
 
-},{"164":164,"197":197,"91":91}],195:[function(require,module,exports){
+},{"163":163,"197":197,"90":90}],195:[function(require,module,exports){
 'use strict';
 
-var bind = require(96);
-var FormNapper = require(89);
+var bind = require(95);
+var FormNapper = require(88);
 
 function MerchantFormManager(options) {
   this.formNapper = new FormNapper(options.form);
@@ -11226,7 +11224,7 @@ MerchantFormManager.prototype.teardown = function () {
 
 module.exports = MerchantFormManager;
 
-},{"89":89,"96":96}],196:[function(require,module,exports){
+},{"88":88,"95":95}],196:[function(require,module,exports){
 'use strict';
 
 module.exports = require(193);
@@ -11340,11 +11338,11 @@ module.exports = {
 (function (global){
 'use strict';
 
-var bind = require(96);
-var util = require(82);
+var bind = require(95);
+var util = require(81);
 var fields = require(199);
-var Destructor = require(86);
-var Bus = require(164);
+var Destructor = require(85);
+var Bus = require(163);
 var PaymentMethodModel = require(202);
 var getNonceInput = require(201);
 var ERROR_PAYLOAD = {
@@ -11483,7 +11481,7 @@ Form.prototype.teardown = function () {
 module.exports = Form;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"164":164,"199":199,"201":201,"202":202,"82":82,"86":86,"96":96}],201:[function(require,module,exports){
+},{"163":163,"199":199,"201":201,"202":202,"81":81,"85":85,"95":95}],201:[function(require,module,exports){
 'use strict';
 
 module.exports = function getNonceInput(paymentMethodNonceInputField) {
@@ -11568,7 +11566,7 @@ module.exports = function validateAnnotations(htmlForm) {
 
 var HostedFields = require(206);
 var events = require(208).events;
-var VERSION = "2.15.2";
+var VERSION = "2.15.3";
 
 module.exports = {
   create: function (configuration) {
@@ -11594,14 +11592,14 @@ module.exports = function composeUrl(assetsUrl, channel) {
 },{"208":208}],206:[function(require,module,exports){
 'use strict';
 
-var Destructor = require(86);
-var classListManager = require(83);
-var iFramer = require(91);
-var Bus = require(164);
+var Destructor = require(85);
+var classListManager = require(82);
+var iFramer = require(90);
+var Bus = require(163);
 var composeUrl = require(205);
 var constants = require(208);
-var nodeListToArray = require(163);
-var utils = require(82);
+var nodeListToArray = require(162);
+var utils = require(81);
 var findParentTags = require(209);
 var shouldUseLabelFocus = require(207);
 var events = constants.events;
@@ -11782,7 +11780,7 @@ HostedFieldsIntegration.prototype.teardown = function (done) {
 
 module.exports = HostedFieldsIntegration;
 
-},{"163":163,"164":164,"205":205,"207":207,"208":208,"209":209,"82":82,"83":83,"86":86,"91":91}],207:[function(require,module,exports){
+},{"162":162,"163":163,"205":205,"207":207,"208":208,"209":209,"81":81,"82":82,"85":85,"90":90}],207:[function(require,module,exports){
 'use strict';
 
 module.exports = function shouldUseLabelFocus() {
@@ -11793,7 +11791,7 @@ module.exports = function shouldUseLabelFocus() {
 'use strict';
 /* eslint-disable no-reserved-keys */
 
-var VERSION = "2.15.2";
+var VERSION = "2.15.3";
 
 module.exports = {
   VERSION: VERSION,
@@ -11911,11 +11909,11 @@ module.exports = require(212);
 (function (global){
 'use strict';
 
-var braintreeUtil = require(82);
-var bind = require(96);
-var isFunction = require(152);
-var Destructor = require(86);
-var Bus = require(164);
+var braintreeUtil = require(81);
+var bind = require(95);
+var isFunction = require(151);
+var Destructor = require(85);
+var Bus = require(163);
 var AppView = require(214);
 var LoggedInView = require(216);
 var LoggedOutView = require(217);
@@ -11926,7 +11924,7 @@ var BridgeIframeView = require(215);
 var browser = require(231);
 var constants = require(223);
 var util = require(233);
-var bindAll = require(97);
+var bindAll = require(96);
 
 function Client(clientToken, options, channel) {
   options = options || {};
@@ -12170,7 +12168,7 @@ Client.prototype.teardown = function () {
 module.exports = Client;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"152":152,"164":164,"214":214,"215":215,"216":216,"217":217,"218":218,"220":220,"221":221,"223":223,"231":231,"233":233,"82":82,"86":86,"96":96,"97":97}],212:[function(require,module,exports){
+},{"151":151,"163":163,"214":214,"215":215,"216":216,"217":217,"218":218,"220":220,"221":221,"223":223,"231":231,"233":233,"81":81,"85":85,"95":95,"96":96}],212:[function(require,module,exports){
 'use strict';
 
 var Client = require(211);
@@ -12179,9 +12177,9 @@ var constants = require(223);
 var getLocale = require(225);
 var isHermesConfiguration = require(233).isHermesConfiguration;
 var isOnetimeHermesConfiguration = require(233).isOnetimeHermesConfiguration;
-var VERSION = "2.15.2";
-var braintreeUtil = require(82);
-var braintreeApi = require(15);
+var VERSION = "2.15.3";
+var braintreeUtil = require(81);
+var braintreeApi = require(14);
 
 function create(clientToken, options, channel) {
   var client, onUnsupported;
@@ -12298,7 +12296,7 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"15":15,"211":211,"223":223,"225":225,"231":231,"233":233,"82":82}],213:[function(require,module,exports){
+},{"14":14,"211":211,"223":223,"225":225,"231":231,"233":233,"81":81}],213:[function(require,module,exports){
 module.exports={
   "en_us": {
     "cancel": "Cancel",
@@ -12431,11 +12429,11 @@ module.exports={
 (function (global){
 'use strict';
 
-var bind = require(96);
-var isFunction = require(152);
+var bind = require(95);
+var isFunction = require(151);
 var browser = require(231);
-var Destructor = require(86);
-var Bus = require(164);
+var Destructor = require(85);
+var Bus = require(163);
 var constants = require(223);
 var PopupView = require(222);
 var ModalView = require(219);
@@ -12562,11 +12560,11 @@ AppView.prototype.teardown = function () {
 module.exports = AppView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"152":152,"164":164,"219":219,"222":222,"223":223,"231":231,"86":86,"96":96}],215:[function(require,module,exports){
+},{"151":151,"163":163,"219":219,"222":222,"223":223,"231":231,"85":85,"95":95}],215:[function(require,module,exports){
 'use strict';
 
 var constants = require(223);
-var iframer = require(91);
+var iframer = require(90);
 
 function BridgeIframeView(options) {
   this.options = options || {};
@@ -12609,14 +12607,14 @@ BridgeIframeView.prototype.teardown = function () {
 
 module.exports = BridgeIframeView;
 
-},{"223":223,"91":91}],216:[function(require,module,exports){
+},{"223":223,"90":90}],216:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var braintreeUtil = require(82);
-var bind = require(96);
-var Destructor = require(86);
-var Bus = require(164);
+var braintreeUtil = require(81);
+var bind = require(95);
+var Destructor = require(85);
+var Bus = require(163);
 var util = require(233);
 var dom = require(232);
 var constants = require(223);
@@ -12789,12 +12787,12 @@ LoggedInView.prototype.teardown = function () {
 module.exports = LoggedInView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"164":164,"213":213,"223":223,"226":226,"232":232,"233":233,"82":82,"86":86,"96":96}],217:[function(require,module,exports){
+},{"163":163,"213":213,"223":223,"226":226,"232":232,"233":233,"81":81,"85":85,"95":95}],217:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var bind = require(96);
-var Bus = require(164);
+var bind = require(95);
+var Bus = require(163);
 var constants = require(223);
 var getLocale = require(225);
 
@@ -12912,12 +12910,12 @@ LoggedOutView.prototype.teardown = function () {
 module.exports = LoggedOutView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"164":164,"223":223,"225":225,"96":96}],218:[function(require,module,exports){
+},{"163":163,"223":223,"225":225,"95":95}],218:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var Bus = require(164);
-var bind = require(96);
+var Bus = require(163);
+var bind = require(95);
 var constants = require(223);
 
 function MerchantPageView(options) {
@@ -12992,16 +12990,16 @@ function getMerchantPageDefaultStyles() {
 module.exports = MerchantPageView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"164":164,"223":223,"96":96}],219:[function(require,module,exports){
+},{"163":163,"223":223,"95":95}],219:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var bind = require(96);
-var isFunction = require(152);
+var bind = require(95);
+var isFunction = require(151);
 var browser = require(231);
 var constants = require(223);
-var Bus = require(164);
-var iframer = require(91);
+var Bus = require(163);
+var iframer = require(90);
 
 function ModalView(options) {
   this.options = options || {};
@@ -13088,15 +13086,15 @@ ModalView.prototype.teardown = function () {
 module.exports = ModalView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"152":152,"164":164,"223":223,"231":231,"91":91,"96":96}],220:[function(require,module,exports){
+},{"151":151,"163":163,"223":223,"231":231,"90":90,"95":95}],220:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var braintreeUtil = require(82);
-var bind = require(96);
-var isFunction = require(152);
-var Destructor = require(86);
-var Bus = require(164);
+var braintreeUtil = require(81);
+var bind = require(95);
+var isFunction = require(151);
+var Destructor = require(85);
+var Bus = require(163);
 var constants = require(223);
 var getLocalizationData = require(226);
 var translations = require(213);
@@ -13295,15 +13293,15 @@ OverlayView.prototype.teardown = function () {
 module.exports = OverlayView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"152":152,"164":164,"213":213,"223":223,"226":226,"82":82,"86":86,"96":96}],221:[function(require,module,exports){
+},{"151":151,"163":163,"213":213,"223":223,"226":226,"81":81,"85":85,"95":95}],221:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var braintreeUtil = require(82);
-var bind = require(96);
-var isFunction = require(152);
-var Destructor = require(86);
-var Bus = require(164);
+var braintreeUtil = require(81);
+var bind = require(95);
+var isFunction = require(151);
+var Destructor = require(85);
+var Bus = require(163);
 var constants = require(223);
 
 function PaymentMethodNonceInputFieldView(options) {
@@ -13387,12 +13385,12 @@ PaymentMethodNonceInputFieldView.prototype.teardown = function () {
 module.exports = PaymentMethodNonceInputFieldView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"152":152,"164":164,"223":223,"82":82,"86":86,"96":96}],222:[function(require,module,exports){
+},{"151":151,"163":163,"223":223,"81":81,"85":85,"95":95}],222:[function(require,module,exports){
 (function (global){
 'use strict';
 
 var constants = require(223);
-var Bus = require(164);
+var Bus = require(163);
 var browser = require(227);
 
 function PopupView(options) {
@@ -13481,11 +13479,11 @@ PopupView.prototype.teardown = function () {
 module.exports = PopupView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"164":164,"223":223,"227":227}],223:[function(require,module,exports){
+},{"163":163,"223":223,"227":227}],223:[function(require,module,exports){
 'use strict';
 
 var i;
-var version = "2.15.2";
+var version = "2.15.3";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
@@ -14090,5 +14088,5 @@ module.exports = {
   getConfigurationType: getConfigurationType
 };
 
-},{"223":223}]},{},[1])(1)
+},{"223":223}]},{},[179])(179)
 });
