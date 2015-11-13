@@ -2744,7 +2744,7 @@ window.Braintree = Braintree;
 (function (global){
 'use strict';
 
-var VERSION = "2.12.0";
+var VERSION = "2.12.1";
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
@@ -2812,6 +2812,7 @@ var PayPalAccount = require('./paypal-account');
 var normalizeCreditCardFields = require('./normalize-api-fields').normalizeCreditCardFields;
 var chooseRequestDriver = require('./request/choose-driver');
 var shouldEnableCORS = require('./should-enable-cors');
+var constants = require('./constants');
 
 function getAnalyticsConfiguration(options) {
   var analyticsConfiguration = options.analyticsConfiguration || {};
@@ -3066,7 +3067,7 @@ Client.prototype.sendAnalyticsEvents = function (events, callback) {
     }
   });
 
-  this.driver.post(url, attrs, function (d) { return d; }, callback, this.requestTimeout);
+  this.driver.post(url, attrs, function (d) { return d; }, callback, constants.ANALYTICS_TIMEOUT_MS);
 };
 
 Client.prototype.decryptBrowserswitchPayload = function (encryptedPayload, callback) {
@@ -3130,7 +3131,7 @@ Client.prototype.getAmexRewardsBalance = function (attrs, callback) {
 module.exports = Client;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./coinbase-account":3,"./credit-card":5,"./europe-bank-account":6,"./normalize-api-fields":8,"./parse-client-token":9,"./paypal-account":10,"./request/choose-driver":13,"./sepa-mandate":18,"./should-enable-cors":19,"./util":20,"braintree-3ds":29,"braintree-utilities":43}],3:[function(require,module,exports){
+},{"./coinbase-account":3,"./constants":4,"./credit-card":5,"./europe-bank-account":6,"./normalize-api-fields":8,"./parse-client-token":9,"./paypal-account":10,"./request/choose-driver":13,"./sepa-mandate":18,"./should-enable-cors":19,"./util":20,"braintree-3ds":29,"braintree-utilities":43}],3:[function(require,module,exports){
 'use strict';
 
 var ATTRIBUTES = [
@@ -3160,7 +3161,8 @@ module.exports={
   "errors": {
     "UNKNOWN_ERROR": "Unknown error",
     "INVALID_TIMEOUT": "Timeout must be a number"
-  }
+  },
+  "ANALYTICS_TIMEOUT_MS": 4000
 };
 
 },{}],5:[function(require,module,exports){
@@ -6370,7 +6372,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "0.2.3",
+  VERSION: "0.2.4",
   INTEGRATION_NAME: 'Coinbase'
 };
 
@@ -7096,7 +7098,7 @@ arguments[4][46][0].apply(exports,arguments)
 arguments[4][51][0].apply(exports,arguments)
 },{"dup":51}],90:[function(require,module,exports){
 arguments[4][2][0].apply(exports,arguments)
-},{"./coinbase-account":91,"./credit-card":93,"./europe-bank-account":94,"./normalize-api-fields":96,"./parse-client-token":97,"./paypal-account":98,"./request/choose-driver":101,"./sepa-mandate":106,"./should-enable-cors":107,"./util":108,"braintree-3ds":117,"braintree-utilities":131,"dup":2}],91:[function(require,module,exports){
+},{"./coinbase-account":91,"./constants":92,"./credit-card":93,"./europe-bank-account":94,"./normalize-api-fields":96,"./parse-client-token":97,"./paypal-account":98,"./request/choose-driver":101,"./sepa-mandate":106,"./should-enable-cors":107,"./util":108,"braintree-3ds":117,"braintree-utilities":131,"dup":2}],91:[function(require,module,exports){
 arguments[4][3][0].apply(exports,arguments)
 },{"dup":3}],92:[function(require,module,exports){
 arguments[4][4][0].apply(exports,arguments)
@@ -7512,7 +7514,7 @@ module.exports = PopupView;
 'use strict';
 
 var i;
-var version = "1.5.6";
+var version = "1.5.7";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
@@ -8264,7 +8266,7 @@ var APIProxyServer = require('./api-proxy-server');
 var MerchantFormManager = require('./merchant-form-manager');
 var FrameContainer = require('./frame-container');
 var constants = require('../shared/constants');
-var version = "1.8.6";
+var version = "1.8.7";
 var PayPalModalView = require('braintree-paypal/src/external/views/app-view');
 
 function getElementStyle(element, style) {
@@ -8513,7 +8515,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.8.6";
+var VERSION = "1.8.7";
 
 function create(options) {
   var client = new Client(options);
@@ -8995,7 +8997,7 @@ arguments[4][25][0].apply(exports,arguments)
 arguments[4][26][0].apply(exports,arguments)
 },{"./lib/dom":224,"./lib/events":225,"./lib/fn":226,"./lib/url":227,"dup":26}],229:[function(require,module,exports){
 arguments[4][2][0].apply(exports,arguments)
-},{"./coinbase-account":230,"./credit-card":232,"./europe-bank-account":233,"./normalize-api-fields":235,"./parse-client-token":236,"./paypal-account":237,"./request/choose-driver":240,"./sepa-mandate":245,"./should-enable-cors":246,"./util":247,"braintree-3ds":256,"braintree-utilities":270,"dup":2}],230:[function(require,module,exports){
+},{"./coinbase-account":230,"./constants":231,"./credit-card":232,"./europe-bank-account":233,"./normalize-api-fields":235,"./parse-client-token":236,"./paypal-account":237,"./request/choose-driver":240,"./sepa-mandate":245,"./should-enable-cors":246,"./util":247,"braintree-3ds":256,"braintree-utilities":270,"dup":2}],230:[function(require,module,exports){
 arguments[4][3][0].apply(exports,arguments)
 },{"dup":3}],231:[function(require,module,exports){
 arguments[4][4][0].apply(exports,arguments)
@@ -9338,7 +9340,7 @@ var browser = require('../shared/util/browser');
 var constants = require('../shared/constants');
 var getLocale = require('../shared/get-locale');
 var isHermesConfiguration = require('../shared/util/util').isHermesConfiguration;
-var VERSION = "1.5.6";
+var VERSION = "1.5.7";
 var braintreeUtil = require('braintree-utilities');
 var braintreeApi = require('braintree-api');
 
