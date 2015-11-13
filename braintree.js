@@ -2744,7 +2744,7 @@ window.Braintree = Braintree;
 (function (global){
 'use strict';
 
-var VERSION = "2.14.3";
+var VERSION = "2.14.4";
 var api = require('braintree-api');
 var paypal = require('../paypal');
 var dropin = require('../dropin');
@@ -9006,7 +9006,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "2.14.3",
+  VERSION: "2.14.4",
   INTEGRATION_NAME: 'Coinbase',
   CONFIGURATION_ERROR: 'CONFIGURATION',
   UNSUPPORTED_BROWSER_ERROR: 'UNSUPPORTED_BROWSER',
@@ -9223,7 +9223,7 @@ var APIProxyServer = require('./api-proxy-server');
 var MerchantFormManager = require('./merchant-form-manager');
 var FrameContainer = require('./frame-container');
 var constants = require('../shared/constants');
-var version = "2.14.3";
+var version = "2.14.4";
 var PayPalModalView = require('../../paypal/src/external/views/app-view');
 
 function getElementStyle(element, style) {
@@ -9523,7 +9523,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require('./client');
-var VERSION = "2.14.3";
+var VERSION = "2.14.4";
 
 function create(options) {
   var client = new Client(options);
@@ -10060,7 +10060,7 @@ module.exports = function validateAnnotations(htmlForm) {
 
 var HostedFields = require('./lib/external');
 var events = require('./lib/shared/constants').events;
-var VERSION = "2.14.3";
+var VERSION = "2.14.4";
 
 module.exports = {
   create: function (configuration) {
@@ -10284,7 +10284,7 @@ module.exports = function shouldUseLabelFocus() {
 'use strict';
 /* eslint-disable no-reserved-keys */
 
-var VERSION = "2.14.3";
+var VERSION = "2.14.4";
 
 module.exports = {
   VERSION: VERSION,
@@ -10642,7 +10642,7 @@ var constants = require('../shared/constants');
 var getLocale = require('../shared/get-locale');
 var isHermesConfiguration = require('../shared/util/util').isHermesConfiguration;
 var isOnetimeHermesConfiguration = require('../shared/util/util').isOnetimeHermesConfiguration;
-var VERSION = "2.14.3";
+var VERSION = "2.14.4";
 var braintreeUtil = require('braintree-utilities');
 var braintreeApi = require('braintree-api');
 
@@ -11878,7 +11878,7 @@ module.exports = PopupView;
 'use strict';
 
 var i;
-var version = "2.14.3";
+var version = "2.14.4";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
