@@ -2745,7 +2745,7 @@ window.Braintree = Braintree;
 'use strict';
 /* eslint no-console: 0 */
 
-var VERSION = "2.7.1";
+var VERSION = "2.7.2";
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
@@ -7302,7 +7302,7 @@ var FrameContainer = require('./frame-container');
 var PayPalService = require('../shared/paypal-service');
 var constants = require('../shared/constants');
 var paypalBrowser = require('braintree-paypal/src/shared/util/browser');
-var version = "1.3.12";
+var version = "1.4.0";
 
 function getElementStyle(element, style) {
   var computedStyle = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
@@ -7548,7 +7548,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.3.12";
+var VERSION = "1.4.0";
 
 function create(clientToken, options) {
   var client;
