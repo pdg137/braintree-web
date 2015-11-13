@@ -2745,7 +2745,7 @@ window.Braintree = Braintree;
 'use strict';
 /* eslint no-console: 0 */
 
-var VERSION = "2.11.0";
+var VERSION = "2.11.1";
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
@@ -5756,10 +5756,10 @@ module.exports = eventEnum;
 
   function publish(event) {
     var payload, args;
-    var origin = this._origin || '*';
+    var origin = _getOrigin(this);
 
-    if (typeof event !== 'string') { return false; }
-    if (typeof origin !== 'string') { return false; }
+    if (_isntString(event)) { return false; }
+    if (_isntString(origin)) { return false; }
 
     args = Array.prototype.slice.call(arguments, 1);
 
@@ -5772,7 +5772,7 @@ module.exports = eventEnum;
   }
 
   function subscribe(event, fn) {
-    var origin = this._origin || '*';
+    var origin = _getOrigin(this);
 
     if (_subscriptionArgsInvalid(event, fn, origin)) { return false; }
 
@@ -5785,7 +5785,7 @@ module.exports = eventEnum;
 
   function unsubscribe(event, fn) {
     var i, subscriberList;
-    var origin = this._origin || '*';
+    var origin = _getOrigin(this);
 
     if (_subscriptionArgsInvalid(event, fn, origin)) { return false; }
 
@@ -5800,6 +5800,14 @@ module.exports = eventEnum;
     }
 
     return false;
+  }
+
+  function _getOrigin(scope) {
+    return scope && scope._origin || '*';
+  }
+
+  function _isntString(string) {
+    return typeof string !== 'string';
   }
 
   function _packagePayload(event, args, origin) {
@@ -5879,7 +5887,7 @@ module.exports = eventEnum;
 
   function _onmessage(e) {
     var payload;
-    if (typeof e.data !== 'string') { return; }
+    if (_isntString(e.data)) { return; }
 
     payload = _unpackPayload(e);
     if (!payload) { return; }
@@ -5901,9 +5909,12 @@ module.exports = eventEnum;
 
   function _broadcast(frame, payload, origin) {
     var i;
-    frame.postMessage(payload, origin);
 
-    if (frame.opener && frame.opener !== win) {
+    try {
+      frame.postMessage(payload, origin);
+    } catch (_) { return; }
+
+    if (frame.opener && !frame.opener.closed && frame.opener !== win) {
       _broadcast(frame.opener.top, payload, origin);
     }
 
@@ -5939,9 +5950,9 @@ module.exports = eventEnum;
   }
 
   function _subscriptionArgsInvalid(event, fn, origin) {
-    if (typeof event !== 'string') { return true; }
+    if (_isntString(event)) { return true; }
     if (typeof fn !== 'function') { return true; }
-    if (typeof origin !== 'string') { return true; }
+    if (_isntString(origin)) { return true; }
 
     return false;
   }
@@ -6259,7 +6270,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "0.2.0",
+  VERSION: "0.2.1",
   INTEGRATION_NAME: 'Coinbase'
 };
 
@@ -8032,7 +8043,7 @@ OverlayView.prototype._pollForPopup = function () {
 module.exports = OverlayView;
 
 },{"../shared/constants":201,"braintree-utilities":196}],201:[function(require,module,exports){
-var version = "1.5.1";
+var version = "1.5.2";
 
 exports.VERSION = version;
 exports.POPUP_NAME = 'braintree_paypal_popup';
@@ -8953,7 +8964,7 @@ var FrameContainer = require('./frame-container');
 var PayPalService = require('../shared/paypal-service');
 var constants = require('../shared/constants');
 var paypalBrowser = require('braintree-paypal/src/shared/util/browser');
-var version = "1.8.1";
+var version = "1.8.2";
 
 function getElementStyle(element, style) {
   var computedStyle = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
@@ -9210,7 +9221,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.8.1";
+var VERSION = "1.8.2";
 
 function create(options) {
   var client = new Client(options);
@@ -9840,7 +9851,7 @@ arguments[4][197][0].apply(exports,arguments)
 },{"../shared/constants":328,"../shared/get-locale":330,"../shared/util/browser":335,"../shared/util/dom":336,"../shared/util/util":337,"./logged-in-view":325,"./logged-out-view":326,"./overlay-view":327,"braintree-api":284,"braintree-bus":313,"braintree-utilities":322,"dup":197}],324:[function(require,module,exports){
 var Client = require('./client');
 var browser = require('../shared/util/browser');
-var VERSION = "1.5.1";
+var VERSION = "1.5.2";
 
 function create(clientToken, options) {
   if (!browser.detectedPostMessage()) {
