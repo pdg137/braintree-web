@@ -2745,7 +2745,7 @@ window.Braintree = Braintree;
 'use strict';
 /* eslint no-console: 0 */
 
-var VERSION = "2.8.0";
+var VERSION = "2.8.1";
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
@@ -5331,8 +5331,319 @@ arguments[4][38][0].apply(exports,arguments)
 },{"dup":38}],98:[function(require,module,exports){
 arguments[4][39][0].apply(exports,arguments)
 },{"dup":39}],99:[function(require,module,exports){
-arguments[4][2][0].apply(exports,arguments)
-},{"./coinbase-account":100,"./credit-card":101,"./europe-bank-account":102,"./normalize-api-fields":106,"./parse-client-token":107,"./paypal-account":108,"./request-driver":110,"./sepa-mandate":111,"./util":112,"braintree-3ds":121,"braintree-utilities":133,"dup":2}],100:[function(require,module,exports){
+(function (global){
+'use strict';
+
+var braintreeUtils = require('braintree-utilities');
+var braintree3ds = require('braintree-3ds');
+var parseClientToken = require('./parse-client-token');
+var requestDriver = require('./request-driver');
+var util = require('./util');
+var SEPAMandate = require('./sepa-mandate');
+var EuropeBankAccount = require('./europe-bank-account');
+var CreditCard = require('./credit-card');
+var CoinbaseAccount = require('./coinbase-account');
+var PayPalAccount = require('./paypal-account');
+var normalizeCreditCardFields = require('./normalize-api-fields').normalizeCreditCardFields;
+
+function getSdkVersion(parsedClientToken) {
+  var sdkVersion = parsedClientToken.sdkVersion;
+
+  if (!sdkVersion) {
+    if (global.braintree && global.braintree.VERSION) {
+      sdkVersion = 'braintree/web/' + global.braintree.VERSION;
+    } else {
+      sdkVersion = '';
+    }
+  }
+
+  return sdkVersion;
+}
+
+function Client(options) {
+  var parsedClientToken, secure3d;
+
+  this.attrs = {};
+
+  if (options.hasOwnProperty('sharedCustomerIdentifier')) {
+    this.attrs.sharedCustomerIdentifier = options.sharedCustomerIdentifier;
+  }
+
+  parsedClientToken = parseClientToken(options.clientToken);
+
+  this.driver = options.driver || requestDriver;
+  this.analyticsUrl = parsedClientToken.analytics ? parsedClientToken.analytics.url : undefined;
+  this.clientApiUrl = parsedClientToken.clientApiUrl;
+  this.customerId = options.customerId;
+  this.challenges = parsedClientToken.challenges;
+  this.integration = options.integration || '';
+  this.sdkVersion = getSdkVersion(parsedClientToken);
+  this.merchantAppId = parsedClientToken.merchantAppId || global.location.host;
+
+  secure3d = braintree3ds.create(this, {
+    container: options.container,
+    clientToken: parsedClientToken
+  });
+  this.verify3DS = braintreeUtils.bind(secure3d.verify, secure3d);
+
+  this.attrs.authorizationFingerprint = parsedClientToken.authorizationFingerprint;
+  this.attrs.sharedCustomerIdentifierType = options.sharedCustomerIdentifierType;
+
+  if (parsedClientToken.merchantAccountId) {
+    this.attrs.merchantAccountId = parsedClientToken.merchantAccountId;
+  }
+
+  if (options.hasOwnProperty('timeout')) {
+    this.requestTimeout = options.timeout;
+  } else {
+    this.requestTimeout = 60000;
+  }
+}
+
+Client.prototype.getCreditCards = function (callback) {
+  this.driver.get(
+    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods']),
+    this.attrs,
+    function (d) {
+      var i = 0;
+      var len = d.paymentMethods.length;
+      var creditCards = [];
+
+      for (i; i < len; i++) {
+        creditCards.push(new CreditCard(d.paymentMethods[i]));
+      }
+
+      return creditCards;
+    },
+    callback,
+    this.requestTimeout
+  );
+};
+
+Client.prototype.tokenizeCoinbase = function (attrs, callback) {
+  attrs.options = { validate: false };
+  this.addCoinbase(attrs, function (err, result) {
+    if (err) {
+      callback(err, null);
+    } else if (result && result.nonce) {
+      callback(err, result);
+    } else {
+      callback('Unable to tokenize coinbase account.', null);
+    }
+  });
+};
+
+Client.prototype.tokenizePayPalAccount = function (attrs, callback) {
+  this.addPayPalAccount(attrs, function (err, result) {
+    if (err) {
+      callback(err, null);
+    } else if (result && result.nonce) {
+      callback(null, result);
+    } else {
+      callback('Unable to tokenize paypal account.', null);
+    }
+  });
+};
+
+Client.prototype.tokenizeCard = function (attrs, callback) {
+  attrs.options = { validate: false };
+  this.addCreditCard(attrs, function (err, result) {
+    if (result && result.nonce) {
+      callback(err, result.nonce, {type: result.type, details: result.details});
+    } else {
+      callback('Unable to tokenize card.', null);
+    }
+  });
+};
+
+Client.prototype.lookup3DS = function (attrs, callback) {
+  var url = util.joinUrlFragments([this.clientApiUrl, 'v1/payment_methods', attrs.nonce, 'three_d_secure/lookup']);
+  var mergedAttrs = util.mergeOptions(this.attrs, {amount: attrs.amount});
+  this.driver.post(url, mergedAttrs, function (d) {
+      return d;
+    },
+    callback,
+    this.requestTimeout
+  );
+};
+
+Client.prototype.createSEPAMandate = function (attrs, callback) {
+  var mergedAttrs = util.mergeOptions(this.attrs, {sepaMandate: attrs});
+  this.driver.post(
+    util.joinUrlFragments([this.clientApiUrl, 'v1', 'sepa_mandates.json']),
+    mergedAttrs,
+    function (d) { return {sepaMandate: new SEPAMandate(d.europeBankAccounts[0].sepaMandates[0]), sepaBankAccount: new EuropeBankAccount(d.europeBankAccounts[0])}; },
+    callback,
+    this.requestTimeout
+  );
+};
+
+Client.prototype.addCoinbase = function (attrs, callback) {
+  var mergedAttrs;
+  delete attrs.share;
+
+  mergedAttrs = util.mergeOptions(this.attrs, {
+    coinbaseAccount: attrs,
+    _meta: {
+      integration: this.integration || 'custom',
+      source: 'coinbase'
+    }
+  });
+
+  this.driver.post(
+    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods/coinbase_accounts']),
+    mergedAttrs,
+    function (d) {
+      return new CoinbaseAccount(d.coinbaseAccounts[0]);
+    },
+    callback,
+    this.requestTimeout
+  );
+};
+
+Client.prototype.addPayPalAccount = function (attrs, callback) {
+  var mergedAttrs;
+  delete attrs.share;
+
+  mergedAttrs = util.mergeOptions(this.attrs, {
+    paypalAccount: attrs,
+    _meta: {
+      integration: this.integration || 'paypal',
+      source: 'paypal'
+    }
+  });
+
+  this.driver.post(
+    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods', 'paypal_accounts']),
+    mergedAttrs,
+    function (d) {
+      return new PayPalAccount(d.paypalAccounts[0]);
+    },
+    callback,
+    this.requestTimeout
+  );
+};
+
+Client.prototype.addCreditCard = function (attrs, callback) {
+  var mergedAttrs, creditCard;
+  var share = attrs.share;
+  delete attrs.share;
+
+  creditCard = normalizeCreditCardFields(attrs);
+
+  mergedAttrs = util.mergeOptions(this.attrs, {
+    share: share,
+    creditCard: creditCard,
+    _meta: {
+      integration: this.integration || 'custom',
+      source: 'form'
+    }
+  });
+
+  this.driver.post(
+    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods/credit_cards']),
+    mergedAttrs,
+    function (d) {
+      return new CreditCard(d.creditCards[0]);
+    },
+    callback,
+    this.requestTimeout
+  );
+};
+
+Client.prototype.unlockCreditCard = function (creditCard, params, callback) {
+  var attrs = util.mergeOptions(this.attrs, {challengeResponses: params});
+  this.driver.put(
+    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods/', creditCard.nonce]),
+    attrs,
+    function (d) { return new CreditCard(d.paymentMethods[0]); },
+    callback,
+    this.requestTimeout
+  );
+};
+
+Client.prototype.sendAnalyticsEvents = function (events, callback) {
+  var attrs, event;
+  var url = this.analyticsUrl;
+  var eventObjects = [];
+  events = util.isArray(events) ? events : [events];
+
+  if (!url) {
+    if (callback) {
+      callback.apply(null, [null, {}]);
+    }
+    return;
+  }
+
+  for (event in events) {
+    if (events.hasOwnProperty(event)) {
+      eventObjects.push({ kind: events[event] });
+    }
+  }
+
+  attrs = util.mergeOptions(this.attrs, {
+    /*eslint-disable */
+    braintree_library_version: this.sdkVersion,
+    /*eslint-ensable */
+    analytics: eventObjects,
+    _meta: {
+      merchantAppId: this.merchantAppId,
+      platform: 'web',
+      platformVersion: global.navigator.userAgent,
+      integrationType: this.integration,
+      sdkVersion: this.sdkVersion
+    }
+  });
+
+  this.driver.post(url, attrs, function (d) { return d; }, callback, this.requestTimeout);
+};
+
+Client.prototype.decryptBrowserswitchPayload = function (encryptedPayload, callback) {
+  var attrs = util.mergeOptions(this.attrs, {asymmetric_encrypted_payload: encryptedPayload});
+  var url = util.joinUrlFragments([this.clientApiUrl, '/v1/paypal_browser_switch/decrypt']);
+  this.driver.post(
+    url,
+    attrs,
+    function (d) { return d; },
+    callback,
+    this.requestTimeout
+  );
+};
+
+Client.prototype.encryptBrowserswitchReturnPayload = function(payload, aesKey, callback) {
+  var attrs = util.mergeOptions(this.attrs, {
+    payload: payload,
+    aesKey: aesKey
+  });
+  var url = util.joinUrlFragments([this.clientApiUrl, '/v1/paypal_browser_switch/encrypt']);
+  this.driver.post(
+    url,
+    attrs,
+    function (d) { return d; },
+    callback,
+    this.requestTimeout
+  );
+};
+
+Client.prototype.exchangePaypalTokenForConsentCode = function (tokensObj, callback) {
+  var attrs = util.mergeOptions(this.attrs, tokensObj);
+  if (this.attrs.merchantAccountId) {
+    attrs.merchant_account_id = this.attrs.merchantAccountId;
+  }
+  var url = util.joinUrlFragments([this.clientApiUrl, '/v1/paypal_account_service/merchant_consent']);
+  this.driver.post(
+    url,
+    attrs,
+    function (d) { return d; },
+    callback,
+    this.requestTimeout
+  );
+};
+
+module.exports = Client;
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./coinbase-account":100,"./credit-card":101,"./europe-bank-account":102,"./normalize-api-fields":106,"./parse-client-token":107,"./paypal-account":108,"./request-driver":110,"./sepa-mandate":111,"./util":112,"braintree-3ds":121,"braintree-utilities":133}],100:[function(require,module,exports){
 arguments[4][3][0].apply(exports,arguments)
 },{"dup":3}],101:[function(require,module,exports){
 arguments[4][4][0].apply(exports,arguments)
@@ -6598,7 +6909,7 @@ OverlayView.prototype._pollForPopup = function () {
 module.exports = OverlayView;
 
 },{"../shared/constants":156,"braintree-utilities":151}],156:[function(require,module,exports){
-var version = "1.3.8";
+var version = "1.3.9";
 
 exports.VERSION = version;
 exports.POPUP_NAME = 'braintree_paypal_popup';
@@ -7183,7 +7494,7 @@ var FrameContainer = require('./frame-container');
 var PayPalService = require('../shared/paypal-service');
 var constants = require('../shared/constants');
 var paypalBrowser = require('braintree-paypal/src/shared/util/browser');
-var version = "1.6.0";
+var version = "1.6.1";
 
 function getElementStyle(element, style) {
   var computedStyle = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
@@ -7429,7 +7740,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.6.0";
+var VERSION = "1.6.1";
 
 function create(clientToken, options) {
   var client;
@@ -7936,8 +8247,8 @@ arguments[4][20][0].apply(exports,arguments)
 },{"dup":20}],205:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
 },{"./lib/dom":201,"./lib/events":202,"./lib/fn":203,"./lib/url":204,"dup":21}],206:[function(require,module,exports){
-arguments[4][2][0].apply(exports,arguments)
-},{"./coinbase-account":207,"./credit-card":208,"./europe-bank-account":209,"./normalize-api-fields":213,"./parse-client-token":214,"./paypal-account":215,"./request-driver":217,"./sepa-mandate":218,"./util":219,"braintree-3ds":228,"braintree-utilities":240,"dup":2}],207:[function(require,module,exports){
+arguments[4][99][0].apply(exports,arguments)
+},{"./coinbase-account":207,"./credit-card":208,"./europe-bank-account":209,"./normalize-api-fields":213,"./parse-client-token":214,"./paypal-account":215,"./request-driver":217,"./sepa-mandate":218,"./util":219,"braintree-3ds":228,"braintree-utilities":240,"dup":99}],207:[function(require,module,exports){
 arguments[4][3][0].apply(exports,arguments)
 },{"dup":3}],208:[function(require,module,exports){
 arguments[4][4][0].apply(exports,arguments)
@@ -8046,7 +8357,7 @@ arguments[4][152][0].apply(exports,arguments)
 },{"../shared/constants":264,"../shared/get-locale":266,"../shared/util/browser":271,"../shared/util/dom":272,"../shared/util/util":273,"./logged-in-view":261,"./logged-out-view":262,"./overlay-view":263,"braintree-api":220,"braintree-rpc":246,"braintree-utilities":258,"dup":152}],260:[function(require,module,exports){
 var Client = require('./client');
 var browser = require('../shared/util/browser');
-var VERSION = "1.3.8";
+var VERSION = "1.3.9";
 
 function create(clientToken, options) {
   if (!browser.detectedPostMessage()) {
