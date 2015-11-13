@@ -2744,7 +2744,7 @@ window.Braintree = Braintree;
 (function (global){
 'use strict';
 
-var VERSION = "2.14.1";
+var VERSION = "2.14.2";
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
@@ -7871,7 +7871,7 @@ module.exports = PopupView;
 'use strict';
 
 var i;
-var version = "1.6.2";
+var version = "1.6.3";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
@@ -8547,7 +8547,7 @@ var APIProxyServer = require('./api-proxy-server');
 var MerchantFormManager = require('./merchant-form-manager');
 var FrameContainer = require('./frame-container');
 var constants = require('../shared/constants');
-var version = "1.9.2";
+var version = "1.9.3";
 var PayPalModalView = require('braintree-paypal/src/external/views/app-view');
 
 function getElementStyle(element, style) {
@@ -8843,7 +8843,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.9.2";
+var VERSION = "1.9.3";
 
 function create(options) {
   var client = new Client(options);
@@ -9625,6 +9625,11 @@ Client.prototype.initialize = function () {
     );
   }
 
+  this.bus.on(
+    Bus.events.PAYMENT_METHOD_CANCELLED,
+    braintreeUtil.bind(this._handlePaymentMethodCancelled, this)
+  );
+
   braintreeUtil.addEventListener(document.body, 'click', clickLoginHandler);
 
   this.destructor.registerFunctionForTeardown(function () {
@@ -9735,6 +9740,13 @@ Client.prototype._handlePaymentMethodGenerated = function (bundle) {
   }
 };
 
+Client.prototype._handlePaymentMethodCancelled = function (event) {
+  if (event.source !== constants.PAYPAL_INTEGRATION_NAME) { return; }
+  if (!braintreeUtil.isFunction(this.onCancelled)) { return; }
+
+  this.onCancelled();
+};
+
 Client.prototype._clientTokenData = function () {
   return {
     analyticsUrl: this._clientToken.analytics ?
@@ -9797,7 +9809,7 @@ var constants = require('../shared/constants');
 var getLocale = require('../shared/get-locale');
 var isHermesConfiguration = require('../shared/util/util').isHermesConfiguration;
 var isOneTimeHermesConfiguration = require('../shared/util/util').isOneTimeHermesConfiguration;
-var VERSION = "1.6.2";
+var VERSION = "1.6.3";
 var braintreeUtil = require('braintree-utilities');
 var braintreeApi = require('braintree-api');
 
@@ -12534,10 +12546,9 @@ CustomIntegration.prototype._setupPayPal = function () {
     );
   };
 
-  paypalConfiguration.onCancelled = utils.bind(function () {
-    this.bus.emit(Bus.events.PAYMENT_METHOD_CANCELLED); // eslint-disable-line no-invalid-this
+  paypalConfiguration.onCancelled = function () {
     legacyPaypalCancelledCallback();
-  }, this);
+  };
 
   if (merchantConfiguration.enableCORS) {
     paypalConfiguration.enableCORS = true;
