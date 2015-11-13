@@ -2745,7 +2745,7 @@ window.Braintree = Braintree;
 'use strict';
 /* eslint no-console: 0 */
 
-var VERSION = "2.7.4";
+var VERSION = "2.8.0";
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
@@ -6598,7 +6598,7 @@ OverlayView.prototype._pollForPopup = function () {
 module.exports = OverlayView;
 
 },{"../shared/constants":156,"braintree-utilities":151}],156:[function(require,module,exports){
-var version = "1.3.7";
+var version = "1.3.8";
 
 exports.VERSION = version;
 exports.POPUP_NAME = 'braintree_paypal_popup';
@@ -7183,7 +7183,7 @@ var FrameContainer = require('./frame-container');
 var PayPalService = require('../shared/paypal-service');
 var constants = require('../shared/constants');
 var paypalBrowser = require('braintree-paypal/src/shared/util/browser');
-var version = "1.5.1";
+var version = "1.6.0";
 
 function getElementStyle(element, style) {
   var computedStyle = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
@@ -7429,7 +7429,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.5.1";
+var VERSION = "1.6.0";
 
 function create(clientToken, options) {
   var client;
@@ -7600,14 +7600,26 @@ MerchantFormManager.prototype._triggerFormSubmission = function () {
 module.exports = MerchantFormManager;
 
 },{"braintree-utilities":183,"form-napper":184}],190:[function(require,module,exports){
-'use strict';
-
-module.exports = {
-  PAYPAL_INTEGRATION_NAME: 'PayPal',
-  INLINE_FRAME_NAME: 'braintree-dropin-frame',
-  MODAL_FRAME_NAME: 'braintree-dropin-modal-frame',
-  PAYMENT_METHOD_TYPES: ['CoinbaseAccount', 'PayPalAccount', 'CreditCard']
-};
+module.exports={
+  "PAYPAL_INTEGRATION_NAME": "PayPal",
+  "INLINE_FRAME_NAME": "braintree-dropin-frame",
+  "MODAL_FRAME_NAME": "braintree-dropin-modal-frame",
+  "PAYMENT_METHOD_TYPES": ["CoinbaseAccount", "PayPalAccount", "CreditCard"],
+  "cssClassMap": {
+    "American Express": "american-express",
+    "Diners Club": "diners-club",
+    "DinersClub": "diners-club",
+    "Discover": "discover",
+    "JCB": "jcb",
+    "Maestro": "maestro",
+    "MasterCard": "master-card",
+    "Solo": "solo",
+    "Switch": "switch",
+    "UKMaestro": "maestro",
+    "UnionPay": "unionpay",
+    "Visa": "visa"
+  }
+}
 
 },{}],191:[function(require,module,exports){
 'use strict';
@@ -8034,7 +8046,7 @@ arguments[4][152][0].apply(exports,arguments)
 },{"../shared/constants":264,"../shared/get-locale":266,"../shared/util/browser":271,"../shared/util/dom":272,"../shared/util/util":273,"./logged-in-view":261,"./logged-out-view":262,"./overlay-view":263,"braintree-api":220,"braintree-rpc":246,"braintree-utilities":258,"dup":152}],260:[function(require,module,exports){
 var Client = require('./client');
 var browser = require('../shared/util/browser');
-var VERSION = "1.3.7";
+var VERSION = "1.3.8";
 
 function create(clientToken, options) {
   if (!browser.detectedPostMessage()) {
