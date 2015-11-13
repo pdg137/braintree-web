@@ -2745,7 +2745,7 @@ window.Braintree = Braintree;
 'use strict';
 /* eslint no-console: 0 */
 
-var VERSION = "2.7.2";
+var VERSION = "2.7.3";
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
@@ -2835,7 +2835,7 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./constants":269,"./integrations":273,"./lib/dependency-ready":275,"./lib/sanitize-payload":276,"braintree-api":16,"braintree-bus":34,"braintree-dropin":177,"braintree-form":187,"braintree-paypal":247,"braintree-utilities":267}],2:[function(require,module,exports){
+},{"./constants":281,"./integrations":285,"./lib/dependency-ready":287,"./lib/sanitize-payload":288,"braintree-api":16,"braintree-bus":37,"braintree-dropin":186,"braintree-form":196,"braintree-paypal":259,"braintree-utilities":279}],2:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -3104,10 +3104,52 @@ Client.prototype.sendAnalyticsEvents = function (events, callback) {
   this.driver.post(url, attrs, function (d) { return d; }, callback, this.requestTimeout);
 };
 
+Client.prototype.decryptBrowserswitchPayload = function (encryptedPayload, callback) {
+  var attrs = util.mergeOptions(this.attrs, {asymmetric_encrypted_payload: encryptedPayload});
+  var url = util.joinUrlFragments([this.clientApiUrl, '/v1/paypal_browser_switch/decrypt']);
+  this.driver.post(
+    url,
+    attrs,
+    function (d) { return d; },
+    callback,
+    this.requestTimeout
+  );
+};
+
+Client.prototype.encryptBrowserswitchReturnPayload = function(payload, aesKey, callback) {
+  var attrs = util.mergeOptions(this.attrs, {
+    payload: payload,
+    aesKey: aesKey
+  });
+  var url = util.joinUrlFragments([this.clientApiUrl, '/v1/paypal_browser_switch/encrypt']);
+  this.driver.post(
+    url,
+    attrs,
+    function (d) { return d; },
+    callback,
+    this.requestTimeout
+  );
+};
+
+Client.prototype.exchangePaypalTokenForConsentCode = function (tokensObj, callback) {
+  var attrs = util.mergeOptions(this.attrs, tokensObj);
+  if (this.attrs.merchantAccountId) {
+    attrs.merchant_account_id = this.attrs.merchantAccountId;
+  }
+  var url = util.joinUrlFragments([this.clientApiUrl, '/v1/paypal_account_service/merchant_consent']);
+  this.driver.post(
+    url,
+    attrs,
+    function (d) { return d; },
+    callback,
+    this.requestTimeout
+  );
+};
+
 module.exports = Client;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./coinbase-account":3,"./credit-card":4,"./europe-bank-account":5,"./normalize-api-fields":9,"./parse-client-token":10,"./paypal-account":11,"./request-driver":13,"./sepa-mandate":14,"./util":15,"braintree-3ds":24,"braintree-utilities":33}],3:[function(require,module,exports){
+},{"./coinbase-account":3,"./credit-card":4,"./europe-bank-account":5,"./normalize-api-fields":9,"./parse-client-token":10,"./paypal-account":11,"./request-driver":13,"./sepa-mandate":14,"./util":15,"braintree-3ds":24,"braintree-utilities":36}],3:[function(require,module,exports){
 'use strict';
 
 var ATTRIBUTES = [
@@ -3448,7 +3490,7 @@ function parseClientToken(rawClientToken) {
 
 module.exports = parseClientToken;
 
-},{"./polyfill":12,"braintree-utilities":33}],11:[function(require,module,exports){
+},{"./polyfill":12,"braintree-utilities":36}],11:[function(require,module,exports){
 'use strict';
 
 var ATTRIBUTES = [
@@ -3777,7 +3819,7 @@ module.exports = {
 
 var utils = require('braintree-utilities');
 var Receiver = require('../shared/receiver');
-var version = "1.2.0";
+var version = "1.3.0";
 
 var htmlNode, bodyNode;
 
@@ -3907,11 +3949,12 @@ AuthenticationService.prototype.constructAuthorizationURL = function (response) 
 
 module.exports = AuthenticationService;
 
-},{"../shared/receiver":26,"braintree-utilities":21}],23:[function(require,module,exports){
+},{"../shared/receiver":29,"braintree-utilities":21}],23:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
 var AuthenticationService = require('./authorization_service');
+var Loader = require('./loader');
 
 function noop() {}
 
@@ -3922,6 +3965,7 @@ function Client(api, options) {
   this.api = api;
   this.nonce = null;
 
+  this._loader = null;
   this._boundHandleUserClose = utils.bind(this._handleUserClose, this);
 }
 
@@ -3932,6 +3976,12 @@ Client.prototype.verify = function (data, callback) {
   }
   if (utils.isFunction(data.onUserClose)) {
     this._onUserClose = data.onUserClose;
+  }
+  if (utils.isFunction(data.onLookupComplete)) {
+    this._onLookupComplete = data.onLookupComplete;
+  }
+  if (data.useDefaultLoader === undefined || data.useDefaultLoader === true) {
+    this._createDefaultLoader();
   }
 
   var dataRecord = {nonce: '', amount: data.amount};
@@ -3945,6 +3995,8 @@ Client.prototype.verify = function (data, callback) {
     var self = this;
     var boundHandleTokenizeCard = function (err, nonce) {
       if (err) {
+        self._removeDefaultLoader();
+
         return callback(err);
       }
       dataRecord.nonce = nonce;
@@ -3963,6 +4015,9 @@ Client.prototype.handleLookupResponse = function (merchantCallback) {
   var self = this;
   return function (errorResponse, lookupResponse) {
     var authenticationService;
+
+    this._onLookupComplete();
+
     if (errorResponse) {
       merchantCallback(errorResponse.error);
     } else if (lookupResponse.lookup && lookupResponse.lookup.acsUrl && lookupResponse.lookup.acsUrl.length > 0) {
@@ -4017,6 +4072,28 @@ Client.prototype._detachListeners = function () {
   utils.removeEventListener(window, 'message', this._boundHandleUserClose);
 };
 
+Client.prototype._createDefaultLoader = function () {
+  this._loader = new Loader();
+
+  document.body.appendChild(this._loader.getElement());
+};
+
+Client.prototype._removeDefaultLoader = function () {
+  if (!this._loader) {
+    return;
+  }
+
+  var loaderElement = this._loader.getElement();
+  var parentElement = loaderElement.parentNode;
+
+  if (parentElement) {
+    parentElement.removeChild(loaderElement);
+  }
+
+  this._loader.dispose();
+  this._loader = null;
+};
+
 Client.prototype._handleUserClose = function (event) {
   if (event.data === 'user_closed=true') {
     this._onUserClose();
@@ -4025,13 +4102,16 @@ Client.prototype._handleUserClose = function (event) {
 
 Client.prototype._onUserClose = noop;
 
+Client.prototype._onLookupComplete = function () {
+  this._removeDefaultLoader();
+};
+
 module.exports = Client;
 
-},{"./authorization_service":22,"braintree-utilities":21}],24:[function(require,module,exports){
+},{"./authorization_service":22,"./loader":25,"braintree-utilities":21}],24:[function(require,module,exports){
 'use strict';
 
 var Client = require('./client');
-require('./vendor/json2');
 
 module.exports = {
   create: function (clientToken, options) {
@@ -4040,495 +4120,166 @@ module.exports = {
   }
 };
 
-},{"./client":23,"./vendor/json2":25}],25:[function(require,module,exports){
-/*
-    json2.js
-    2013-05-26
+},{"./client":23}],25:[function(require,module,exports){
+'use strict';
 
-    Public Domain.
+var LoaderDisplay = require('./loader_display');
+var LoaderMessage = require('./loader_message');
+var LoaderSpinner = require('./loader_spinner');
 
-    NO WARRANTY EXPRESSED OR IMPLIED. USE AT YOUR OWN RISK.
+function Loader() {
+  this._element = document.createElement('div');
+  this._element.style.cssText = this._cssDeclarations;
 
-    See http://www.JSON.org/js.html
+  this._display = null;
 
-
-    This code should be minified before deployment.
-    See http://javascript.crockford.com/jsmin.html
-
-    USE YOUR OWN COPY. IT IS EXTREMELY UNWISE TO LOAD CODE FROM SERVERS YOU DO
-    NOT CONTROL.
-
-
-    This file creates a global JSON object containing two methods: stringify
-    and parse.
-
-        JSON.stringify(value, replacer, space)
-            value       any JavaScript value, usually an object or array.
-
-            replacer    an optional parameter that determines how object
-                        values are stringified for objects. It can be a
-                        function or an array of strings.
-
-            space       an optional parameter that specifies the indentation
-                        of nested structures. If it is omitted, the text will
-                        be packed without extra whitespace. If it is a number,
-                        it will specify the number of spaces to indent at each
-                        level. If it is a string (such as '\t' or '&nbsp;'),
-                        it contains the characters used to indent at each level.
-
-            This method produces a JSON text from a JavaScript value.
-
-            When an object value is found, if the object contains a toJSON
-            method, its toJSON method will be called and the result will be
-            stringified. A toJSON method does not serialize: it returns the
-            value represented by the name/value pair that should be serialized,
-            or undefined if nothing should be serialized. The toJSON method
-            will be passed the key associated with the value, and this will be
-            bound to the value
-
-            For example, this would serialize Dates as ISO strings.
-
-                Date.prototype.toJSON = function (key) {
-                    function f(n) {
-                        // Format integers to have at least two digits.
-                        return n < 10 ? '0' + n : n;
-                    }
-
-                    return this.getUTCFullYear()   + '-' +
-                         f(this.getUTCMonth() + 1) + '-' +
-                         f(this.getUTCDate())      + 'T' +
-                         f(this.getUTCHours())     + ':' +
-                         f(this.getUTCMinutes())   + ':' +
-                         f(this.getUTCSeconds())   + 'Z';
-                };
-
-            You can provide an optional replacer method. It will be passed the
-            key and value of each member, with this bound to the containing
-            object. The value that is returned from your method will be
-            serialized. If your method returns undefined, then the member will
-            be excluded from the serialization.
-
-            If the replacer parameter is an array of strings, then it will be
-            used to select the members to be serialized. It filters the results
-            such that only members with keys listed in the replacer array are
-            stringified.
-
-            Values that do not have JSON representations, such as undefined or
-            functions, will not be serialized. Such values in objects will be
-            dropped; in arrays they will be replaced with null. You can use
-            a replacer function to replace those with JSON values.
-            JSON.stringify(undefined) returns undefined.
-
-            The optional space parameter produces a stringification of the
-            value that is filled with line breaks and indentation to make it
-            easier to read.
-
-            If the space parameter is a non-empty string, then that string will
-            be used for indentation. If the space parameter is a number, then
-            the indentation will be that many spaces.
-
-            Example:
-
-            text = JSON.stringify(['e', {pluribus: 'unum'}]);
-            // text is '["e",{"pluribus":"unum"}]'
-
-
-            text = JSON.stringify(['e', {pluribus: 'unum'}], null, '\t');
-            // text is '[\n\t"e",\n\t{\n\t\t"pluribus": "unum"\n\t}\n]'
-
-            text = JSON.stringify([new Date()], function (key, value) {
-                return this[key] instanceof Date ?
-                    'Date(' + this[key] + ')' : value;
-            });
-            // text is '["Date(---current time---)"]'
-
-
-        JSON.parse(text, reviver)
-            This method parses a JSON text to produce an object or array.
-            It can throw a SyntaxError exception.
-
-            The optional reviver parameter is a function that can filter and
-            transform the results. It receives each of the keys and values,
-            and its return value is used instead of the original value.
-            If it returns what it received, then the structure is not modified.
-            If it returns undefined then the member is deleted.
-
-            Example:
-
-            // Parse the text. Values that look like ISO date strings will
-            // be converted to Date objects.
-
-            myData = JSON.parse(text, function (key, value) {
-                var a;
-                if (typeof value === 'string') {
-                    a =
-/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$/.exec(value);
-                    if (a) {
-                        return new Date(Date.UTC(+a[1], +a[2] - 1, +a[3], +a[4],
-                            +a[5], +a[6]));
-                    }
-                }
-                return value;
-            });
-
-            myData = JSON.parse('["Date(09/09/2001)"]', function (key, value) {
-                var d;
-                if (typeof value === 'string' &&
-                        value.slice(0, 5) === 'Date(' &&
-                        value.slice(-1) === ')') {
-                    d = new Date(value.slice(5, -1));
-                    if (d) {
-                        return d;
-                    }
-                }
-                return value;
-            });
-
-
-    This is a reference implementation. You are free to copy, modify, or
-    redistribute.
-*/
-
-/*jslint evil: true, regexp: true */
-
-/*members "", "\b", "\t", "\n", "\f", "\r", "\"", JSON, "\\", apply,
-    call, charCodeAt, getUTCDate, getUTCFullYear, getUTCHours,
-    getUTCMinutes, getUTCMonth, getUTCSeconds, hasOwnProperty, join,
-    lastIndex, length, parse, prototype, push, replace, slice, stringify,
-    test, toJSON, toString, valueOf
-*/
-
-
-// Create a JSON object only if one does not already exist. We create the
-// methods in a closure to avoid creating global variables.
-
-if (typeof JSON !== 'object') {
-    JSON = {};
+  this._initialize();
 }
 
-(function () {
-    'use strict';
-
-    function f(n) {
-        // Format integers to have at least two digits.
-        return n < 10 ? '0' + n : n;
-    }
-
-    if (typeof Date.prototype.toJSON !== 'function') {
-
-        Date.prototype.toJSON = function () {
-
-            return isFinite(this.valueOf())
-                ? this.getUTCFullYear()     + '-' +
-                    f(this.getUTCMonth() + 1) + '-' +
-                    f(this.getUTCDate())      + 'T' +
-                    f(this.getUTCHours())     + ':' +
-                    f(this.getUTCMinutes())   + ':' +
-                    f(this.getUTCSeconds())   + 'Z'
-                : null;
-        };
-
-        String.prototype.toJSON      =
-            Number.prototype.toJSON  =
-            Boolean.prototype.toJSON = function () {
-                return this.valueOf();
-            };
-    }
-
-    var cx = /[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
-        escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
-        gap,
-        indent,
-        meta = {    // table of character substitutions
-            '\b': '\\b',
-            '\t': '\\t',
-            '\n': '\\n',
-            '\f': '\\f',
-            '\r': '\\r',
-            '"' : '\\"',
-            '\\': '\\\\'
-        },
-        rep;
-
-
-    function quote(string) {
-
-// If the string contains no control characters, no quote characters, and no
-// backslash characters, then we can safely slap some quotes around it.
-// Otherwise we must also replace the offending characters with safe escape
-// sequences.
-
-        escapable.lastIndex = 0;
-        return escapable.test(string) ? '"' + string.replace(escapable, function (a) {
-            var c = meta[a];
-            return typeof c === 'string'
-                ? c
-                : '\\u' + ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
-        }) + '"' : '"' + string + '"';
-    }
-
-
-    function str(key, holder) {
-
-// Produce a string from holder[key].
-
-        var i,          // The loop counter.
-            k,          // The member key.
-            v,          // The member value.
-            length,
-            mind = gap,
-            partial,
-            value = holder[key];
-
-// If the value has a toJSON method, call it to obtain a replacement value.
-
-        if (value && typeof value === 'object' &&
-                typeof value.toJSON === 'function') {
-            value = value.toJSON(key);
-        }
-
-// If we were called with a replacer function, then call the replacer to
-// obtain a replacement value.
-
-        if (typeof rep === 'function') {
-            value = rep.call(holder, key, value);
-        }
-
-// What happens next depends on the value's type.
-
-        switch (typeof value) {
-        case 'string':
-            return quote(value);
-
-        case 'number':
-
-// JSON numbers must be finite. Encode non-finite numbers as null.
-
-            return isFinite(value) ? String(value) : 'null';
-
-        case 'boolean':
-        case 'null':
-
-// If the value is a boolean or null, convert it to a string. Note:
-// typeof null does not produce 'null'. The case is included here in
-// the remote chance that this gets fixed someday.
-
-            return String(value);
-
-// If the type is 'object', we might be dealing with an object or an array or
-// null.
-
-        case 'object':
-
-// Due to a specification blunder in ECMAScript, typeof null is 'object',
-// so watch out for that case.
-
-            if (!value) {
-                return 'null';
-            }
-
-// Make an array to hold the partial results of stringifying this object value.
-
-            gap += indent;
-            partial = [];
-
-// Is the value an array?
-
-            if (Object.prototype.toString.apply(value) === '[object Array]') {
-
-// The value is an array. Stringify every element. Use null as a placeholder
-// for non-JSON values.
-
-                length = value.length;
-                for (i = 0; i < length; i += 1) {
-                    partial[i] = str(i, value) || 'null';
-                }
-
-// Join all of the elements together, separated with commas, and wrap them in
-// brackets.
-
-                v = partial.length === 0
-                    ? '[]'
-                    : gap
-                    ? '[\n' + gap + partial.join(',\n' + gap) + '\n' + mind + ']'
-                    : '[' + partial.join(',') + ']';
-                gap = mind;
-                return v;
-            }
-
-// If the replacer is an array, use it to select the members to be stringified.
-
-            if (rep && typeof rep === 'object') {
-                length = rep.length;
-                for (i = 0; i < length; i += 1) {
-                    if (typeof rep[i] === 'string') {
-                        k = rep[i];
-                        v = str(k, value);
-                        if (v) {
-                            partial.push(quote(k) + (gap ? ': ' : ':') + v);
-                        }
-                    }
-                }
-            } else {
-
-// Otherwise, iterate through all of the keys in the object.
-
-                for (k in value) {
-                    if (Object.prototype.hasOwnProperty.call(value, k)) {
-                        v = str(k, value);
-                        if (v) {
-                            partial.push(quote(k) + (gap ? ': ' : ':') + v);
-                        }
-                    }
-                }
-            }
-
-// Join all of the member texts together, separated with commas,
-// and wrap them in braces.
-
-            v = partial.length === 0
-                ? '{}'
-                : gap
-                ? '{\n' + gap + partial.join(',\n' + gap) + '\n' + mind + '}'
-                : '{' + partial.join(',') + '}';
-            gap = mind;
-            return v;
-        }
-    }
-
-// If the JSON object does not yet have a stringify method, give it one.
-
-    if (typeof JSON.stringify !== 'function') {
-        JSON.stringify = function (value, replacer, space) {
-
-// The stringify method takes a value and an optional replacer, and an optional
-// space parameter, and returns a JSON text. The replacer can be a function
-// that can replace values, or an array of strings that will select the keys.
-// A default replacer method can be provided. Use of the space parameter can
-// produce text that is more easily readable.
-
-            var i;
-            gap = '';
-            indent = '';
-
-// If the space parameter is a number, make an indent string containing that
-// many spaces.
-
-            if (typeof space === 'number') {
-                for (i = 0; i < space; i += 1) {
-                    indent += ' ';
-                }
-
-// If the space parameter is a string, it will be used as the indent string.
-
-            } else if (typeof space === 'string') {
-                indent = space;
-            }
-
-// If there is a replacer, it must be a function or an array.
-// Otherwise, throw an error.
-
-            rep = replacer;
-            if (replacer && typeof replacer !== 'function' &&
-                    (typeof replacer !== 'object' ||
-                    typeof replacer.length !== 'number')) {
-                throw new Error('JSON.stringify');
-            }
-
-// Make a fake root object containing our value under the key of ''.
-// Return the result of stringifying the value.
-
-            return str('', {'': value});
-        };
-    }
-
-
-// If the JSON object does not yet have a parse method, give it one.
-
-    if (typeof JSON.parse !== 'function') {
-        JSON.parse = function (text, reviver) {
-
-// The parse method takes a text and an optional reviver function, and returns
-// a JavaScript value if the text is a valid JSON text.
-
-            var j;
-
-            function walk(holder, key) {
-
-// The walk method is used to recursively walk the resulting structure so
-// that modifications can be made.
-
-                var k, v, value = holder[key];
-                if (value && typeof value === 'object') {
-                    for (k in value) {
-                        if (Object.prototype.hasOwnProperty.call(value, k)) {
-                            v = walk(value, k);
-                            if (v !== undefined) {
-                                value[k] = v;
-                            } else {
-                                delete value[k];
-                            }
-                        }
-                    }
-                }
-                return reviver.call(holder, key, value);
-            }
-
-
-// Parsing happens in four stages. In the first stage, we replace certain
-// Unicode characters with escape sequences. JavaScript handles many characters
-// incorrectly, either silently deleting them, or treating them as line endings.
-
-            text = String(text);
-            cx.lastIndex = 0;
-            if (cx.test(text)) {
-                text = text.replace(cx, function (a) {
-                    return '\\u' +
-                        ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
-                });
-            }
-
-// In the second stage, we run the text against regular expressions that look
-// for non-JSON patterns. We are especially concerned with '()' and 'new'
-// because they can cause invocation, and '=' because it can cause mutation.
-// But just to be safe, we want to reject all unexpected forms.
-
-// We split the second stage into 4 regexp operations in order to work around
-// crippling inefficiencies in IE's and Safari's regexp engines. First we
-// replace the JSON backslash pairs with '@' (a non-JSON character). Second, we
-// replace all simple value tokens with ']' characters. Third, we delete all
-// open brackets that follow a colon or comma or that begin the text. Finally,
-// we look to see that the remaining characters are only whitespace or ']' or
-// ',' or ':' or '{' or '}'. If that is so, then the text is safe for eval.
-
-            if (/^[\],:{}\s]*$/
-                    .test(text.replace(/\\(?:["\\\/bfnrt]|u[0-9a-fA-F]{4})/g, '@')
-                        .replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, ']')
-                        .replace(/(?:^|:|,)(?:\s*\[)+/g, ''))) {
-
-// In the third stage we use the eval function to compile the text into a
-// JavaScript structure. The '{' operator is subject to a syntactic ambiguity
-// in JavaScript: it can begin a block or an object literal. We wrap the text
-// in parens to eliminate the ambiguity.
-
-                j = eval('(' + text + ')');
-
-// In the optional fourth stage, we recursively walk the new structure, passing
-// each name/value pair to a reviver function for possible transformation.
-
-                return typeof reviver === 'function'
-                    ? walk({'': j}, '')
-                    : j;
-            }
-
-// If the text is not JSON parseable, then a SyntaxError is thrown.
-
-            throw new SyntaxError('JSON.parse');
-        };
-    }
-}());
-
-},{}],26:[function(require,module,exports){
+Loader.prototype._cssDeclarations = [
+  'filter:progid:DXImageTransform.Microsoft.Gradient(StartColorStr=#7F000000, EndColorStr=#7F000000)',
+  'background-color: rgba(0, 0, 0, 0.5)',
+  'display: table',
+  'height: 100%',
+  'left: 0',
+  'position: fixed',
+  'right: 0',
+  'top: 0',
+  'width: 100%',
+  'z-index: 99999'
+].join(';');
+
+Loader.prototype.getElement = function () {
+  return this._element;
+};
+
+Loader.prototype.dispose = function () {
+  this._display.dispose();
+  this._display = null;
+
+  this._element = null;
+};
+
+Loader.prototype._initialize = function () {
+  var displayObject = new LoaderSpinner();
+  var supportsSvgAnimations = (window.SVGElement && window.SVGAnimateElement &&
+                               window.SVGAnimateTransformElement);
+
+  if (!(supportsSvgAnimations)) {
+    displayObject = new LoaderMessage('Loading...');
+  }
+
+  this._display = new LoaderDisplay(displayObject);
+  this.getElement().appendChild(this._display.getElement());
+};
+
+module.exports = Loader;
+
+},{"./loader_display":26,"./loader_message":27,"./loader_spinner":28}],26:[function(require,module,exports){
+'use strict';
+
+function LoaderDisplay(displayObject) {
+  this._element = document.createElement('div');
+  this._element.style.cssText = this._cssDeclarations;
+
+  this._displayObject = displayObject;
+
+  this._initialize();
+}
+
+LoaderDisplay.prototype._cssDeclarations = [
+  'display: table-cell',
+  'vertical-align: middle'
+].join(';');
+
+LoaderDisplay.prototype.getElement = function () {
+  return this._element;
+};
+
+LoaderDisplay.prototype.dispose = function () {
+  this._displayObject.dispose();
+  this._displayObject = null;
+
+  this._element = null;
+};
+
+LoaderDisplay.prototype._initialize = function () {
+  this.getElement().appendChild(this._displayObject.getElement());
+};
+
+module.exports = LoaderDisplay;
+
+},{}],27:[function(require,module,exports){
+'use strict';
+
+function LoaderMessage(text) {
+  this._element = document.createElement('div');
+  this._element.style.cssText = this._cssDeclarations;
+  this._element.innerHTML = text;
+}
+
+LoaderMessage.prototype._cssDeclarations = [
+  'color: #fff',
+  'font-family: Helvetica, sans-serif',
+  'font-size: 12px',
+  'text-align: center'
+].join(';');
+
+LoaderMessage.prototype.getElement = function () {
+  return this._element;
+};
+
+LoaderMessage.prototype.dispose = function () {
+  this._element = null;
+};
+
+module.exports = LoaderMessage;
+
+},{}],28:[function(require,module,exports){
+'use strict';
+
+function LoaderSpinner() {
+  this._element = document.createElement('div');
+  this._element.style.cssText = this._cssDeclarations;
+  this._element.innerHTML = this._markup;
+}
+
+LoaderSpinner.prototype._cssDeclarations = [
+  'height: 36px',
+  'margin-left: auto',
+  'margin-right: auto',
+  'width: 36px'
+].join(';');
+
+LoaderSpinner.prototype._markup = [
+  '<svg version="1.1" id="loader-1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"',
+  'width="100%" height="100%" viewBox="0 0 50 50" style="enable-background:new 0 0 50 50;" xml:space="preserve">',
+  '  <path fill="#FFF" d="M43.935,25.145c0-10.318-8.364-18.683-18.683-18.683c-10.318,0-18.683,8.365-18.683,18.683h4.068c0-8.071,6.543-14.615,14.615-14.615c8.072,0,14.615,6.543,14.615,14.615H43.935z">',
+  '    <animateTransform attributeType="xml"',
+  '    attributeName="transform"',
+  '    type="rotate"',
+  '    from="0 25 25"',
+  '    to="360 25 25"',
+  '    dur="780ms"',
+  '    repeatCount="indefinite"',
+  '    calcMode="spline"',
+  '    keySplines="0.44, 0.22, 0, 1"',
+  '    keyTimes="0;1"/>',
+  '  </path>',
+  '</svg>'
+].join('');
+
+LoaderSpinner.prototype.getElement = function () {
+  return this._element;
+};
+
+LoaderSpinner.prototype.dispose = function () {
+  this._element = null;
+};
+
+module.exports = LoaderSpinner;
+
+},{}],29:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -4584,7 +4335,7 @@ Receiver.prototype.stopListening = function () {
 
 module.exports = Receiver;
 
-},{"braintree-utilities":21}],27:[function(require,module,exports){
+},{"braintree-utilities":21}],30:[function(require,module,exports){
 'use strict';
 
 var nativeIndexOf = Array.prototype.indexOf;
@@ -4609,13 +4360,13 @@ module.exports = {
   indexOf: indexOf
 };
 
-},{}],28:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],29:[function(require,module,exports){
+},{"dup":17}],32:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],30:[function(require,module,exports){
+},{"dup":18}],33:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],31:[function(require,module,exports){
+},{"dup":19}],34:[function(require,module,exports){
 'use strict';
 
 function getMaxCharLength(width) {
@@ -4668,7 +4419,7 @@ module.exports = {
   getMaxCharLength: getMaxCharLength
 };
 
-},{}],32:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 'use strict';
 
 var array = require('./array');
@@ -4770,7 +4521,7 @@ module.exports = {
   isWhitelistedDomain: isWhitelistedDomain
 };
 
-},{"./array":27}],33:[function(require,module,exports){
+},{"./array":30}],36:[function(require,module,exports){
 var dom = require('./lib/dom');
 var url = require('./lib/url');
 var fn = require('./lib/fn');
@@ -4793,7 +4544,7 @@ module.exports = {
   isFunction: fn.isFunction
 };
 
-},{"./lib/array":27,"./lib/dom":28,"./lib/events":29,"./lib/fn":30,"./lib/string":31,"./lib/url":32}],34:[function(require,module,exports){
+},{"./lib/array":30,"./lib/dom":31,"./lib/events":32,"./lib/fn":33,"./lib/string":34,"./lib/url":35}],37:[function(require,module,exports){
 'use strict';
 
 var bus = require('framebus');
@@ -4801,7 +4552,7 @@ bus.events = require('./lib/events');
 
 module.exports = bus;
 
-},{"./lib/events":35,"framebus":36}],35:[function(require,module,exports){
+},{"./lib/events":38,"framebus":39}],38:[function(require,module,exports){
 'use strict';
 
 var eventList = [
@@ -4830,7 +4581,7 @@ for (var i = 0; i < eventList.length; i++) {
 
 module.exports = eventEnum;
 
-},{}],36:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 'use strict';
 (function (root, factory) {
   if (typeof exports === 'object' && typeof module !== 'undefined') {
@@ -5018,7 +4769,7 @@ module.exports = eventEnum;
   };
 });
 
-},{}],37:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 'use strict';
 
 var Coinbase = require('./lib/coinbase');
@@ -5059,7 +4810,7 @@ function create(options) {
 
 module.exports = {create: create};
 
-},{"./lib/coinbase":40,"./lib/detector":42,"braintree-bus":48}],38:[function(require,module,exports){
+},{"./lib/coinbase":43,"./lib/detector":45,"braintree-bus":51}],41:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -5105,7 +4856,7 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],39:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 'use strict';
 
 var bus = require('braintree-bus');
@@ -5124,7 +4875,7 @@ function tokenize(err, payload, coinbase) {
 
 module.exports = { tokenize: tokenize };
 
-},{"braintree-bus":48}],40:[function(require,module,exports){
+},{"braintree-bus":51}],43:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -5268,7 +5019,7 @@ Coinbase.prototype._handleButtonClick = function (event) {
 module.exports = Coinbase;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./callbacks":39,"./constants":41,"./detector":42,"./dom/composer":44,"./url-composer":47,"braintree-bus":48,"braintree-utilities":57}],41:[function(require,module,exports){
+},{"./callbacks":42,"./constants":44,"./detector":45,"./dom/composer":47,"./url-composer":50,"braintree-bus":51,"braintree-utilities":60}],44:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -5282,7 +5033,7 @@ module.exports = {
   INTEGRATION_NAME: 'Coinbase'
 };
 
-},{}],42:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 'use strict';
 
 var browser = require('./browser');
@@ -5317,7 +5068,7 @@ module.exports = {
   shouldDisplayLollipopClose: shouldDisplayLollipopClose
 };
 
-},{"./browser":38}],43:[function(require,module,exports){
+},{"./browser":41}],46:[function(require,module,exports){
 'use strict';
 
 function createButton(config) {
@@ -5338,7 +5089,7 @@ function createButton(config) {
 
 module.exports = { create: createButton };
 
-},{}],44:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 'use strict';
 
 var popup = require('./popup');
@@ -5351,7 +5102,7 @@ module.exports = {
   createFrame: frame.create
 };
 
-},{"./button":43,"./frame":45,"./popup":46}],45:[function(require,module,exports){
+},{"./button":46,"./frame":48,"./popup":49}],48:[function(require,module,exports){
 'use strict';
 
 var constants = require('../constants');
@@ -5374,7 +5125,7 @@ function createFrame(config) {
 
 module.exports = { create: createFrame };
 
-},{"../constants":41}],46:[function(require,module,exports){
+},{"../constants":44}],49:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -5411,7 +5162,7 @@ function createPopup(url) {
 module.exports = { create: createPopup };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../constants":41}],47:[function(require,module,exports){
+},{"../constants":44}],50:[function(require,module,exports){
 'use strict';
 
 var constants = require('./constants');
@@ -5447,161 +5198,173 @@ module.exports = {
   getQueryString: getQueryString
 };
 
-},{"./constants":41}],48:[function(require,module,exports){
+},{"./constants":44}],51:[function(require,module,exports){
+arguments[4][37][0].apply(exports,arguments)
+},{"./lib/events":52,"dup":37,"framebus":53}],52:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"dup":38}],53:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"dup":39}],54:[function(require,module,exports){
+arguments[4][30][0].apply(exports,arguments)
+},{"dup":30}],55:[function(require,module,exports){
+arguments[4][17][0].apply(exports,arguments)
+},{"dup":17}],56:[function(require,module,exports){
+arguments[4][18][0].apply(exports,arguments)
+},{"dup":18}],57:[function(require,module,exports){
+arguments[4][19][0].apply(exports,arguments)
+},{"dup":19}],58:[function(require,module,exports){
 arguments[4][34][0].apply(exports,arguments)
-},{"./lib/events":49,"dup":34,"framebus":50}],49:[function(require,module,exports){
+},{"dup":34}],59:[function(require,module,exports){
 arguments[4][35][0].apply(exports,arguments)
-},{"dup":35}],50:[function(require,module,exports){
+},{"./array":54,"dup":35}],60:[function(require,module,exports){
 arguments[4][36][0].apply(exports,arguments)
-},{"dup":36}],51:[function(require,module,exports){
-arguments[4][27][0].apply(exports,arguments)
-},{"dup":27}],52:[function(require,module,exports){
-arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],53:[function(require,module,exports){
-arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],54:[function(require,module,exports){
-arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],55:[function(require,module,exports){
-arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],56:[function(require,module,exports){
-arguments[4][32][0].apply(exports,arguments)
-},{"./array":51,"dup":32}],57:[function(require,module,exports){
-arguments[4][33][0].apply(exports,arguments)
-},{"./lib/array":51,"./lib/dom":52,"./lib/events":53,"./lib/fn":54,"./lib/string":55,"./lib/url":56,"dup":33}],58:[function(require,module,exports){
+},{"./lib/array":54,"./lib/dom":55,"./lib/events":56,"./lib/fn":57,"./lib/string":58,"./lib/url":59,"dup":36}],61:[function(require,module,exports){
 arguments[4][2][0].apply(exports,arguments)
-},{"./coinbase-account":59,"./credit-card":60,"./europe-bank-account":61,"./normalize-api-fields":65,"./parse-client-token":66,"./paypal-account":67,"./request-driver":69,"./sepa-mandate":70,"./util":71,"braintree-3ds":80,"braintree-utilities":89,"dup":2}],59:[function(require,module,exports){
+},{"./coinbase-account":62,"./credit-card":63,"./europe-bank-account":64,"./normalize-api-fields":68,"./parse-client-token":69,"./paypal-account":70,"./request-driver":72,"./sepa-mandate":73,"./util":74,"braintree-3ds":83,"braintree-utilities":95,"dup":2}],62:[function(require,module,exports){
 arguments[4][3][0].apply(exports,arguments)
-},{"dup":3}],60:[function(require,module,exports){
+},{"dup":3}],63:[function(require,module,exports){
 arguments[4][4][0].apply(exports,arguments)
-},{"dup":4}],61:[function(require,module,exports){
+},{"dup":4}],64:[function(require,module,exports){
 arguments[4][5][0].apply(exports,arguments)
-},{"dup":5}],62:[function(require,module,exports){
+},{"dup":5}],65:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"./parse-client-token":66,"./request-driver":69,"./util":71,"dup":6}],63:[function(require,module,exports){
+},{"./parse-client-token":69,"./request-driver":72,"./util":74,"dup":6}],66:[function(require,module,exports){
 arguments[4][7][0].apply(exports,arguments)
-},{"./jsonp":64,"dup":7}],64:[function(require,module,exports){
+},{"./jsonp":67,"dup":7}],67:[function(require,module,exports){
 arguments[4][8][0].apply(exports,arguments)
-},{"./util":71,"dup":8}],65:[function(require,module,exports){
+},{"./util":74,"dup":8}],68:[function(require,module,exports){
 arguments[4][9][0].apply(exports,arguments)
-},{"dup":9}],66:[function(require,module,exports){
+},{"dup":9}],69:[function(require,module,exports){
 arguments[4][10][0].apply(exports,arguments)
-},{"./polyfill":68,"braintree-utilities":89,"dup":10}],67:[function(require,module,exports){
+},{"./polyfill":71,"braintree-utilities":95,"dup":10}],70:[function(require,module,exports){
 arguments[4][11][0].apply(exports,arguments)
-},{"dup":11}],68:[function(require,module,exports){
+},{"dup":11}],71:[function(require,module,exports){
 arguments[4][12][0].apply(exports,arguments)
-},{"dup":12}],69:[function(require,module,exports){
+},{"dup":12}],72:[function(require,module,exports){
 arguments[4][13][0].apply(exports,arguments)
-},{"./jsonp-driver":63,"dup":13}],70:[function(require,module,exports){
+},{"./jsonp-driver":66,"dup":13}],73:[function(require,module,exports){
 arguments[4][14][0].apply(exports,arguments)
-},{"dup":14}],71:[function(require,module,exports){
+},{"dup":14}],74:[function(require,module,exports){
 arguments[4][15][0].apply(exports,arguments)
-},{"dup":15}],72:[function(require,module,exports){
+},{"dup":15}],75:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
-},{"./lib/client":58,"./lib/get-configuration":62,"./lib/jsonp":64,"./lib/jsonp-driver":63,"./lib/parse-client-token":66,"./lib/util":71,"dup":16}],73:[function(require,module,exports){
+},{"./lib/client":61,"./lib/get-configuration":65,"./lib/jsonp":67,"./lib/jsonp-driver":66,"./lib/parse-client-token":69,"./lib/util":74,"dup":16}],76:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],74:[function(require,module,exports){
+},{"dup":17}],77:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],75:[function(require,module,exports){
+},{"dup":18}],78:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],76:[function(require,module,exports){
+},{"dup":19}],79:[function(require,module,exports){
 arguments[4][20][0].apply(exports,arguments)
-},{"dup":20}],77:[function(require,module,exports){
+},{"dup":20}],80:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"./lib/dom":73,"./lib/events":74,"./lib/fn":75,"./lib/url":76,"dup":21}],78:[function(require,module,exports){
+},{"./lib/dom":76,"./lib/events":77,"./lib/fn":78,"./lib/url":79,"dup":21}],81:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"../shared/receiver":82,"braintree-utilities":77,"dup":22}],79:[function(require,module,exports){
+},{"../shared/receiver":88,"braintree-utilities":80,"dup":22}],82:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
-},{"./authorization_service":78,"braintree-utilities":77,"dup":23}],80:[function(require,module,exports){
+},{"./authorization_service":81,"./loader":84,"braintree-utilities":80,"dup":23}],83:[function(require,module,exports){
 arguments[4][24][0].apply(exports,arguments)
-},{"./client":79,"./vendor/json2":81,"dup":24}],81:[function(require,module,exports){
+},{"./client":82,"dup":24}],84:[function(require,module,exports){
 arguments[4][25][0].apply(exports,arguments)
-},{"dup":25}],82:[function(require,module,exports){
+},{"./loader_display":85,"./loader_message":86,"./loader_spinner":87,"dup":25}],85:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
-},{"braintree-utilities":77,"dup":26}],83:[function(require,module,exports){
+},{"dup":26}],86:[function(require,module,exports){
 arguments[4][27][0].apply(exports,arguments)
-},{"dup":27}],84:[function(require,module,exports){
+},{"dup":27}],87:[function(require,module,exports){
+arguments[4][28][0].apply(exports,arguments)
+},{"dup":28}],88:[function(require,module,exports){
+arguments[4][29][0].apply(exports,arguments)
+},{"braintree-utilities":80,"dup":29}],89:[function(require,module,exports){
+arguments[4][30][0].apply(exports,arguments)
+},{"dup":30}],90:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],85:[function(require,module,exports){
+},{"dup":17}],91:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],86:[function(require,module,exports){
+},{"dup":18}],92:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],87:[function(require,module,exports){
-arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],88:[function(require,module,exports){
-arguments[4][32][0].apply(exports,arguments)
-},{"./array":83,"dup":32}],89:[function(require,module,exports){
-arguments[4][33][0].apply(exports,arguments)
-},{"./lib/array":83,"./lib/dom":84,"./lib/events":85,"./lib/fn":86,"./lib/string":87,"./lib/url":88,"dup":33}],90:[function(require,module,exports){
+},{"dup":19}],93:[function(require,module,exports){
 arguments[4][34][0].apply(exports,arguments)
-},{"./lib/events":91,"dup":34,"framebus":92}],91:[function(require,module,exports){
+},{"dup":34}],94:[function(require,module,exports){
 arguments[4][35][0].apply(exports,arguments)
-},{"dup":35}],92:[function(require,module,exports){
+},{"./array":89,"dup":35}],95:[function(require,module,exports){
 arguments[4][36][0].apply(exports,arguments)
-},{"dup":36}],93:[function(require,module,exports){
+},{"./lib/array":89,"./lib/dom":90,"./lib/events":91,"./lib/fn":92,"./lib/string":93,"./lib/url":94,"dup":36}],96:[function(require,module,exports){
+arguments[4][37][0].apply(exports,arguments)
+},{"./lib/events":97,"dup":37,"framebus":98}],97:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"dup":38}],98:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"dup":39}],99:[function(require,module,exports){
 arguments[4][2][0].apply(exports,arguments)
-},{"./coinbase-account":94,"./credit-card":95,"./europe-bank-account":96,"./normalize-api-fields":100,"./parse-client-token":101,"./paypal-account":102,"./request-driver":104,"./sepa-mandate":105,"./util":106,"braintree-3ds":115,"braintree-utilities":124,"dup":2}],94:[function(require,module,exports){
+},{"./coinbase-account":100,"./credit-card":101,"./europe-bank-account":102,"./normalize-api-fields":106,"./parse-client-token":107,"./paypal-account":108,"./request-driver":110,"./sepa-mandate":111,"./util":112,"braintree-3ds":121,"braintree-utilities":133,"dup":2}],100:[function(require,module,exports){
 arguments[4][3][0].apply(exports,arguments)
-},{"dup":3}],95:[function(require,module,exports){
+},{"dup":3}],101:[function(require,module,exports){
 arguments[4][4][0].apply(exports,arguments)
-},{"dup":4}],96:[function(require,module,exports){
+},{"dup":4}],102:[function(require,module,exports){
 arguments[4][5][0].apply(exports,arguments)
-},{"dup":5}],97:[function(require,module,exports){
+},{"dup":5}],103:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"./parse-client-token":101,"./request-driver":104,"./util":106,"dup":6}],98:[function(require,module,exports){
+},{"./parse-client-token":107,"./request-driver":110,"./util":112,"dup":6}],104:[function(require,module,exports){
 arguments[4][7][0].apply(exports,arguments)
-},{"./jsonp":99,"dup":7}],99:[function(require,module,exports){
+},{"./jsonp":105,"dup":7}],105:[function(require,module,exports){
 arguments[4][8][0].apply(exports,arguments)
-},{"./util":106,"dup":8}],100:[function(require,module,exports){
+},{"./util":112,"dup":8}],106:[function(require,module,exports){
 arguments[4][9][0].apply(exports,arguments)
-},{"dup":9}],101:[function(require,module,exports){
+},{"dup":9}],107:[function(require,module,exports){
 arguments[4][10][0].apply(exports,arguments)
-},{"./polyfill":103,"braintree-utilities":124,"dup":10}],102:[function(require,module,exports){
+},{"./polyfill":109,"braintree-utilities":133,"dup":10}],108:[function(require,module,exports){
 arguments[4][11][0].apply(exports,arguments)
-},{"dup":11}],103:[function(require,module,exports){
+},{"dup":11}],109:[function(require,module,exports){
 arguments[4][12][0].apply(exports,arguments)
-},{"dup":12}],104:[function(require,module,exports){
+},{"dup":12}],110:[function(require,module,exports){
 arguments[4][13][0].apply(exports,arguments)
-},{"./jsonp-driver":98,"dup":13}],105:[function(require,module,exports){
+},{"./jsonp-driver":104,"dup":13}],111:[function(require,module,exports){
 arguments[4][14][0].apply(exports,arguments)
-},{"dup":14}],106:[function(require,module,exports){
+},{"dup":14}],112:[function(require,module,exports){
 arguments[4][15][0].apply(exports,arguments)
-},{"dup":15}],107:[function(require,module,exports){
+},{"dup":15}],113:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
-},{"./lib/client":93,"./lib/get-configuration":97,"./lib/jsonp":99,"./lib/jsonp-driver":98,"./lib/parse-client-token":101,"./lib/util":106,"dup":16}],108:[function(require,module,exports){
+},{"./lib/client":99,"./lib/get-configuration":103,"./lib/jsonp":105,"./lib/jsonp-driver":104,"./lib/parse-client-token":107,"./lib/util":112,"dup":16}],114:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],109:[function(require,module,exports){
+},{"dup":17}],115:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],110:[function(require,module,exports){
+},{"dup":18}],116:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],111:[function(require,module,exports){
+},{"dup":19}],117:[function(require,module,exports){
 arguments[4][20][0].apply(exports,arguments)
-},{"dup":20}],112:[function(require,module,exports){
+},{"dup":20}],118:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"./lib/dom":108,"./lib/events":109,"./lib/fn":110,"./lib/url":111,"dup":21}],113:[function(require,module,exports){
+},{"./lib/dom":114,"./lib/events":115,"./lib/fn":116,"./lib/url":117,"dup":21}],119:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"../shared/receiver":117,"braintree-utilities":112,"dup":22}],114:[function(require,module,exports){
+},{"../shared/receiver":126,"braintree-utilities":118,"dup":22}],120:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
-},{"./authorization_service":113,"braintree-utilities":112,"dup":23}],115:[function(require,module,exports){
+},{"./authorization_service":119,"./loader":122,"braintree-utilities":118,"dup":23}],121:[function(require,module,exports){
 arguments[4][24][0].apply(exports,arguments)
-},{"./client":114,"./vendor/json2":116,"dup":24}],116:[function(require,module,exports){
+},{"./client":120,"dup":24}],122:[function(require,module,exports){
 arguments[4][25][0].apply(exports,arguments)
-},{"dup":25}],117:[function(require,module,exports){
+},{"./loader_display":123,"./loader_message":124,"./loader_spinner":125,"dup":25}],123:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
-},{"braintree-utilities":112,"dup":26}],118:[function(require,module,exports){
+},{"dup":26}],124:[function(require,module,exports){
 arguments[4][27][0].apply(exports,arguments)
-},{"dup":27}],119:[function(require,module,exports){
+},{"dup":27}],125:[function(require,module,exports){
+arguments[4][28][0].apply(exports,arguments)
+},{"dup":28}],126:[function(require,module,exports){
+arguments[4][29][0].apply(exports,arguments)
+},{"braintree-utilities":118,"dup":29}],127:[function(require,module,exports){
+arguments[4][30][0].apply(exports,arguments)
+},{"dup":30}],128:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],120:[function(require,module,exports){
+},{"dup":17}],129:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],121:[function(require,module,exports){
+},{"dup":18}],130:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],122:[function(require,module,exports){
-arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],123:[function(require,module,exports){
-arguments[4][32][0].apply(exports,arguments)
-},{"./array":118,"dup":32}],124:[function(require,module,exports){
-arguments[4][33][0].apply(exports,arguments)
-},{"./lib/array":118,"./lib/dom":119,"./lib/events":120,"./lib/fn":121,"./lib/string":122,"./lib/url":123,"dup":33}],125:[function(require,module,exports){
+},{"dup":19}],131:[function(require,module,exports){
+arguments[4][34][0].apply(exports,arguments)
+},{"dup":34}],132:[function(require,module,exports){
+arguments[4][35][0].apply(exports,arguments)
+},{"./array":127,"dup":35}],133:[function(require,module,exports){
+arguments[4][36][0].apply(exports,arguments)
+},{"./lib/array":127,"./lib/dom":128,"./lib/events":129,"./lib/fn":130,"./lib/string":131,"./lib/url":132,"dup":36}],134:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -5666,7 +5429,7 @@ MessageBus.Message.prototype.reply = function (type, data) {
 
 module.exports = MessageBus;
 
-},{"braintree-utilities":135}],126:[function(require,module,exports){
+},{"braintree-utilities":144}],135:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -5715,7 +5478,7 @@ PubsubClient.prototype.unsubscribe = function (channel, handler) {
 
 module.exports = PubsubClient;
 
-},{"braintree-utilities":135}],127:[function(require,module,exports){
+},{"braintree-utilities":144}],136:[function(require,module,exports){
 'use strict';
 
 function PubsubServer(bus) {
@@ -5774,7 +5537,7 @@ PubsubServer.prototype.unsubscribe = function (channel, handler) {
 
 module.exports = PubsubServer;
 
-},{}],128:[function(require,module,exports){
+},{}],137:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -5807,7 +5570,7 @@ RPCClient.prototype.invoke = function (method, args, callback) {
 
 module.exports = RPCClient;
 
-},{"braintree-utilities":135}],129:[function(require,module,exports){
+},{"braintree-utilities":144}],138:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -5845,7 +5608,7 @@ RPCServer.prototype.define = function (method, handler) {
 
 module.exports = RPCServer;
 
-},{"braintree-utilities":135}],130:[function(require,module,exports){
+},{"braintree-utilities":144}],139:[function(require,module,exports){
 var MessageBus = require('./lib/message-bus');
 var PubsubClient = require('./lib/pubsub-client');
 var PubsubServer = require('./lib/pubsub-server');
@@ -5860,7 +5623,7 @@ module.exports = {
   RPCServer: RPCServer
 };
 
-},{"./lib/message-bus":125,"./lib/pubsub-client":126,"./lib/pubsub-server":127,"./lib/rpc-client":128,"./lib/rpc-server":129}],131:[function(require,module,exports){
+},{"./lib/message-bus":134,"./lib/pubsub-client":135,"./lib/pubsub-server":136,"./lib/rpc-client":137,"./lib/rpc-server":138}],140:[function(require,module,exports){
 'use strict';
 
 function normalizeElement (element, errorMessage) {
@@ -5884,7 +5647,7 @@ module.exports = {
   normalizeElement: normalizeElement
 };
 
-},{}],132:[function(require,module,exports){
+},{}],141:[function(require,module,exports){
 'use strict';
 
 function addEventListener(context, event, handler) {
@@ -5908,7 +5671,7 @@ module.exports = {
   addEventListener: addEventListener
 };
 
-},{}],133:[function(require,module,exports){
+},{}],142:[function(require,module,exports){
 'use strict';
 
 function isFunction(func) {
@@ -5926,25 +5689,25 @@ module.exports = {
   isFunction: isFunction
 };
 
-},{}],134:[function(require,module,exports){
+},{}],143:[function(require,module,exports){
 arguments[4][20][0].apply(exports,arguments)
-},{"dup":20}],135:[function(require,module,exports){
+},{"dup":20}],144:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"./lib/dom":131,"./lib/events":132,"./lib/fn":133,"./lib/url":134,"dup":21}],136:[function(require,module,exports){
-arguments[4][27][0].apply(exports,arguments)
-},{"dup":27}],137:[function(require,module,exports){
+},{"./lib/dom":140,"./lib/events":141,"./lib/fn":142,"./lib/url":143,"dup":21}],145:[function(require,module,exports){
+arguments[4][30][0].apply(exports,arguments)
+},{"dup":30}],146:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],138:[function(require,module,exports){
+},{"dup":17}],147:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],139:[function(require,module,exports){
+},{"dup":18}],148:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],140:[function(require,module,exports){
-arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],141:[function(require,module,exports){
-arguments[4][32][0].apply(exports,arguments)
-},{"./array":136,"dup":32}],142:[function(require,module,exports){
-arguments[4][33][0].apply(exports,arguments)
-},{"./lib/array":136,"./lib/dom":137,"./lib/events":138,"./lib/fn":139,"./lib/string":140,"./lib/url":141,"dup":33}],143:[function(require,module,exports){
+},{"dup":19}],149:[function(require,module,exports){
+arguments[4][34][0].apply(exports,arguments)
+},{"dup":34}],150:[function(require,module,exports){
+arguments[4][35][0].apply(exports,arguments)
+},{"./array":145,"dup":35}],151:[function(require,module,exports){
+arguments[4][36][0].apply(exports,arguments)
+},{"./lib/array":145,"./lib/dom":146,"./lib/events":147,"./lib/fn":148,"./lib/string":149,"./lib/url":150,"dup":36}],152:[function(require,module,exports){
 var braintreeApi = require('braintree-api');
 var braintreeRpc = require('braintree-rpc');
 var braintreeUtil = require('braintree-utilities');
@@ -6048,7 +5811,7 @@ Client.prototype.initialize = function () {
   }
   if (this._isMisconfiguredUnvettedMerchant()) {
     if (typeof this.onUnsupported === 'function') {
-      this.onUnsupported(new Error('Unvetted merchant client token does not include a payee email'));
+      this.onUnsupported(new Error('Unvetted merchants must provide a payeeEmail, amount, and currency'));
     }
     return;
   }
@@ -6454,7 +6217,7 @@ Client.prototype._setNonceInputValue = function (value) {
 
 module.exports = Client;
 
-},{"../shared/constants":147,"../shared/get-locale":149,"../shared/util/browser":154,"../shared/util/dom":155,"../shared/util/util":156,"./logged-in-view":144,"./logged-out-view":145,"./overlay-view":146,"braintree-api":107,"braintree-rpc":130,"braintree-utilities":142}],144:[function(require,module,exports){
+},{"../shared/constants":156,"../shared/get-locale":158,"../shared/util/browser":163,"../shared/util/dom":164,"../shared/util/util":165,"./logged-in-view":153,"./logged-out-view":154,"./overlay-view":155,"braintree-api":113,"braintree-rpc":139,"braintree-utilities":151}],153:[function(require,module,exports){
 var constants = require('../shared/constants');
 
 function LoggedInView (options) {
@@ -6558,7 +6321,7 @@ LoggedInView.prototype.hide = function () {
 
 module.exports = LoggedInView;
 
-},{"../shared/constants":147}],145:[function(require,module,exports){
+},{"../shared/constants":156}],154:[function(require,module,exports){
 var util = require('braintree-utilities');
 var constants = require('../shared/constants');
 var getLocale = require('../shared/get-locale');
@@ -6638,7 +6401,7 @@ LoggedOutView.prototype.hide = function () {
 
 module.exports = LoggedOutView;
 
-},{"../shared/constants":147,"../shared/get-locale":149,"braintree-utilities":142}],146:[function(require,module,exports){
+},{"../shared/constants":156,"../shared/get-locale":158,"braintree-utilities":151}],155:[function(require,module,exports){
 var util = require('braintree-utilities');
 var constants = require('../shared/constants');
 
@@ -6797,8 +6560,8 @@ OverlayView.prototype._pollForPopup = function () {
 
 module.exports = OverlayView;
 
-},{"../shared/constants":147,"braintree-utilities":142}],147:[function(require,module,exports){
-var version = "1.3.5";
+},{"../shared/constants":156,"braintree-utilities":151}],156:[function(require,module,exports){
+var version = "1.3.6";
 
 exports.VERSION = version;
 exports.POPUP_NAME = 'braintree_paypal_popup';
@@ -6817,39 +6580,39 @@ exports.ARIES_SUPPORTED_COUNTRIES = ['US', 'GB', 'AU', 'CA', 'ES', 'FR', 'DE', '
 exports.NONCE_TYPE = 'PayPalAccount';
 exports.ILLEGAL_XHR_ERROR = 'Illegal XHR request attempted';
 
-},{}],148:[function(require,module,exports){
+},{}],157:[function(require,module,exports){
 'use strict';
 
 module.exports = {
- us: 'en_us',
- gb: 'en_uk',
- uk: 'en_uk',
- de: 'de_de',
- fr: 'fr_fr',
- it: 'it_it',
- es: 'es_es',
- ca: 'en_ca',
- au: 'en_au',
- at: 'de_de',
- be: 'en_us',
- ch: 'de_de',
- dk: 'da_dk',
- nl: 'nl_nl',
- no: 'no_no',
- pl: 'pl_pl',
- se: 'sv_se',
- tr: 'tr_tr',
- bg: 'en_us',
- cy: 'en_us',
- hr: 'en_us',
- is: 'en_us',
- kh: 'en_us',
- mt: 'en_us',
- my: 'en_us',
- ru: 'ru_ru'
+  us: 'en_us',
+  gb: 'en_uk',
+  uk: 'en_uk',
+  de: 'de_de',
+  fr: 'fr_fr',
+  it: 'it_it',
+  es: 'es_es',
+  ca: 'en_ca',
+  au: 'en_au',
+  at: 'de_de',
+  be: 'en_us',
+  ch: 'de_de',
+  dk: 'da_dk',
+  nl: 'nl_nl',
+  no: 'no_no',
+  pl: 'pl_pl',
+  se: 'sv_se',
+  tr: 'tr_tr',
+  bg: 'en_us',
+  cy: 'en_us',
+  hr: 'en_us',
+  is: 'en_us',
+  kh: 'en_us',
+  mt: 'en_us',
+  my: 'en_us',
+  ru: 'ru_ru'
 };
 
-},{}],149:[function(require,module,exports){
+},{}],158:[function(require,module,exports){
 'use strict';
 
 var countryCodeLookupTable = require('../shared/data/country-code-lookup');
@@ -6892,8 +6655,9 @@ function getLocale(code) {
 
 module.exports = getLocale;
 
-},{"../shared/data/country-code-lookup":148}],150:[function(require,module,exports){
+},{"../shared/data/country-code-lookup":157}],159:[function(require,module,exports){
 var userAgent = require('./useragent');
+var platform = require('./platform');
 
 var toString = Object.prototype.toString;
 
@@ -6925,6 +6689,15 @@ function isSafari() {
   return userAgent.matchUserAgent('Safari') && !isChrome() && !isAndroid();
 }
 
+function isIosWebView() {
+  return platform.isIos() && !isChrome() && !isSafari();
+}
+
+function isAndroidWebView() {
+  var androidWebviewRegExp = /Version\/[\w\.]+ Chrome\/[\w\.]+ Mobile/;
+  return platform.isAndroid() && userAgent.matchUserAgent(androidWebviewRegExp);
+}
+
 module.exports = {
   isAndroid: isAndroid,
   isChrome: isChrome,
@@ -6932,10 +6705,12 @@ module.exports = {
   isIE: isIE,
   isOpera: isOpera,
   isOperaMini: isOperaMini,
-  isSafari: isSafari
+  isSafari: isSafari,
+  isIosWebView: isIosWebView,
+  isAndroidWebView: isAndroidWebView
 };
 
-},{"./useragent":153}],151:[function(require,module,exports){
+},{"./platform":161,"./useragent":162}],160:[function(require,module,exports){
 var userAgent = require('./useragent');
 var platform = require('./platform');
 
@@ -6960,7 +6735,7 @@ module.exports = {
   isDesktop: isDesktop
 };
 
-},{"./platform":152,"./useragent":153}],152:[function(require,module,exports){
+},{"./platform":161,"./useragent":162}],161:[function(require,module,exports){
 var userAgent = require('./useragent');
 
 function isAndroid() {
@@ -6991,7 +6766,7 @@ module.exports = {
   isIos: isIos
 };
 
-},{"./useragent":153}],153:[function(require,module,exports){
+},{"./useragent":162}],162:[function(require,module,exports){
 var nativeUserAgent = window.navigator.userAgent;
 
 function getNativeUserAgent() {
@@ -7010,7 +6785,7 @@ function matchUserAgent(pattern) {
 exports.getNativeUserAgent = getNativeUserAgent;
 exports.matchUserAgent = matchUserAgent;
 
-},{}],154:[function(require,module,exports){
+},{}],163:[function(require,module,exports){
 var browser = require('../useragent/browser');
 var device = require('../useragent/device');
 var platform = require('../useragent/platform');
@@ -7046,12 +6821,16 @@ function isPopupSupported() {
     }
 
     if (platform.isAndroid()) {
-      return true;
+      if (browser.isAndroidWebView()) {
+        return false;
+      }  else {
+        return true;
+      }
     }
 
     if (platform.isIos()) {
-      if ((browser.isSafari() && userAgent.matchUserAgent(/OS (?:8_1|8_0|8)(?!_\d)/i)) ||
-        browser.isChrome()) {
+      // Chrome, Safari Versions 8.0-8.1, or WebViews
+      if (browser.isChrome() || (browser.isSafari() && userAgent.matchUserAgent(/OS (?:8_1|8_0|8)(?!_\d)/i)) || browser.isIosWebView()) {
         return false;
       } else {
         return true;
@@ -7108,7 +6887,7 @@ module.exports = {
   isProxyFrameRequired: isProxyFrameRequired
 };
 
-},{"../useragent/browser":150,"../useragent/device":151,"../useragent/platform":152,"../useragent/useragent":153}],155:[function(require,module,exports){
+},{"../useragent/browser":159,"../useragent/device":160,"../useragent/platform":161,"../useragent/useragent":162}],164:[function(require,module,exports){
 function setTextContent(element, content) {
   var property = 'innerText';
   if (document && document.body) {
@@ -7123,7 +6902,7 @@ module.exports = {
   setTextContent: setTextContent
 };
 
-},{}],156:[function(require,module,exports){
+},{}],165:[function(require,module,exports){
 var trim = typeof String.prototype.trim === 'function' ?
   function (str) { return str.trim(); } :
   function (str) { return str.replace(/^\s+|\s+$/, ''); };
@@ -7215,6 +6994,14 @@ function isFunction(func) {
   return func && Object.prototype.toString.call(func) === '[object Function]';
 }
 
+function preventDefault(event) {
+  if (event.preventDefault) {
+    event.preventDefault();
+  } else {
+    event.returnValue = false;
+  }
+}
+
 module.exports = {
   trim: trim,
   btoa: btoa,
@@ -7222,46 +7009,47 @@ module.exports = {
   castToBoolean: castToBoolean,
   htmlEscape: htmlEscape,
   parseUrlParams: parseUrlParams,
-  isFunction: isFunction
+  isFunction: isFunction,
+  preventDefault: preventDefault
 };
 
-},{}],157:[function(require,module,exports){
-arguments[4][125][0].apply(exports,arguments)
-},{"braintree-utilities":167,"dup":125}],158:[function(require,module,exports){
-arguments[4][126][0].apply(exports,arguments)
-},{"braintree-utilities":167,"dup":126}],159:[function(require,module,exports){
-arguments[4][127][0].apply(exports,arguments)
-},{"dup":127}],160:[function(require,module,exports){
-arguments[4][128][0].apply(exports,arguments)
-},{"braintree-utilities":167,"dup":128}],161:[function(require,module,exports){
-arguments[4][129][0].apply(exports,arguments)
-},{"braintree-utilities":167,"dup":129}],162:[function(require,module,exports){
-arguments[4][130][0].apply(exports,arguments)
-},{"./lib/message-bus":157,"./lib/pubsub-client":158,"./lib/pubsub-server":159,"./lib/rpc-client":160,"./lib/rpc-server":161,"dup":130}],163:[function(require,module,exports){
-arguments[4][131][0].apply(exports,arguments)
-},{"dup":131}],164:[function(require,module,exports){
-arguments[4][132][0].apply(exports,arguments)
-},{"dup":132}],165:[function(require,module,exports){
-arguments[4][133][0].apply(exports,arguments)
-},{"dup":133}],166:[function(require,module,exports){
+},{}],166:[function(require,module,exports){
+arguments[4][134][0].apply(exports,arguments)
+},{"braintree-utilities":176,"dup":134}],167:[function(require,module,exports){
+arguments[4][135][0].apply(exports,arguments)
+},{"braintree-utilities":176,"dup":135}],168:[function(require,module,exports){
+arguments[4][136][0].apply(exports,arguments)
+},{"dup":136}],169:[function(require,module,exports){
+arguments[4][137][0].apply(exports,arguments)
+},{"braintree-utilities":176,"dup":137}],170:[function(require,module,exports){
+arguments[4][138][0].apply(exports,arguments)
+},{"braintree-utilities":176,"dup":138}],171:[function(require,module,exports){
+arguments[4][139][0].apply(exports,arguments)
+},{"./lib/message-bus":166,"./lib/pubsub-client":167,"./lib/pubsub-server":168,"./lib/rpc-client":169,"./lib/rpc-server":170,"dup":139}],172:[function(require,module,exports){
+arguments[4][140][0].apply(exports,arguments)
+},{"dup":140}],173:[function(require,module,exports){
+arguments[4][141][0].apply(exports,arguments)
+},{"dup":141}],174:[function(require,module,exports){
+arguments[4][142][0].apply(exports,arguments)
+},{"dup":142}],175:[function(require,module,exports){
 arguments[4][20][0].apply(exports,arguments)
-},{"dup":20}],167:[function(require,module,exports){
+},{"dup":20}],176:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"./lib/dom":163,"./lib/events":164,"./lib/fn":165,"./lib/url":166,"dup":21}],168:[function(require,module,exports){
-arguments[4][27][0].apply(exports,arguments)
-},{"dup":27}],169:[function(require,module,exports){
+},{"./lib/dom":172,"./lib/events":173,"./lib/fn":174,"./lib/url":175,"dup":21}],177:[function(require,module,exports){
+arguments[4][30][0].apply(exports,arguments)
+},{"dup":30}],178:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],170:[function(require,module,exports){
+},{"dup":17}],179:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],171:[function(require,module,exports){
+},{"dup":18}],180:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],172:[function(require,module,exports){
-arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],173:[function(require,module,exports){
-arguments[4][32][0].apply(exports,arguments)
-},{"./array":168,"dup":32}],174:[function(require,module,exports){
-arguments[4][33][0].apply(exports,arguments)
-},{"./lib/array":168,"./lib/dom":169,"./lib/events":170,"./lib/fn":171,"./lib/string":172,"./lib/url":173,"dup":33}],175:[function(require,module,exports){
+},{"dup":19}],181:[function(require,module,exports){
+arguments[4][34][0].apply(exports,arguments)
+},{"dup":34}],182:[function(require,module,exports){
+arguments[4][35][0].apply(exports,arguments)
+},{"./array":177,"dup":35}],183:[function(require,module,exports){
+arguments[4][36][0].apply(exports,arguments)
+},{"./lib/array":177,"./lib/dom":178,"./lib/events":179,"./lib/fn":180,"./lib/string":181,"./lib/url":182,"dup":36}],184:[function(require,module,exports){
 'use strict';
 
 var RPC_METHOD_NAMES = ['getCreditCards', 'unlockCreditCard', 'sendAnalyticsEvents'];
@@ -7288,7 +7076,7 @@ APIProxyServer.prototype.attach = function (rpcServer) {
 
 module.exports = APIProxyServer;
 
-},{}],176:[function(require,module,exports){
+},{}],185:[function(require,module,exports){
 'use strict';
 
 var htmlNode, bodyNode;
@@ -7302,7 +7090,7 @@ var FrameContainer = require('./frame-container');
 var PayPalService = require('../shared/paypal-service');
 var constants = require('../shared/constants');
 var paypalBrowser = require('braintree-paypal/src/shared/util/browser');
-var version = "1.4.0";
+var version = "1.4.1";
 
 function getElementStyle(element, style) {
   var computedStyle = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
@@ -7544,11 +7332,11 @@ Client.prototype._findClosest = function (node, tagName) {
 
 module.exports = Client;
 
-},{"../shared/constants":180,"../shared/paypal-service":181,"./api-proxy-server":175,"./frame-container":178,"./merchant-form-manager":179,"braintree-api":72,"braintree-bus":90,"braintree-paypal/src/shared/util/browser":154,"braintree-rpc":162,"braintree-utilities":174}],177:[function(require,module,exports){
+},{"../shared/constants":189,"../shared/paypal-service":190,"./api-proxy-server":184,"./frame-container":187,"./merchant-form-manager":188,"braintree-api":75,"braintree-bus":96,"braintree-paypal/src/shared/util/browser":163,"braintree-rpc":171,"braintree-utilities":183}],186:[function(require,module,exports){
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.4.0";
+var VERSION = "1.4.1";
 
 function create(clientToken, options) {
   var client;
@@ -7565,7 +7353,7 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"./client":176}],178:[function(require,module,exports){
+},{"./client":185}],187:[function(require,module,exports){
 'use strict';
 
 var bus = require('braintree-bus');
@@ -7631,7 +7419,7 @@ function FrameContainer(endpoint, name) {
 
 module.exports = FrameContainer;
 
-},{"../shared/constants":180,"braintree-bus":90}],179:[function(require,module,exports){
+},{"../shared/constants":189,"braintree-bus":96}],188:[function(require,module,exports){
 'use strict';
 
 var utils = require('braintree-utilities');
@@ -7745,7 +7533,7 @@ MerchantFormManager.prototype._triggerFormSubmission = function () {
 
 module.exports = MerchantFormManager;
 
-},{"braintree-utilities":174}],180:[function(require,module,exports){
+},{"braintree-utilities":183}],189:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -7755,7 +7543,7 @@ module.exports = {
   PAYMENT_METHOD_TYPES: ['CoinbaseAccount', 'PayPalAccount', 'CreditCard']
 };
 
-},{}],181:[function(require,module,exports){
+},{}],190:[function(require,module,exports){
 'use strict';
 
 var PaypalClient = require('braintree-paypal/src/external/client');
@@ -7783,7 +7571,7 @@ function PayPalService(options) {
 
 module.exports = PayPalService;
 
-},{"braintree-paypal/src/external/client":143}],182:[function(require,module,exports){
+},{"braintree-paypal/src/external/client":152}],191:[function(require,module,exports){
 (function (global){
 'use strict';
 var ELEMENT_NODE = global.Node ? global.Node.ELEMENT_NODE : 1;
@@ -7839,7 +7627,7 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],183:[function(require,module,exports){
+},{}],192:[function(require,module,exports){
 'use strict';
 
 var util = require('braintree-utilities');
@@ -7943,7 +7731,7 @@ Form.prototype.onNonceReceived = function (err) {
 
 module.exports = Form;
 
-},{"./fields":182,"./models/payment-method-model":185,"braintree-bus":188,"braintree-utilities":195}],184:[function(require,module,exports){
+},{"./fields":191,"./models/payment-method-model":194,"braintree-bus":197,"braintree-utilities":204}],193:[function(require,module,exports){
 'use strict';
 
 module.exports = function getNonceInput(paymentMethodNonceInputField) {
@@ -7966,7 +7754,7 @@ module.exports = function getNonceInput(paymentMethodNonceInputField) {
   return nonceInput;
 };
 
-},{}],185:[function(require,module,exports){
+},{}],194:[function(require,module,exports){
 'use strict';
 
 function PaymentMethodModel() {
@@ -7987,7 +7775,7 @@ PaymentMethodModel.prototype.reset = function () {
 
 module.exports = PaymentMethodModel;
 
-},{}],186:[function(require,module,exports){
+},{}],195:[function(require,module,exports){
 'use strict';
 
 module.exports = function validateAnnotations(htmlForm) {
@@ -8022,7 +7810,7 @@ module.exports = function validateAnnotations(htmlForm) {
   }
 };
 
-},{}],187:[function(require,module,exports){
+},{}],196:[function(require,module,exports){
 'use strict';
 
 var Form = require('./lib/form');
@@ -8052,128 +7840,134 @@ function setup(client, options) {
 
 module.exports = {setup: setup};
 
-},{"./lib/form":183,"./lib/get-nonce-input":184,"./lib/validate-annotations":186}],188:[function(require,module,exports){
-arguments[4][34][0].apply(exports,arguments)
-},{"./lib/events":189,"dup":34,"framebus":190}],189:[function(require,module,exports){
-arguments[4][35][0].apply(exports,arguments)
-},{"dup":35}],190:[function(require,module,exports){
-arguments[4][36][0].apply(exports,arguments)
-},{"dup":36}],191:[function(require,module,exports){
+},{"./lib/form":192,"./lib/get-nonce-input":193,"./lib/validate-annotations":195}],197:[function(require,module,exports){
+arguments[4][37][0].apply(exports,arguments)
+},{"./lib/events":198,"dup":37,"framebus":199}],198:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"dup":38}],199:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"dup":39}],200:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],192:[function(require,module,exports){
+},{"dup":17}],201:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],193:[function(require,module,exports){
+},{"dup":18}],202:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],194:[function(require,module,exports){
+},{"dup":19}],203:[function(require,module,exports){
 arguments[4][20][0].apply(exports,arguments)
-},{"dup":20}],195:[function(require,module,exports){
+},{"dup":20}],204:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"./lib/dom":191,"./lib/events":192,"./lib/fn":193,"./lib/url":194,"dup":21}],196:[function(require,module,exports){
+},{"./lib/dom":200,"./lib/events":201,"./lib/fn":202,"./lib/url":203,"dup":21}],205:[function(require,module,exports){
 arguments[4][2][0].apply(exports,arguments)
-},{"./coinbase-account":197,"./credit-card":198,"./europe-bank-account":199,"./normalize-api-fields":203,"./parse-client-token":204,"./paypal-account":205,"./request-driver":207,"./sepa-mandate":208,"./util":209,"braintree-3ds":218,"braintree-utilities":227,"dup":2}],197:[function(require,module,exports){
+},{"./coinbase-account":206,"./credit-card":207,"./europe-bank-account":208,"./normalize-api-fields":212,"./parse-client-token":213,"./paypal-account":214,"./request-driver":216,"./sepa-mandate":217,"./util":218,"braintree-3ds":227,"braintree-utilities":239,"dup":2}],206:[function(require,module,exports){
 arguments[4][3][0].apply(exports,arguments)
-},{"dup":3}],198:[function(require,module,exports){
+},{"dup":3}],207:[function(require,module,exports){
 arguments[4][4][0].apply(exports,arguments)
-},{"dup":4}],199:[function(require,module,exports){
+},{"dup":4}],208:[function(require,module,exports){
 arguments[4][5][0].apply(exports,arguments)
-},{"dup":5}],200:[function(require,module,exports){
+},{"dup":5}],209:[function(require,module,exports){
 arguments[4][6][0].apply(exports,arguments)
-},{"./parse-client-token":204,"./request-driver":207,"./util":209,"dup":6}],201:[function(require,module,exports){
+},{"./parse-client-token":213,"./request-driver":216,"./util":218,"dup":6}],210:[function(require,module,exports){
 arguments[4][7][0].apply(exports,arguments)
-},{"./jsonp":202,"dup":7}],202:[function(require,module,exports){
+},{"./jsonp":211,"dup":7}],211:[function(require,module,exports){
 arguments[4][8][0].apply(exports,arguments)
-},{"./util":209,"dup":8}],203:[function(require,module,exports){
+},{"./util":218,"dup":8}],212:[function(require,module,exports){
 arguments[4][9][0].apply(exports,arguments)
-},{"dup":9}],204:[function(require,module,exports){
+},{"dup":9}],213:[function(require,module,exports){
 arguments[4][10][0].apply(exports,arguments)
-},{"./polyfill":206,"braintree-utilities":227,"dup":10}],205:[function(require,module,exports){
+},{"./polyfill":215,"braintree-utilities":239,"dup":10}],214:[function(require,module,exports){
 arguments[4][11][0].apply(exports,arguments)
-},{"dup":11}],206:[function(require,module,exports){
+},{"dup":11}],215:[function(require,module,exports){
 arguments[4][12][0].apply(exports,arguments)
-},{"dup":12}],207:[function(require,module,exports){
+},{"dup":12}],216:[function(require,module,exports){
 arguments[4][13][0].apply(exports,arguments)
-},{"./jsonp-driver":201,"dup":13}],208:[function(require,module,exports){
+},{"./jsonp-driver":210,"dup":13}],217:[function(require,module,exports){
 arguments[4][14][0].apply(exports,arguments)
-},{"dup":14}],209:[function(require,module,exports){
+},{"dup":14}],218:[function(require,module,exports){
 arguments[4][15][0].apply(exports,arguments)
-},{"dup":15}],210:[function(require,module,exports){
+},{"dup":15}],219:[function(require,module,exports){
 arguments[4][16][0].apply(exports,arguments)
-},{"./lib/client":196,"./lib/get-configuration":200,"./lib/jsonp":202,"./lib/jsonp-driver":201,"./lib/parse-client-token":204,"./lib/util":209,"dup":16}],211:[function(require,module,exports){
+},{"./lib/client":205,"./lib/get-configuration":209,"./lib/jsonp":211,"./lib/jsonp-driver":210,"./lib/parse-client-token":213,"./lib/util":218,"dup":16}],220:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],212:[function(require,module,exports){
+},{"dup":17}],221:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],213:[function(require,module,exports){
+},{"dup":18}],222:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],214:[function(require,module,exports){
+},{"dup":19}],223:[function(require,module,exports){
 arguments[4][20][0].apply(exports,arguments)
-},{"dup":20}],215:[function(require,module,exports){
+},{"dup":20}],224:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"./lib/dom":211,"./lib/events":212,"./lib/fn":213,"./lib/url":214,"dup":21}],216:[function(require,module,exports){
+},{"./lib/dom":220,"./lib/events":221,"./lib/fn":222,"./lib/url":223,"dup":21}],225:[function(require,module,exports){
 arguments[4][22][0].apply(exports,arguments)
-},{"../shared/receiver":220,"braintree-utilities":215,"dup":22}],217:[function(require,module,exports){
+},{"../shared/receiver":232,"braintree-utilities":224,"dup":22}],226:[function(require,module,exports){
 arguments[4][23][0].apply(exports,arguments)
-},{"./authorization_service":216,"braintree-utilities":215,"dup":23}],218:[function(require,module,exports){
+},{"./authorization_service":225,"./loader":228,"braintree-utilities":224,"dup":23}],227:[function(require,module,exports){
 arguments[4][24][0].apply(exports,arguments)
-},{"./client":217,"./vendor/json2":219,"dup":24}],219:[function(require,module,exports){
+},{"./client":226,"dup":24}],228:[function(require,module,exports){
 arguments[4][25][0].apply(exports,arguments)
-},{"dup":25}],220:[function(require,module,exports){
+},{"./loader_display":229,"./loader_message":230,"./loader_spinner":231,"dup":25}],229:[function(require,module,exports){
 arguments[4][26][0].apply(exports,arguments)
-},{"braintree-utilities":215,"dup":26}],221:[function(require,module,exports){
+},{"dup":26}],230:[function(require,module,exports){
 arguments[4][27][0].apply(exports,arguments)
-},{"dup":27}],222:[function(require,module,exports){
+},{"dup":27}],231:[function(require,module,exports){
+arguments[4][28][0].apply(exports,arguments)
+},{"dup":28}],232:[function(require,module,exports){
+arguments[4][29][0].apply(exports,arguments)
+},{"braintree-utilities":224,"dup":29}],233:[function(require,module,exports){
+arguments[4][30][0].apply(exports,arguments)
+},{"dup":30}],234:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],223:[function(require,module,exports){
+},{"dup":17}],235:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],224:[function(require,module,exports){
+},{"dup":18}],236:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],225:[function(require,module,exports){
-arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],226:[function(require,module,exports){
-arguments[4][32][0].apply(exports,arguments)
-},{"./array":221,"dup":32}],227:[function(require,module,exports){
-arguments[4][33][0].apply(exports,arguments)
-},{"./lib/array":221,"./lib/dom":222,"./lib/events":223,"./lib/fn":224,"./lib/string":225,"./lib/url":226,"dup":33}],228:[function(require,module,exports){
-arguments[4][125][0].apply(exports,arguments)
-},{"braintree-utilities":238,"dup":125}],229:[function(require,module,exports){
-arguments[4][126][0].apply(exports,arguments)
-},{"braintree-utilities":238,"dup":126}],230:[function(require,module,exports){
-arguments[4][127][0].apply(exports,arguments)
-},{"dup":127}],231:[function(require,module,exports){
-arguments[4][128][0].apply(exports,arguments)
-},{"braintree-utilities":238,"dup":128}],232:[function(require,module,exports){
-arguments[4][129][0].apply(exports,arguments)
-},{"braintree-utilities":238,"dup":129}],233:[function(require,module,exports){
-arguments[4][130][0].apply(exports,arguments)
-},{"./lib/message-bus":228,"./lib/pubsub-client":229,"./lib/pubsub-server":230,"./lib/rpc-client":231,"./lib/rpc-server":232,"dup":130}],234:[function(require,module,exports){
-arguments[4][131][0].apply(exports,arguments)
-},{"dup":131}],235:[function(require,module,exports){
-arguments[4][132][0].apply(exports,arguments)
-},{"dup":132}],236:[function(require,module,exports){
-arguments[4][133][0].apply(exports,arguments)
-},{"dup":133}],237:[function(require,module,exports){
+},{"dup":19}],237:[function(require,module,exports){
+arguments[4][34][0].apply(exports,arguments)
+},{"dup":34}],238:[function(require,module,exports){
+arguments[4][35][0].apply(exports,arguments)
+},{"./array":233,"dup":35}],239:[function(require,module,exports){
+arguments[4][36][0].apply(exports,arguments)
+},{"./lib/array":233,"./lib/dom":234,"./lib/events":235,"./lib/fn":236,"./lib/string":237,"./lib/url":238,"dup":36}],240:[function(require,module,exports){
+arguments[4][134][0].apply(exports,arguments)
+},{"braintree-utilities":250,"dup":134}],241:[function(require,module,exports){
+arguments[4][135][0].apply(exports,arguments)
+},{"braintree-utilities":250,"dup":135}],242:[function(require,module,exports){
+arguments[4][136][0].apply(exports,arguments)
+},{"dup":136}],243:[function(require,module,exports){
+arguments[4][137][0].apply(exports,arguments)
+},{"braintree-utilities":250,"dup":137}],244:[function(require,module,exports){
+arguments[4][138][0].apply(exports,arguments)
+},{"braintree-utilities":250,"dup":138}],245:[function(require,module,exports){
+arguments[4][139][0].apply(exports,arguments)
+},{"./lib/message-bus":240,"./lib/pubsub-client":241,"./lib/pubsub-server":242,"./lib/rpc-client":243,"./lib/rpc-server":244,"dup":139}],246:[function(require,module,exports){
+arguments[4][140][0].apply(exports,arguments)
+},{"dup":140}],247:[function(require,module,exports){
+arguments[4][141][0].apply(exports,arguments)
+},{"dup":141}],248:[function(require,module,exports){
+arguments[4][142][0].apply(exports,arguments)
+},{"dup":142}],249:[function(require,module,exports){
 arguments[4][20][0].apply(exports,arguments)
-},{"dup":20}],238:[function(require,module,exports){
+},{"dup":20}],250:[function(require,module,exports){
 arguments[4][21][0].apply(exports,arguments)
-},{"./lib/dom":234,"./lib/events":235,"./lib/fn":236,"./lib/url":237,"dup":21}],239:[function(require,module,exports){
-arguments[4][27][0].apply(exports,arguments)
-},{"dup":27}],240:[function(require,module,exports){
+},{"./lib/dom":246,"./lib/events":247,"./lib/fn":248,"./lib/url":249,"dup":21}],251:[function(require,module,exports){
+arguments[4][30][0].apply(exports,arguments)
+},{"dup":30}],252:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],241:[function(require,module,exports){
+},{"dup":17}],253:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],242:[function(require,module,exports){
+},{"dup":18}],254:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],243:[function(require,module,exports){
-arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],244:[function(require,module,exports){
-arguments[4][32][0].apply(exports,arguments)
-},{"./array":239,"dup":32}],245:[function(require,module,exports){
-arguments[4][33][0].apply(exports,arguments)
-},{"./lib/array":239,"./lib/dom":240,"./lib/events":241,"./lib/fn":242,"./lib/string":243,"./lib/url":244,"dup":33}],246:[function(require,module,exports){
-arguments[4][143][0].apply(exports,arguments)
-},{"../shared/constants":251,"../shared/get-locale":253,"../shared/util/browser":258,"../shared/util/dom":259,"../shared/util/util":260,"./logged-in-view":248,"./logged-out-view":249,"./overlay-view":250,"braintree-api":210,"braintree-rpc":233,"braintree-utilities":245,"dup":143}],247:[function(require,module,exports){
+},{"dup":19}],255:[function(require,module,exports){
+arguments[4][34][0].apply(exports,arguments)
+},{"dup":34}],256:[function(require,module,exports){
+arguments[4][35][0].apply(exports,arguments)
+},{"./array":251,"dup":35}],257:[function(require,module,exports){
+arguments[4][36][0].apply(exports,arguments)
+},{"./lib/array":251,"./lib/dom":252,"./lib/events":253,"./lib/fn":254,"./lib/string":255,"./lib/url":256,"dup":36}],258:[function(require,module,exports){
+arguments[4][152][0].apply(exports,arguments)
+},{"../shared/constants":263,"../shared/get-locale":265,"../shared/util/browser":270,"../shared/util/dom":271,"../shared/util/util":272,"./logged-in-view":260,"./logged-out-view":261,"./overlay-view":262,"braintree-api":219,"braintree-rpc":245,"braintree-utilities":257,"dup":152}],259:[function(require,module,exports){
 var Client = require('./client');
 var browser = require('../shared/util/browser');
-var VERSION = "1.3.5";
+var VERSION = "1.3.6";
 
 function create(clientToken, options) {
   if (!browser.detectedPostMessage()) {
@@ -8193,47 +7987,47 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"../shared/util/browser":258,"./client":246}],248:[function(require,module,exports){
-arguments[4][144][0].apply(exports,arguments)
-},{"../shared/constants":251,"dup":144}],249:[function(require,module,exports){
-arguments[4][145][0].apply(exports,arguments)
-},{"../shared/constants":251,"../shared/get-locale":253,"braintree-utilities":245,"dup":145}],250:[function(require,module,exports){
-arguments[4][146][0].apply(exports,arguments)
-},{"../shared/constants":251,"braintree-utilities":245,"dup":146}],251:[function(require,module,exports){
-arguments[4][147][0].apply(exports,arguments)
-},{"dup":147}],252:[function(require,module,exports){
-arguments[4][148][0].apply(exports,arguments)
-},{"dup":148}],253:[function(require,module,exports){
-arguments[4][149][0].apply(exports,arguments)
-},{"../shared/data/country-code-lookup":252,"dup":149}],254:[function(require,module,exports){
-arguments[4][150][0].apply(exports,arguments)
-},{"./useragent":257,"dup":150}],255:[function(require,module,exports){
-arguments[4][151][0].apply(exports,arguments)
-},{"./platform":256,"./useragent":257,"dup":151}],256:[function(require,module,exports){
-arguments[4][152][0].apply(exports,arguments)
-},{"./useragent":257,"dup":152}],257:[function(require,module,exports){
+},{"../shared/util/browser":270,"./client":258}],260:[function(require,module,exports){
 arguments[4][153][0].apply(exports,arguments)
-},{"dup":153}],258:[function(require,module,exports){
+},{"../shared/constants":263,"dup":153}],261:[function(require,module,exports){
 arguments[4][154][0].apply(exports,arguments)
-},{"../useragent/browser":254,"../useragent/device":255,"../useragent/platform":256,"../useragent/useragent":257,"dup":154}],259:[function(require,module,exports){
+},{"../shared/constants":263,"../shared/get-locale":265,"braintree-utilities":257,"dup":154}],262:[function(require,module,exports){
 arguments[4][155][0].apply(exports,arguments)
-},{"dup":155}],260:[function(require,module,exports){
+},{"../shared/constants":263,"braintree-utilities":257,"dup":155}],263:[function(require,module,exports){
 arguments[4][156][0].apply(exports,arguments)
-},{"dup":156}],261:[function(require,module,exports){
-arguments[4][27][0].apply(exports,arguments)
-},{"dup":27}],262:[function(require,module,exports){
+},{"dup":156}],264:[function(require,module,exports){
+arguments[4][157][0].apply(exports,arguments)
+},{"dup":157}],265:[function(require,module,exports){
+arguments[4][158][0].apply(exports,arguments)
+},{"../shared/data/country-code-lookup":264,"dup":158}],266:[function(require,module,exports){
+arguments[4][159][0].apply(exports,arguments)
+},{"./platform":268,"./useragent":269,"dup":159}],267:[function(require,module,exports){
+arguments[4][160][0].apply(exports,arguments)
+},{"./platform":268,"./useragent":269,"dup":160}],268:[function(require,module,exports){
+arguments[4][161][0].apply(exports,arguments)
+},{"./useragent":269,"dup":161}],269:[function(require,module,exports){
+arguments[4][162][0].apply(exports,arguments)
+},{"dup":162}],270:[function(require,module,exports){
+arguments[4][163][0].apply(exports,arguments)
+},{"../useragent/browser":266,"../useragent/device":267,"../useragent/platform":268,"../useragent/useragent":269,"dup":163}],271:[function(require,module,exports){
+arguments[4][164][0].apply(exports,arguments)
+},{"dup":164}],272:[function(require,module,exports){
+arguments[4][165][0].apply(exports,arguments)
+},{"dup":165}],273:[function(require,module,exports){
+arguments[4][30][0].apply(exports,arguments)
+},{"dup":30}],274:[function(require,module,exports){
 arguments[4][17][0].apply(exports,arguments)
-},{"dup":17}],263:[function(require,module,exports){
+},{"dup":17}],275:[function(require,module,exports){
 arguments[4][18][0].apply(exports,arguments)
-},{"dup":18}],264:[function(require,module,exports){
+},{"dup":18}],276:[function(require,module,exports){
 arguments[4][19][0].apply(exports,arguments)
-},{"dup":19}],265:[function(require,module,exports){
-arguments[4][31][0].apply(exports,arguments)
-},{"dup":31}],266:[function(require,module,exports){
-arguments[4][32][0].apply(exports,arguments)
-},{"./array":261,"dup":32}],267:[function(require,module,exports){
-arguments[4][33][0].apply(exports,arguments)
-},{"./lib/array":261,"./lib/dom":262,"./lib/events":263,"./lib/fn":264,"./lib/string":265,"./lib/url":266,"dup":33}],268:[function(require,module,exports){
+},{"dup":19}],277:[function(require,module,exports){
+arguments[4][34][0].apply(exports,arguments)
+},{"dup":34}],278:[function(require,module,exports){
+arguments[4][35][0].apply(exports,arguments)
+},{"./array":273,"dup":35}],279:[function(require,module,exports){
+arguments[4][36][0].apply(exports,arguments)
+},{"./lib/array":273,"./lib/dom":274,"./lib/events":275,"./lib/fn":276,"./lib/string":277,"./lib/url":278,"dup":36}],280:[function(require,module,exports){
 'use strict';
 /*eslint-disable consistent-return*/
 
@@ -8262,7 +8056,7 @@ function toSnakeCase (string) {
 
 module.exports = { convertToLegacyShippingAddress: convertToLegacyShippingAddress };
 
-},{}],269:[function(require,module,exports){
+},{}],281:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -8271,7 +8065,7 @@ module.exports = {
   ROOT_READY_CALLBACK: 'onReady'
 };
 
-},{}],270:[function(require,module,exports){
+},{}],282:[function(require,module,exports){
 'use strict';
 
 var api = require('braintree-api');
@@ -8294,7 +8088,7 @@ function initialize(clientToken, options) {
 
 module.exports = {initialize: initialize};
 
-},{"braintree-api":16,"braintree-bus":34,"braintree-coinbase":37}],271:[function(require,module,exports){
+},{"braintree-api":16,"braintree-bus":37,"braintree-coinbase":40}],283:[function(require,module,exports){
 'use strict';
 
 var api = require('braintree-api');
@@ -8394,7 +8188,7 @@ function getIntegrationCallbackLookup(options, integration) {
 
 module.exports = {initialize: initialize};
 
-},{"../compatibility":268,"../constants":269,"braintree-api":16,"braintree-bus":34,"braintree-coinbase":37,"braintree-form":187,"braintree-paypal":247,"braintree-utilities":267}],272:[function(require,module,exports){
+},{"../compatibility":280,"../constants":281,"braintree-api":16,"braintree-bus":37,"braintree-coinbase":40,"braintree-form":196,"braintree-paypal":259,"braintree-utilities":279}],284:[function(require,module,exports){
 'use strict';
 
 var dropin = require('braintree-dropin');
@@ -8435,7 +8229,7 @@ function initialize(clientToken, options) {
 
 module.exports = {initialize: initialize};
 
-},{"../constants":269,"../lib/sanitize-payload":276,"braintree-bus":34,"braintree-dropin":177,"braintree-utilities":267}],273:[function(require,module,exports){
+},{"../constants":281,"../lib/sanitize-payload":288,"braintree-bus":37,"braintree-dropin":186,"braintree-utilities":279}],285:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -8445,7 +8239,7 @@ module.exports = {
   coinbase: require('./coinbase')
 };
 
-},{"./coinbase":270,"./custom":271,"./dropin":272,"./paypal":274}],274:[function(require,module,exports){
+},{"./coinbase":282,"./custom":283,"./dropin":284,"./paypal":286}],286:[function(require,module,exports){
 'use strict';
 
 var paypal = require('braintree-paypal');
@@ -8491,7 +8285,7 @@ function initialize(clientToken, options) {
 
 module.exports = {initialize: initialize};
 
-},{"../compatibility":268,"../constants":269,"braintree-bus":34,"braintree-paypal":247,"braintree-utilities":267}],275:[function(require,module,exports){
+},{"../compatibility":280,"../constants":281,"braintree-bus":37,"braintree-paypal":259,"braintree-utilities":279}],287:[function(require,module,exports){
 'use strict';
 var bus = require('braintree-bus');
 var util = require('braintree-utilities');
@@ -8532,7 +8326,7 @@ module.exports = function (cb) {
   return new Waiter(cb);
 };
 
-},{"braintree-bus":34,"braintree-utilities":267}],276:[function(require,module,exports){
+},{"braintree-bus":37,"braintree-utilities":279}],288:[function(require,module,exports){
 'use strict';
 
 module.exports = function sanitizePayload(payload) {
