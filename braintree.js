@@ -2744,7 +2744,7 @@ window.Braintree = Braintree;
 (function (global){
 'use strict';
 
-var VERSION = "2.11.3";
+var VERSION = "2.11.4";
 var api = require('braintree-api');
 var paypal = require('braintree-paypal');
 var dropin = require('braintree-dropin');
@@ -7341,7 +7341,7 @@ module.exports = PopupView;
 'use strict';
 
 var i;
-var version = "1.5.4";
+var version = "1.5.5";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
@@ -8093,7 +8093,7 @@ var APIProxyServer = require('./api-proxy-server');
 var MerchantFormManager = require('./merchant-form-manager');
 var FrameContainer = require('./frame-container');
 var constants = require('../shared/constants');
-var version = "1.8.4";
+var version = "1.8.5";
 var PayPalModalView = require('braintree-paypal/src/external/views/app-view');
 
 function getElementStyle(element, style) {
@@ -8342,7 +8342,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require('./client');
-var VERSION = "1.8.4";
+var VERSION = "1.8.5";
 
 function create(options) {
   var client = new Client(options);
@@ -9163,7 +9163,7 @@ var browser = require('../shared/util/browser');
 var constants = require('../shared/constants');
 var getLocale = require('../shared/get-locale');
 var isHermesConfiguration = require('../shared/util/util').isHermesConfiguration;
-var VERSION = "1.5.4";
+var VERSION = "1.5.5";
 var braintreeUtil = require('braintree-utilities');
 var braintreeApi = require('braintree-api');
 
@@ -9491,8 +9491,8 @@ LoggedOutView.prototype._initialize = function () {
     this.createPayWithPayPalButton();
   }
 
-  bus.subscribe(bus.events.PAYMENT_METHOD_GENERATED, braintreeUtil.bind(this.hide, this));
-  bus.subscribe(bus.events.PAYMENT_METHOD_CANCELLED, braintreeUtil.bind(this.show, this));
+  bus.subscribe(bus.events.PAYMENT_METHOD_GENERATED, braintreeUtil.bind(this._handlePaymentMethodGenerated, this));
+  bus.subscribe(bus.events.PAYMENT_METHOD_CANCELLED, braintreeUtil.bind(this._handlePaymentMethodCancelled, this));
 };
 
 LoggedOutView.prototype.createViewContainer = function () {
