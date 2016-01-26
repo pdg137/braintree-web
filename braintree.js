@@ -5674,10 +5674,12 @@ MessageBus.prototype.receive = function (event) {
 };
 
 MessageBus.prototype.send = function (source, type, data) {
-  source.postMessage(JSON.stringify({
-    type: this._namespaceEvent(type),
-    data: data
-  }), '*');
+  try {
+    source.postMessage(JSON.stringify({
+      type: this._namespaceEvent(type),
+      data: data
+    }), '*');
+  } catch (e) {}
 };
 
 MessageBus.prototype.register = function (type, handler) {
@@ -10127,7 +10129,7 @@ module.exports = function sanitizePayload(payload) {
 (function (global){
 'use strict';
 
-var VERSION = "2.16.0";
+var VERSION = "2.16.1";
 var api = require(14);
 var paypal = require(213);
 var dropin = require(199);
@@ -10532,7 +10534,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "2.16.0",
+  VERSION: "2.16.1",
   INTEGRATION_NAME: 'Coinbase',
   CONFIGURATION_ERROR: 'CONFIGURATION',
   UNSUPPORTED_BROWSER_ERROR: 'UNSUPPORTED_BROWSER',
@@ -11001,7 +11003,7 @@ var APIProxyServer = require(194);
 var MerchantFormManager = require(198);
 var FrameContainer = require(197);
 var constants = require(200);
-var version = "2.16.0";
+var version = "2.16.1";
 var PayPalModalView = require(217);
 
 function getElementStyle(element, style) {
@@ -11302,7 +11304,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require(195);
-var VERSION = "2.16.0";
+var VERSION = "2.16.1";
 
 function create(options) {
   var client = new Client(options);
@@ -11842,7 +11844,7 @@ module.exports = function validateAnnotations(htmlForm) {
 
 var HostedFields = require(209);
 var events = require(211).events;
-var VERSION = "2.16.0";
+var VERSION = "2.16.1";
 
 module.exports = {
   create: function (configuration) {
@@ -12067,7 +12069,7 @@ module.exports = function shouldUseLabelFocus() {
 'use strict';
 /* eslint-disable no-reserved-keys */
 
-var VERSION = "2.16.0";
+var VERSION = "2.16.1";
 
 module.exports = {
   VERSION: VERSION,
@@ -12453,7 +12455,7 @@ var constants = require(226);
 var getLocale = require(228);
 var isHermesConfiguration = require(236).isHermesConfiguration;
 var isOnetimeHermesConfiguration = require(236).isOnetimeHermesConfiguration;
-var VERSION = "2.16.0";
+var VERSION = "2.16.1";
 var braintreeUtil = require(81);
 var braintreeApi = require(14);
 
@@ -13759,7 +13761,7 @@ module.exports = PopupView;
 'use strict';
 
 var i;
-var version = "2.16.0";
+var version = "2.16.1";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
