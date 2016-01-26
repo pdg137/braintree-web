@@ -9502,19 +9502,16 @@ module.exports = {
 (function (global){
 'use strict';
 
-var clone = require(148);
+var cloneAndStripDOM = require(174).cloneAndStripDOM;
 var api = require(14);
 var Bus = require(163);
 var Destructor = require(85);
 var bind = require(95);
 var constants = require(167);
-var sanitizePayload = require(178);
-var lookupCallbackFor = require(176);
-var fallbackErrorHandler = require(174);
-var nodeType = require(177);
-var isJQueryElement = nodeType.isJQueryElement;
-var isHTMLElement = nodeType.isHTMLElement;
-var dataCollector = require(192);
+var sanitizePayload = require(179);
+var lookupCallbackFor = require(177);
+var fallbackErrorHandler = require(175);
+var dataCollector = require(193);
 
 function noop() {}
 
@@ -9595,9 +9592,7 @@ BaseIntegration.prototype._configureAnalytics = function () {
 };
 
 BaseIntegration.prototype._attachEvents = function () {
-  var replyConfiguration = clone(this.configuration, function (value) {
-    if (isJQueryElement(value) || isHTMLElement(value)) { return {}; }
-  });
+  var replyConfiguration = cloneAndStripDOM(this.configuration);
 
   if (replyConfiguration.integrationType === 'dropin') {
     _ensureDropinPayPalConfig(replyConfiguration.merchantConfiguration);
@@ -9697,26 +9692,27 @@ BaseIntegration.prototype._onIntegrationReady = function (instance) {
 module.exports = BaseIntegration;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"14":14,"148":148,"163":163,"167":167,"174":174,"176":176,"177":177,"178":178,"192":192,"85":85,"95":95}],169:[function(require,module,exports){
+},{"14":14,"163":163,"167":167,"174":174,"175":175,"177":177,"179":179,"193":193,"85":85,"95":95}],169:[function(require,module,exports){
 'use strict';
 
-var assign = require(155);
+var cloneAndPreserveDOM = require(174).cloneAndPreserveDOM;
 var create = require(156);
 var bind = require(95);
-var coinbase = require(180);
+var coinbase = require(181);
 var Bus = require(163);
 var BaseIntegration = require(168);
 
 function CoinbaseIntegration() {
-  var coinbaseIntegration;
+  var coinbaseIntegration, configuration;
 
   BaseIntegration.apply(this, arguments);
 
+  configuration = cloneAndPreserveDOM(this.configuration);
+  configuration.apiClient = this.apiClient;
+
   this._attachBusEvents();
 
-  coinbaseIntegration = coinbase.create(assign({}, this.configuration, {
-    apiClient: this.apiClient
-  }));
+  coinbaseIntegration = coinbase.create(configuration);
 
   if (coinbaseIntegration != null) {
     this.destructor.registerFunctionForTeardown(function (done) {
@@ -9741,26 +9737,23 @@ CoinbaseIntegration.prototype._onPaymentMethodGenerated = function (payload) {
 
 module.exports = CoinbaseIntegration;
 
-},{"155":155,"156":156,"163":163,"168":168,"180":180,"95":95}],170:[function(require,module,exports){
+},{"156":156,"163":163,"168":168,"174":174,"181":181,"95":95}],170:[function(require,module,exports){
 'use strict';
 
-var clone = require(148);
+var cloneAndPreserveDOM = require(174).cloneAndPreserveDOM;
 var create = require(156);
-var form = require(201);
-var paypal = require(213);
-var coinbase = require(180);
+var form = require(202);
+var paypal = require(214);
+var coinbase = require(181);
 var bind = require(95);
 var isFunction = require(151);
-var hostedFields = require(207);
+var hostedFields = require(208);
 var FormNapper = require(88);
 var constants = require(167);
 var Bus = require(163);
 var convertToLegacyShippingAddress = require(166).convertToLegacyShippingAddress;
 var BaseIntegration = require(168);
-var nodeType = require(177);
-var isJQueryElement = nodeType.isJQueryElement;
-var isHTMLElement = nodeType.isHTMLElement;
-var NonceManager = require(175);
+var NonceManager = require(176);
 
 function CustomIntegration() {
   BaseIntegration.apply(this, arguments);
@@ -9847,14 +9840,7 @@ CustomIntegration.prototype._setupPayPal = function () {
 
   if (!this.configuration.merchantConfiguration.paypal) { return; }
 
-  configuration = clone(this.configuration, function (value) {
-    if (isJQueryElement(value)) {
-      return value[0];
-    } else if (isHTMLElement(value)) {
-      return value;
-    }
-  });
-
+  configuration = cloneAndPreserveDOM(this.configuration);
   merchantConfiguration = configuration.merchantConfiguration;
   paypalConfiguration = merchantConfiguration.paypal;
 
@@ -9900,7 +9886,7 @@ CustomIntegration.prototype._setupCoinbase = function () {
 
   if (navigator.userAgent.match(/MSIE 8\.0/)) { return; }
 
-  coinbaseConfiguration = clone(this.configuration);
+  coinbaseConfiguration = cloneAndPreserveDOM(this.configuration);
   coinbaseConfiguration.apiClient = this.apiClient;
 
   coinbaseIntegration = coinbase.create(coinbaseConfiguration);
@@ -9943,21 +9929,18 @@ function getIntegrationCallbackLookup(options, integration) {
 
 module.exports = CustomIntegration;
 
-},{"148":148,"151":151,"156":156,"163":163,"166":166,"167":167,"168":168,"175":175,"177":177,"180":180,"201":201,"207":207,"213":213,"88":88,"95":95}],171:[function(require,module,exports){
+},{"151":151,"156":156,"163":163,"166":166,"167":167,"168":168,"174":174,"176":176,"181":181,"202":202,"208":208,"214":214,"88":88,"95":95}],171:[function(require,module,exports){
 'use strict';
 
-var clone = require(148);
+var cloneAndPreserveDOM = require(174).cloneAndPreserveDOM;
 var create = require(156);
-var dropin = require(199);
+var dropin = require(200);
 var bind = require(95);
 var isFunction = require(151);
 var Bus = require(163);
 var constants = require(167);
-var sanitizePayload = require(178);
+var sanitizePayload = require(179);
 var BaseIntegration = require(168);
-var nodeType = require(177);
-var isJQueryElement = nodeType.isJQueryElement;
-var isHTMLElement = nodeType.isHTMLElement;
 
 function _getLegacyCallback(options) {
   if (isFunction(options.paymentMethodNonceReceived)) {
@@ -9976,9 +9959,7 @@ function DropinIntegration() {
 
   BaseIntegration.apply(this, arguments);
 
-  configuration = clone(this.configuration, function (value) {
-    if (isJQueryElement(value) || isHTMLElement(value)) { return value; }
-  });
+  configuration = cloneAndPreserveDOM(this.configuration);
   merchantConfiguration = configuration.merchantConfiguration;
   legacyCallback = _getLegacyCallback(merchantConfiguration);
   hasRootCallback = _hasRootCallback(merchantConfiguration);
@@ -10007,7 +9988,7 @@ DropinIntegration.prototype = create(BaseIntegration.prototype, {
 
 module.exports = DropinIntegration;
 
-},{"148":148,"151":151,"156":156,"163":163,"167":167,"168":168,"177":177,"178":178,"199":199,"95":95}],172:[function(require,module,exports){
+},{"151":151,"156":156,"163":163,"167":167,"168":168,"174":174,"179":179,"200":200,"95":95}],172:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -10020,9 +10001,9 @@ module.exports = {
 },{"169":169,"170":170,"171":171,"173":173}],173:[function(require,module,exports){
 'use strict';
 
-var clone = require(148);
+var cloneAndPreserveDOM = require(174).cloneAndPreserveDOM;
 var create = require(156);
-var paypal = require(213);
+var paypal = require(214);
 var bind = require(95);
 var isFunction = require(151);
 var constants = require(167);
@@ -10047,7 +10028,7 @@ function _hasRootCallback(options) {
 function PayPalIntegration(configuration) {
   var merchantConfiguration, legacyCallback, hasRootCallback, key;
 
-  configuration = clone(configuration);
+  configuration = cloneAndPreserveDOM(configuration);
   configuration.merchantConfiguration.paypal = configuration.merchantConfiguration.paypal || {};
   for (key in configuration.merchantConfiguration) {
     if (configuration.merchantConfiguration.hasOwnProperty(key) && key !== 'paypal') {
@@ -10110,7 +10091,36 @@ PayPalIntegration.prototype._onIntegrationReady = function () {
 
 module.exports = PayPalIntegration;
 
-},{"148":148,"151":151,"156":156,"163":163,"166":166,"167":167,"168":168,"213":213,"95":95}],174:[function(require,module,exports){
+},{"151":151,"156":156,"163":163,"166":166,"167":167,"168":168,"174":174,"214":214,"95":95}],174:[function(require,module,exports){
+'use strict';
+
+var cloneDeep = require(148);
+var nodeType = require(178);
+var isJQueryElement = nodeType.isJQueryElement;
+var isHTMLElement = nodeType.isHTMLElement;
+
+function cloneAndPreserveDOM(obj) {
+  return cloneDeep(obj, function (value) {
+    if (isJQueryElement(value)) {
+      return value.get(0);
+    } else if (isHTMLElement(value)) {
+      return value;
+    }
+  });
+}
+
+function cloneAndStripDOM(obj) {
+  return cloneDeep(obj, function (value) {
+    if (isJQueryElement(value) || isHTMLElement(value)) { return {}; }
+  });
+}
+
+module.exports = {
+  cloneAndPreserveDOM: cloneAndPreserveDOM,
+  cloneAndStripDOM: cloneAndStripDOM
+};
+
+},{"148":148,"178":178}],175:[function(require,module,exports){
 'use strict';
 
 module.exports = function fallbackError(error) {
@@ -10127,11 +10137,11 @@ module.exports = function fallbackError(error) {
   }
 };
 
-},{}],175:[function(require,module,exports){
+},{}],176:[function(require,module,exports){
 'use strict';
 
 var Bus = require(163);
-var hostedFields = require(207);
+var hostedFields = require(208);
 
 var ANALYTICS_STRING = 'web.custom.hosted-fields.via.';
 var INPUT_NAME = 'payment_method_nonce';
@@ -10213,7 +10223,7 @@ NonceManager.prototype.teardown = function () {
 
 module.exports = NonceManager;
 
-},{"163":163,"207":207}],176:[function(require,module,exports){
+},{"163":163,"208":208}],177:[function(require,module,exports){
 'use strict';
 
 var isFunction = require(151);
@@ -10232,11 +10242,11 @@ module.exports = function lookupCallbackFor(model) {
   };
 };
 
-},{"151":151}],177:[function(require,module,exports){
+},{"151":151}],178:[function(require,module,exports){
 'use strict';
 
 function isJQueryElement(element) {
-  return Boolean(element) && typeof element === 'object' && 'jquery' in element && element.length !== 0;
+  return Boolean(element) && typeof element === 'object' && 'jquery' in element;
 }
 
 function isHTMLElement(element) {
@@ -10248,7 +10258,7 @@ module.exports = {
   isHTMLElement: isHTMLElement
 };
 
-},{}],178:[function(require,module,exports){
+},{}],179:[function(require,module,exports){
 'use strict';
 
 module.exports = function sanitizePayload(payload) {
@@ -10259,20 +10269,20 @@ module.exports = function sanitizePayload(payload) {
   };
 };
 
-},{}],179:[function(require,module,exports){
+},{}],180:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var VERSION = "2.17.4";
+var VERSION = "2.17.5";
 var api = require(14);
-var paypal = require(213);
-var dropin = require(199);
+var paypal = require(214);
+var dropin = require(200);
 var integrations = require(172);
 var constants = require(167);
-var fallbackErrorHandler = require(174);
-var lookupCallbackFor = require(176);
+var fallbackErrorHandler = require(175);
+var lookupCallbackFor = require(177);
 var utils = require(81);
-var dataCollector = require(192);
+var dataCollector = require(193);
 
 function setup(authorization, integrationType, merchantConfiguration) {
   var channel;
@@ -10318,16 +10328,16 @@ module.exports = {
   cse: global.Braintree,
   paypal: paypal,
   dropin: dropin,
-  hostedFields: {VERSION: require(207).VERSION},
+  hostedFields: {VERSION: require(208).VERSION},
   setup: setup,
   VERSION: VERSION
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"14":14,"167":167,"172":172,"174":174,"176":176,"192":192,"199":199,"207":207,"213":213,"81":81}],180:[function(require,module,exports){
+},{"14":14,"167":167,"172":172,"175":175,"177":177,"193":193,"200":200,"208":208,"214":214,"81":81}],181:[function(require,module,exports){
 'use strict';
 
-var Coinbase = require(183);
+var Coinbase = require(184);
 
 function create(options) {
   var result = new Coinbase(options);
@@ -10337,7 +10347,7 @@ function create(options) {
 
 module.exports = {create: create};
 
-},{"183":183}],181:[function(require,module,exports){
+},{"184":184}],182:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -10383,7 +10393,7 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],182:[function(require,module,exports){
+},{}],183:[function(require,module,exports){
 'use strict';
 
 var busEvents = require(163).events;
@@ -10402,18 +10412,18 @@ function tokenize(err, payload, coinbase) {
 
 module.exports = {tokenize: tokenize};
 
-},{"163":163}],183:[function(require,module,exports){
+},{"163":163}],184:[function(require,module,exports){
 (function (global){
 'use strict';
 
 var bind = require(95);
 var utils = require(81);
 var Destructor = require(85);
-var DOMComposer = require(187);
-var urlComposer = require(190);
-var callbacks = require(182);
-var constants = require(184);
-var detector = require(185);
+var DOMComposer = require(188);
+var urlComposer = require(191);
+var callbacks = require(183);
+var constants = require(185);
+var detector = require(186);
 var Bus = require(163);
 var api = require(14);
 
@@ -10661,7 +10671,7 @@ Coinbase.prototype.teardown = function (done) {
 module.exports = Coinbase;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"14":14,"163":163,"182":182,"184":184,"185":185,"187":187,"190":190,"81":81,"85":85,"95":95}],184:[function(require,module,exports){
+},{"14":14,"163":163,"183":183,"185":185,"186":186,"188":188,"191":191,"81":81,"85":85,"95":95}],185:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -10672,17 +10682,17 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "2.17.4",
+  VERSION: "2.17.5",
   INTEGRATION_NAME: 'Coinbase',
   CONFIGURATION_ERROR: 'CONFIGURATION',
   UNSUPPORTED_BROWSER_ERROR: 'UNSUPPORTED_BROWSER',
   TEARDOWN_EVENT: 'coinbase:TEARDOWN'
 };
 
-},{}],185:[function(require,module,exports){
+},{}],186:[function(require,module,exports){
 'use strict';
 
-var browser = require(181);
+var browser = require(182);
 
 function isSupportedBrowser() {
   var version = browser.ieVersion();
@@ -10717,7 +10727,7 @@ module.exports = {
   shouldDisplayLollipopClose: shouldDisplayLollipopClose
 };
 
-},{"181":181}],186:[function(require,module,exports){
+},{"182":182}],187:[function(require,module,exports){
 'use strict';
 
 function createButton(config) {
@@ -10738,12 +10748,12 @@ function createButton(config) {
 
 module.exports = {create: createButton};
 
-},{}],187:[function(require,module,exports){
+},{}],188:[function(require,module,exports){
 'use strict';
 
-var popup = require(189);
-var button = require(186);
-var frame = require(188);
+var popup = require(190);
+var button = require(187);
+var frame = require(189);
 
 module.exports = {
   createButton: button.create,
@@ -10751,10 +10761,10 @@ module.exports = {
   createFrame: frame.create
 };
 
-},{"186":186,"188":188,"189":189}],188:[function(require,module,exports){
+},{"187":187,"189":189,"190":190}],189:[function(require,module,exports){
 'use strict';
 
-var constants = require(184);
+var constants = require(185);
 var iframer = require(90);
 
 function createFrame() {
@@ -10773,11 +10783,11 @@ function createFrame() {
 
 module.exports = {create: createFrame};
 
-},{"184":184,"90":90}],189:[function(require,module,exports){
+},{"185":185,"90":90}],190:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var constants = require(184);
+var constants = require(185);
 
 function _stringifyParams(payload) {
   var param;
@@ -10811,10 +10821,10 @@ function createPopup(url) {
 module.exports = {create: createPopup};
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"184":184}],190:[function(require,module,exports){
+},{"185":185}],191:[function(require,module,exports){
 'use strict';
 
-var constants = require(184);
+var constants = require(185);
 
 function getQueryString() {
   return 'version=' + constants.VERSION;
@@ -10848,7 +10858,7 @@ module.exports = {
   getQueryString: getQueryString
 };
 
-},{"184":184}],191:[function(require,module,exports){
+},{"185":185}],192:[function(require,module,exports){
 'use strict';
 
 function setup() {
@@ -10951,12 +10961,12 @@ module.exports = {
   setup: setup
 };
 
-},{}],192:[function(require,module,exports){
+},{}],193:[function(require,module,exports){
 'use strict';
 /* eslint-disable camelcase */
 
-var kount = require(193);
-var fraudnet = require(191);
+var kount = require(194);
+var fraudnet = require(192);
 
 function setup(options) {
   var data, kountInstance, fraudnetInstance;
@@ -10994,7 +11004,7 @@ module.exports = {
   setup: setup
 };
 
-},{"191":191,"193":193}],193:[function(require,module,exports){
+},{"192":192,"194":194}],194:[function(require,module,exports){
 (function (global){
 'use strict';
 /* eslint-disable camelcase */
@@ -11097,7 +11107,7 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],194:[function(require,module,exports){
+},{}],195:[function(require,module,exports){
 'use strict';
 
 var RPC_METHOD_NAMES = ['unlockCreditCard'];
@@ -11124,7 +11134,7 @@ APIProxyServer.prototype.attach = function (rpcServer) {
 
 module.exports = APIProxyServer;
 
-},{}],195:[function(require,module,exports){
+},{}],196:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -11136,12 +11146,12 @@ var rpc = require(63);
 var utils = require(81);
 var normalizeElement = utils.normalizeElement;
 var bind = require(95);
-var APIProxyServer = require(194);
-var MerchantFormManager = require(198);
-var FrameContainer = require(197);
-var constants = require(200);
-var version = "2.17.4";
-var PayPalModalView = require(217);
+var APIProxyServer = require(195);
+var MerchantFormManager = require(199);
+var FrameContainer = require(198);
+var constants = require(201);
+var version = "2.17.5";
+var PayPalModalView = require(218);
 
 function getElementStyle(element, style) {
   var computedStyle = window.getComputedStyle ? getComputedStyle(element) : element.currentStyle;
@@ -11415,11 +11425,11 @@ Client.prototype.teardown = function (done) {
 module.exports = Client;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"14":14,"163":163,"194":194,"197":197,"198":198,"200":200,"217":217,"63":63,"81":81,"85":85,"95":95}],196:[function(require,module,exports){
+},{"14":14,"163":163,"195":195,"198":198,"199":199,"201":201,"218":218,"63":63,"81":81,"85":85,"95":95}],197:[function(require,module,exports){
 'use strict';
 
-var Client = require(195);
-var VERSION = "2.17.4";
+var Client = require(196);
+var VERSION = "2.17.5";
 
 function create(options) {
   var client = new Client(options);
@@ -11434,11 +11444,11 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"195":195}],197:[function(require,module,exports){
+},{"196":196}],198:[function(require,module,exports){
 'use strict';
 
 var BraintreeBus = require(163);
-var constants = require(200);
+var constants = require(201);
 var iFramer = require(90);
 
 // TODO: move to shared and deduplicate from src/internal/util/dropin-util.js
@@ -11511,7 +11521,7 @@ function FrameContainer(endpoint, name, braintreeBus) {
 
 module.exports = FrameContainer;
 
-},{"163":163,"200":200,"90":90}],198:[function(require,module,exports){
+},{"163":163,"201":201,"90":90}],199:[function(require,module,exports){
 'use strict';
 
 var bind = require(95);
@@ -11617,12 +11627,12 @@ MerchantFormManager.prototype.teardown = function () {
 
 module.exports = MerchantFormManager;
 
-},{"88":88,"95":95}],199:[function(require,module,exports){
+},{"88":88,"95":95}],200:[function(require,module,exports){
 'use strict';
 
-module.exports = require(196);
+module.exports = require(197);
 
-},{"196":196}],200:[function(require,module,exports){
+},{"197":197}],201:[function(require,module,exports){
 module.exports={
   "PAYPAL_INTEGRATION_NAME": "PayPal",
   "INLINE_FRAME_NAME": "braintree-dropin-frame",
@@ -11646,11 +11656,11 @@ module.exports={
   "MODAL_FRAME_TEARDOWN_EVENT": "dropin:TEARDOWN_MODAL_FRAME"
 }
 
-},{}],201:[function(require,module,exports){
+},{}],202:[function(require,module,exports){
 'use strict';
 
-var Form = require(203);
-var validateAnnotations = require(206);
+var Form = require(204);
+var validateAnnotations = require(207);
 
 function setup(apiClient, configuration) {
   var merchantConfiguration = configuration.merchantConfiguration || {};
@@ -11670,7 +11680,7 @@ function setup(apiClient, configuration) {
 
 module.exports = {setup: setup};
 
-},{"203":203,"206":206}],202:[function(require,module,exports){
+},{"204":204,"207":207}],203:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -11727,17 +11737,17 @@ module.exports = {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],203:[function(require,module,exports){
+},{}],204:[function(require,module,exports){
 (function (global){
 'use strict';
 
 var bind = require(95);
 var util = require(81);
-var fields = require(202);
+var fields = require(203);
 var Destructor = require(85);
 var Bus = require(163);
-var PaymentMethodModel = require(205);
-var getNonceInput = require(204);
+var PaymentMethodModel = require(206);
+var getNonceInput = require(205);
 var ERROR_PAYLOAD = {
   message: 'Unable to process payments at this time',
   type: 'IMMEDIATE'
@@ -11874,7 +11884,7 @@ Form.prototype.teardown = function () {
 module.exports = Form;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"163":163,"202":202,"204":204,"205":205,"81":81,"85":85,"95":95}],204:[function(require,module,exports){
+},{"163":163,"203":203,"205":205,"206":206,"81":81,"85":85,"95":95}],205:[function(require,module,exports){
 'use strict';
 
 module.exports = function getNonceInput(paymentMethodNonceInputField) {
@@ -11897,7 +11907,7 @@ module.exports = function getNonceInput(paymentMethodNonceInputField) {
   return nonceInput;
 };
 
-},{}],205:[function(require,module,exports){
+},{}],206:[function(require,module,exports){
 'use strict';
 
 function PaymentMethodModel() {
@@ -11918,7 +11928,7 @@ PaymentMethodModel.prototype.reset = function () {
 
 module.exports = PaymentMethodModel;
 
-},{}],206:[function(require,module,exports){
+},{}],207:[function(require,module,exports){
 'use strict';
 
 module.exports = function validateAnnotations(htmlForm) {
@@ -11954,12 +11964,12 @@ module.exports = function validateAnnotations(htmlForm) {
   }
 };
 
-},{}],207:[function(require,module,exports){
+},{}],208:[function(require,module,exports){
 'use strict';
 
-var HostedFields = require(209);
-var events = require(211).events;
-var VERSION = "2.17.4";
+var HostedFields = require(210);
+var events = require(212).events;
+var VERSION = "2.17.5";
 
 module.exports = {
   create: function (configuration) {
@@ -11969,10 +11979,10 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"209":209,"211":211}],208:[function(require,module,exports){
+},{"210":210,"212":212}],209:[function(require,module,exports){
 'use strict';
 
-var constants = require(211);
+var constants = require(212);
 
 module.exports = function composeUrl(assetsUrl, channel) {
   return assetsUrl +
@@ -11982,19 +11992,19 @@ module.exports = function composeUrl(assetsUrl, channel) {
     channel;
 };
 
-},{"211":211}],209:[function(require,module,exports){
+},{"212":212}],210:[function(require,module,exports){
 'use strict';
 
 var Destructor = require(85);
 var classListManager = require(82);
 var iFramer = require(90);
 var Bus = require(163);
-var composeUrl = require(208);
-var constants = require(211);
+var composeUrl = require(209);
+var constants = require(212);
 var nodeListToArray = require(162);
 var utils = require(81);
-var findParentTags = require(212);
-var shouldUseLabelFocus = require(210);
+var findParentTags = require(213);
+var shouldUseLabelFocus = require(211);
 var events = constants.events;
 
 function injectFrame(frame, container) {
@@ -12173,18 +12183,18 @@ HostedFieldsIntegration.prototype.teardown = function (done) {
 
 module.exports = HostedFieldsIntegration;
 
-},{"162":162,"163":163,"208":208,"210":210,"211":211,"212":212,"81":81,"82":82,"85":85,"90":90}],210:[function(require,module,exports){
+},{"162":162,"163":163,"209":209,"211":211,"212":212,"213":213,"81":81,"82":82,"85":85,"90":90}],211:[function(require,module,exports){
 'use strict';
 
 module.exports = function shouldUseLabelFocus() {
   return !/(iPad|iPhone|iPod)/i.test(navigator.userAgent);
 };
 
-},{}],211:[function(require,module,exports){
+},{}],212:[function(require,module,exports){
 'use strict';
 /* eslint-disable no-reserved-keys */
 
-var VERSION = "2.17.4";
+var VERSION = "2.17.5";
 
 module.exports = {
   VERSION: VERSION,
@@ -12273,7 +12283,7 @@ module.exports = {
   }
 };
 
-},{}],212:[function(require,module,exports){
+},{}],213:[function(require,module,exports){
 'use strict';
 
 function findParentTags(element, tag) {
@@ -12293,12 +12303,12 @@ function findParentTags(element, tag) {
 
 module.exports = findParentTags;
 
-},{}],213:[function(require,module,exports){
+},{}],214:[function(require,module,exports){
 'use strict';
 
-module.exports = require(215);
+module.exports = require(216);
 
-},{"215":215}],214:[function(require,module,exports){
+},{"216":216}],215:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -12307,16 +12317,16 @@ var bind = require(95);
 var isFunction = require(151);
 var Destructor = require(85);
 var Bus = require(163);
-var AppView = require(217);
-var LoggedInView = require(219);
-var LoggedOutView = require(220);
-var OverlayView = require(223);
-var MerchantPageView = require(221);
-var PaymentMethodNonceInputFieldView = require(224);
-var BridgeIframeView = require(218);
-var browser = require(234);
-var constants = require(226);
-var util = require(236);
+var AppView = require(218);
+var LoggedInView = require(220);
+var LoggedOutView = require(221);
+var OverlayView = require(224);
+var MerchantPageView = require(222);
+var PaymentMethodNonceInputFieldView = require(225);
+var BridgeIframeView = require(219);
+var browser = require(235);
+var constants = require(227);
+var util = require(237);
 var bindAll = require(96);
 
 function Client(configuration) {
@@ -12500,15 +12510,15 @@ Client.prototype.teardown = function () {
 module.exports = Client;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"151":151,"163":163,"217":217,"218":218,"219":219,"220":220,"221":221,"223":223,"224":224,"226":226,"234":234,"236":236,"81":81,"85":85,"95":95,"96":96}],215:[function(require,module,exports){
+},{"151":151,"163":163,"218":218,"219":219,"220":220,"221":221,"222":222,"224":224,"225":225,"227":227,"235":235,"237":237,"81":81,"85":85,"95":95,"96":96}],216:[function(require,module,exports){
 'use strict';
 
-var Client = require(214);
-var browser = require(234);
-var constants = require(226);
-var getLocale = require(228);
-var util = require(236);
-var VERSION = "2.17.4";
+var Client = require(215);
+var browser = require(235);
+var constants = require(227);
+var getLocale = require(229);
+var util = require(237);
+var VERSION = "2.17.5";
 var braintreeUtil = require(81);
 
 function create(configuration) {
@@ -12618,7 +12628,7 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"214":214,"226":226,"228":228,"234":234,"236":236,"81":81}],216:[function(require,module,exports){
+},{"215":215,"227":227,"229":229,"235":235,"237":237,"81":81}],217:[function(require,module,exports){
 module.exports={
   "en_us": {
     "cancel": "Cancel",
@@ -12747,18 +12757,18 @@ module.exports={
   }
 }
 
-},{}],217:[function(require,module,exports){
+},{}],218:[function(require,module,exports){
 (function (global){
 'use strict';
 
 var bind = require(95);
 var isFunction = require(151);
-var browser = require(234);
+var browser = require(235);
 var Destructor = require(85);
 var Bus = require(163);
-var constants = require(226);
-var PopupView = require(225);
-var ModalView = require(222);
+var constants = require(227);
+var PopupView = require(226);
+var ModalView = require(223);
 
 function AppView(options) {
   var self = this;
@@ -12882,10 +12892,10 @@ AppView.prototype.teardown = function () {
 module.exports = AppView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"151":151,"163":163,"222":222,"225":225,"226":226,"234":234,"85":85,"95":95}],218:[function(require,module,exports){
+},{"151":151,"163":163,"223":223,"226":226,"227":227,"235":235,"85":85,"95":95}],219:[function(require,module,exports){
 'use strict';
 
-var constants = require(226);
+var constants = require(227);
 var iframer = require(90);
 
 function BridgeIframeView(options) {
@@ -12929,7 +12939,7 @@ BridgeIframeView.prototype.teardown = function () {
 
 module.exports = BridgeIframeView;
 
-},{"226":226,"90":90}],219:[function(require,module,exports){
+},{"227":227,"90":90}],220:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -12937,11 +12947,11 @@ var braintreeUtil = require(81);
 var bind = require(95);
 var Destructor = require(85);
 var Bus = require(163);
-var util = require(236);
-var dom = require(235);
-var constants = require(226);
-var getLocalizationData = require(229);
-var translations = require(216);
+var util = require(237);
+var dom = require(236);
+var constants = require(227);
+var getLocalizationData = require(230);
+var translations = require(217);
 
 function LoggedInView(options) {
   var localizationData;
@@ -13109,14 +13119,14 @@ LoggedInView.prototype.teardown = function () {
 module.exports = LoggedInView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"163":163,"216":216,"226":226,"229":229,"235":235,"236":236,"81":81,"85":85,"95":95}],220:[function(require,module,exports){
+},{"163":163,"217":217,"227":227,"230":230,"236":236,"237":237,"81":81,"85":85,"95":95}],221:[function(require,module,exports){
 (function (global){
 'use strict';
 
 var bind = require(95);
 var Bus = require(163);
-var constants = require(226);
-var getLocale = require(228);
+var constants = require(227);
+var getLocale = require(229);
 
 function LoggedOutView(options) {
   this.options = options;
@@ -13232,13 +13242,13 @@ LoggedOutView.prototype.teardown = function () {
 module.exports = LoggedOutView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"163":163,"226":226,"228":228,"95":95}],221:[function(require,module,exports){
+},{"163":163,"227":227,"229":229,"95":95}],222:[function(require,module,exports){
 (function (global){
 'use strict';
 
 var Bus = require(163);
 var bind = require(95);
-var constants = require(226);
+var constants = require(227);
 
 function MerchantPageView(options) {
   this.options = options;
@@ -13312,14 +13322,14 @@ function getMerchantPageDefaultStyles() {
 module.exports = MerchantPageView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"163":163,"226":226,"95":95}],222:[function(require,module,exports){
+},{"163":163,"227":227,"95":95}],223:[function(require,module,exports){
 (function (global){
 'use strict';
 
 var bind = require(95);
 var isFunction = require(151);
-var browser = require(234);
-var constants = require(226);
+var browser = require(235);
+var constants = require(227);
 var Bus = require(163);
 var iframer = require(90);
 
@@ -13408,7 +13418,7 @@ ModalView.prototype.teardown = function () {
 module.exports = ModalView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"151":151,"163":163,"226":226,"234":234,"90":90,"95":95}],223:[function(require,module,exports){
+},{"151":151,"163":163,"227":227,"235":235,"90":90,"95":95}],224:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -13417,9 +13427,9 @@ var bind = require(95);
 var isFunction = require(151);
 var Destructor = require(85);
 var Bus = require(163);
-var constants = require(226);
-var getLocalizationData = require(229);
-var translations = require(216);
+var constants = require(227);
+var getLocalizationData = require(230);
+var translations = require(217);
 
 function OverlayView(options) {
   var localizationData;
@@ -13615,7 +13625,7 @@ OverlayView.prototype.teardown = function () {
 module.exports = OverlayView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"151":151,"163":163,"216":216,"226":226,"229":229,"81":81,"85":85,"95":95}],224:[function(require,module,exports){
+},{"151":151,"163":163,"217":217,"227":227,"230":230,"81":81,"85":85,"95":95}],225:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -13624,7 +13634,7 @@ var bind = require(95);
 var isFunction = require(151);
 var Destructor = require(85);
 var Bus = require(163);
-var constants = require(226);
+var constants = require(227);
 
 function PaymentMethodNonceInputFieldView(options) {
   this.options = options || {};
@@ -13707,13 +13717,13 @@ PaymentMethodNonceInputFieldView.prototype.teardown = function () {
 module.exports = PaymentMethodNonceInputFieldView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"151":151,"163":163,"226":226,"81":81,"85":85,"95":95}],225:[function(require,module,exports){
+},{"151":151,"163":163,"227":227,"81":81,"85":85,"95":95}],226:[function(require,module,exports){
 (function (global){
 'use strict';
 
-var constants = require(226);
+var constants = require(227);
 var Bus = require(163);
-var browser = require(230);
+var browser = require(231);
 
 function PopupView(options) {
   this.options = options;
@@ -13801,11 +13811,11 @@ PopupView.prototype.teardown = function () {
 module.exports = PopupView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"163":163,"226":226,"230":230}],226:[function(require,module,exports){
+},{"163":163,"227":227,"231":231}],227:[function(require,module,exports){
 'use strict';
 
 var i;
-var version = "2.17.4";
+var version = "2.17.5";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
@@ -13847,7 +13857,7 @@ for (i = 0; i < events.length; i++) {
   exports.events[events[i]] = 'paypal:' + events[i];
 }
 
-},{}],227:[function(require,module,exports){
+},{}],228:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -13879,10 +13889,10 @@ module.exports = {
   ru: 'ru_ru'
 };
 
-},{}],228:[function(require,module,exports){
+},{}],229:[function(require,module,exports){
 'use strict';
 
-var countryCodeLookupTable = require(227);
+var countryCodeLookupTable = require(228);
 
 function isFormatted(code) {
   return code.indexOf('_') !== -1 && code.length === 5;
@@ -13922,11 +13932,11 @@ function getLocale(code) {
 
 module.exports = getLocale;
 
-},{"227":227}],229:[function(require,module,exports){
+},{"228":228}],230:[function(require,module,exports){
 'use strict';
 
-var countryCodeLookupTable = require(227);
-var getLocale = require(228);
+var countryCodeLookupTable = require(228);
+var getLocale = require(229);
 
 function getCountry(code) {
   var country = code ? code.toLowerCase().replace(/-/g, '_') : 'us';
@@ -13964,11 +13974,11 @@ function getLocalizationData(code, translations) {
 
 module.exports = getLocalizationData;
 
-},{"227":227,"228":228}],230:[function(require,module,exports){
+},{"228":228,"229":229}],231:[function(require,module,exports){
 'use strict';
 
-var userAgent = require(233);
-var platform = require(232);
+var userAgent = require(234);
+var platform = require(233);
 
 function isAndroid() {
   return userAgent.matchUserAgent('Android') && !isChrome();
@@ -14025,11 +14035,11 @@ module.exports = {
   isAndroidWebView: isAndroidWebView
 };
 
-},{"232":232,"233":233}],231:[function(require,module,exports){
+},{"233":233,"234":234}],232:[function(require,module,exports){
 'use strict';
 
-var userAgent = require(233);
-var platform = require(232);
+var userAgent = require(234);
+var platform = require(233);
 
 function isMobile() {
   return !isTablet() &&
@@ -14052,10 +14062,10 @@ module.exports = {
   isDesktop: isDesktop
 };
 
-},{"232":232,"233":233}],232:[function(require,module,exports){
+},{"233":233,"234":234}],233:[function(require,module,exports){
 'use strict';
 
-var userAgent = require(233);
+var userAgent = require(234);
 
 function isAndroid() {
   return userAgent.matchUserAgent('Android');
@@ -14085,7 +14095,7 @@ module.exports = {
   isIos: isIos
 };
 
-},{"233":233}],233:[function(require,module,exports){
+},{"234":234}],234:[function(require,module,exports){
 'use strict';
 
 var nativeUserAgent = window.navigator.userAgent;
@@ -14107,14 +14117,14 @@ function matchUserAgent(pattern) {
 exports.getNativeUserAgent = getNativeUserAgent;
 exports.matchUserAgent = matchUserAgent;
 
-},{}],234:[function(require,module,exports){
+},{}],235:[function(require,module,exports){
 'use strict';
 /* globals ActiveXObject */
 
-var browser = require(230);
-var device = require(231);
-var platform = require(232);
-var userAgent = require(233);
+var browser = require(231);
+var device = require(232);
+var platform = require(233);
+var userAgent = require(234);
 
 var uaString = window.navigator.userAgent;
 var mobileRe = /[Mm]obi|tablet|iOS|Android|IEMobile|Windows\sPhone/;
@@ -14224,7 +14234,7 @@ module.exports = {
   isMetroBrowser: isMetroBrowser
 };
 
-},{"230":230,"231":231,"232":232,"233":233}],235:[function(require,module,exports){
+},{"231":231,"232":232,"233":233,"234":234}],236:[function(require,module,exports){
 'use strict';
 
 function setTextContent(element, content) {
@@ -14242,10 +14252,10 @@ module.exports = {
   setTextContent: setTextContent
 };
 
-},{}],236:[function(require,module,exports){
+},{}],237:[function(require,module,exports){
 'use strict';
 
-var constants = require(226);
+var constants = require(227);
 
 var trim = typeof String.prototype.trim === 'function' ?
   function (str) { return str.trim(); } :
@@ -14410,5 +14420,5 @@ module.exports = {
   getConfigurationType: getConfigurationType
 };
 
-},{"226":226}]},{},[179])(179)
+},{"227":227}]},{},[180])(180)
 });
