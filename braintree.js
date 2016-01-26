@@ -9518,6 +9518,10 @@ var dataCollector = require(192);
 
 function noop() {}
 
+function _ensureDropinPayPalConfig(merchantConfiguration) {
+  merchantConfiguration.paypal = merchantConfiguration.paypal || {};
+}
+
 function _handleDependencyInitializing() {
   this._dependenciesRemaining++;
 }
@@ -9594,6 +9598,10 @@ BaseIntegration.prototype._attachEvents = function () {
   var replyConfiguration = clone(this.configuration, function (value) {
     if (isJQueryElement(value) || isHTMLElement(value)) { return {}; }
   });
+
+  if (replyConfiguration.integrationType === 'dropin') {
+    _ensureDropinPayPalConfig(replyConfiguration.merchantConfiguration);
+  }
 
   this.bus.on(Bus.events.ERROR, this.onError);
   this.bus.on(Bus.events.PAYMENT_METHOD_RECEIVED, this.onSuccess);
@@ -10255,7 +10263,7 @@ module.exports = function sanitizePayload(payload) {
 (function (global){
 'use strict';
 
-var VERSION = "2.17.3";
+var VERSION = "2.17.4";
 var api = require(14);
 var paypal = require(213);
 var dropin = require(199);
@@ -10664,7 +10672,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "2.17.3",
+  VERSION: "2.17.4",
   INTEGRATION_NAME: 'Coinbase',
   CONFIGURATION_ERROR: 'CONFIGURATION',
   UNSUPPORTED_BROWSER_ERROR: 'UNSUPPORTED_BROWSER',
@@ -11132,7 +11140,7 @@ var APIProxyServer = require(194);
 var MerchantFormManager = require(198);
 var FrameContainer = require(197);
 var constants = require(200);
-var version = "2.17.3";
+var version = "2.17.4";
 var PayPalModalView = require(217);
 
 function getElementStyle(element, style) {
@@ -11411,7 +11419,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require(195);
-var VERSION = "2.17.3";
+var VERSION = "2.17.4";
 
 function create(options) {
   var client = new Client(options);
@@ -11951,7 +11959,7 @@ module.exports = function validateAnnotations(htmlForm) {
 
 var HostedFields = require(209);
 var events = require(211).events;
-var VERSION = "2.17.3";
+var VERSION = "2.17.4";
 
 module.exports = {
   create: function (configuration) {
@@ -12176,7 +12184,7 @@ module.exports = function shouldUseLabelFocus() {
 'use strict';
 /* eslint-disable no-reserved-keys */
 
-var VERSION = "2.17.3";
+var VERSION = "2.17.4";
 
 module.exports = {
   VERSION: VERSION,
@@ -12500,7 +12508,7 @@ var browser = require(234);
 var constants = require(226);
 var getLocale = require(228);
 var util = require(236);
-var VERSION = "2.17.3";
+var VERSION = "2.17.4";
 var braintreeUtil = require(81);
 
 function create(configuration) {
@@ -13797,7 +13805,7 @@ module.exports = PopupView;
 'use strict';
 
 var i;
-var version = "2.17.3";
+var version = "2.17.4";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
