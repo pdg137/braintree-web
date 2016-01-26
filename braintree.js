@@ -2739,7 +2739,9 @@ var PayPalAccount = require(9);
 var normalizeCreditCardFields = require(7).normalizeCreditCardFields;
 var chooseRequestDriver = require(40).chooseDriver;
 var shouldEnableCORS = require(12);
+var getConfiguration = require(6);
 var constants = require(3);
+var uuid = require(57).uuid;
 
 function getAnalyticsConfiguration(options) {
   var analyticsConfiguration = options.analyticsConfiguration || {};
@@ -2753,43 +2755,24 @@ function getAnalyticsConfiguration(options) {
 }
 
 function Client(options) {
-  var parsedClientToken, secure3d, analyticsConfiguration;
+  var analyticsConfiguration = getAnalyticsConfiguration(options);
 
-  this.attrs = {};
-
-  if (options.hasOwnProperty('sharedCustomerIdentifier')) {
-    this.attrs.sharedCustomerIdentifier = options.sharedCustomerIdentifier;
-  }
-
-  parsedClientToken = parseClientToken(options.clientToken);
-  analyticsConfiguration = getAnalyticsConfiguration(options);
-
+  this.options = options;
   this.driver = options.driver || chooseRequestDriver({enableCORS: shouldEnableCORS(options)});
-  this.analyticsUrl = parsedClientToken.analytics ? parsedClientToken.analytics.url : null;
-  this.clientApiUrl = parsedClientToken.clientApiUrl;
   this.customerId = options.customerId;
-  this.challenges = parsedClientToken.challenges;
-  this.integration = options.integration || '';
+  this.integration = options.integrationType || options.integration || '';
   this.sdkVersion = analyticsConfiguration.sdkVersion;
   this.merchantAppId = analyticsConfiguration.merchantAppId;
+  this.sessionId = options.channel || uuid();
 
-  secure3d = braintree3ds.create(this, {
-    container: options.container,
-    clientToken: parsedClientToken
-  });
-  this.verify3DS = bind(secure3d.verify, secure3d);
-
-  this.attrs.sharedCustomerIdentifierType = options.sharedCustomerIdentifierType;
-  this.attrs.braintreeLibraryVersion = this.sdkVersion;
-
-  if (parsedClientToken.merchantAccountId) {
-    this.attrs.merchantAccountId = parsedClientToken.merchantAccountId;
-  }
-
-  if (options.clientKey) {
-    this.attrs.clientKey = options.clientKey;
-  } else if (parsedClientToken.authorizationFingerprint) {
-    this.attrs.authorizationFingerprint = parsedClientToken.authorizationFingerprint;
+  this.authorization = options.authorization || options.clientToken;
+  if (util.isTokenizationKey(this.authorization)) {
+    this.authorizationType = constants.authorizationTypes.TOKENIZATION_KEY;
+    this.gatewayConfiguration = options.gatewayConfiguration;
+  } else {
+    this.gatewayConfiguration = options.gatewayConfiguration || parseClientToken(this.authorization);
+    this.authorizationFingerprint = parseClientToken(this.authorization).authorizationFingerprint;
+    this.authorizationType = constants.authorizationTypes.CLIENT_TOKEN;
   }
 
   if (options.hasOwnProperty('timeout')) {
@@ -2799,24 +2782,79 @@ function Client(options) {
   }
 }
 
+Client.prototype._getGatewayConfiguration = function (callback) {
+  var self = this;
+
+  if (this.gatewayConfiguration) {
+    callback(null, this.gatewayConfiguration);
+    return;
+  }
+
+  getConfiguration({
+    authorization: this.authorization,
+    enableCORS: shouldEnableCORS(this.options)
+  }, function (err, gatewayConfiguration) {
+    if (err) {
+      callback(err, null);
+      return;
+    }
+
+    self.gatewayConfiguration = gatewayConfiguration;
+    callback(null, gatewayConfiguration);
+  });
+};
+
+/* eslint-disable no-invalid-this */
+
+Client.prototype._getAttrs = function (gatewayConfiguration) {
+  var attrs = {};
+
+  if (this.options.hasOwnProperty('sharedCustomerIdentifier')) {
+    attrs.sharedCustomerIdentifier = this.options.sharedCustomerIdentifier;
+  }
+
+  attrs.sharedCustomerIdentifierType = this.options.sharedCustomerIdentifierType;
+  attrs.braintreeLibraryVersion = this.sdkVersion;
+
+  if (gatewayConfiguration.merchantAccountId) {
+    attrs.merchantAccountId = gatewayConfiguration.merchantAccountId;
+  }
+
+  if (this.authorizationType === constants.authorizationTypes.TOKENIZATION_KEY) {
+    attrs.clientKey = this.options.authorization;
+  } else {
+    attrs.authorizationFingerprint = this.authorizationFingerprint;
+  }
+
+  attrs._meta = {
+    sessionId: this.sessionId
+  };
+
+  return attrs;
+};
+
 Client.prototype.getCreditCards = function (callback) {
-  this.driver.get(
-    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods']),
-    this.attrs,
-    function (d) {
-      var i = 0;
-      var len = d.paymentMethods.length;
-      var creditCards = [];
+  this._getGatewayConfiguration(bind(function (err, gatewayConfiguration) {
+    if (err) { return callback(err); }
 
-      for (i; i < len; i++) {
-        creditCards.push(new CreditCard(d.paymentMethods[i]));
-      }
+    this.driver.get(
+      util.joinUrlFragments([gatewayConfiguration.clientApiUrl, 'v1', 'payment_methods']),
+      this._getAttrs(gatewayConfiguration),
+      function (d) {
+        var i = 0;
+        var len = d.paymentMethods.length;
+        var creditCards = [];
 
-      return creditCards;
-    },
-    callback,
-    this.requestTimeout
-  );
+        for (i; i < len; i++) {
+          creditCards.push(new CreditCard(d.paymentMethods[i]));
+        }
+
+        return creditCards;
+      },
+      callback,
+      this.requestTimeout
+    );
+  }, this));
 };
 
 Client.prototype.tokenizeCoinbase = function (attrs, callback) {
@@ -2857,220 +2895,317 @@ Client.prototype.tokenizeCard = function (attrs, callback) {
 };
 
 Client.prototype.lookup3DS = function (attrs, callback) {
-  var url = util.joinUrlFragments([this.clientApiUrl, 'v1/payment_methods', attrs.nonce, 'three_d_secure/lookup']);
-  var mergedAttrs = util.mergeOptions(this.attrs, {amount: attrs.amount});
-  this.driver.post(url, mergedAttrs, function (d) {return d;},
-    callback,
-    this.requestTimeout
-  );
+  this._getGatewayConfiguration(bind(function (err, gatewayConfiguration) {
+    var url, mergedAttrs;
+
+    if (err) { return callback(err); }
+
+    url = util.joinUrlFragments([gatewayConfiguration.clientApiUrl, 'v1/payment_methods', attrs.nonce, 'three_d_secure/lookup']);
+    mergedAttrs = util.mergeOptions(this._getAttrs(gatewayConfiguration), {amount: attrs.amount});
+    this.driver.post(url, mergedAttrs, function (d) {return d;},
+      callback,
+      this.requestTimeout
+    );
+  }, this));
 };
 
 Client.prototype.createSEPAMandate = function (attrs, callback) {
-  var mergedAttrs = util.mergeOptions(this.attrs, {sepaMandate: attrs});
-  this.driver.post(
-    util.joinUrlFragments([this.clientApiUrl, 'v1', 'sepa_mandates.json']),
-    mergedAttrs,
-    function (d) { return {sepaMandate: new SEPAMandate(d.europeBankAccounts[0].sepaMandates[0]), sepaBankAccount: new EuropeBankAccount(d.europeBankAccounts[0])}; },
-    callback,
-    this.requestTimeout
-  );
+  this._getGatewayConfiguration(bind(function (err, gatewayConfiguration) {
+    var mergedAttrs;
+
+    if (err) { return callback(err); }
+
+    mergedAttrs = util.mergeOptions(this._getAttrs(gatewayConfiguration), {sepaMandate: attrs});
+    this.driver.post(
+      util.joinUrlFragments([gatewayConfiguration.clientApiUrl, 'v1', 'sepa_mandates.json']),
+      mergedAttrs,
+      function (d) { return {sepaMandate: new SEPAMandate(d.europeBankAccounts[0].sepaMandates[0]), sepaBankAccount: new EuropeBankAccount(d.europeBankAccounts[0])}; },
+      callback,
+      this.requestTimeout
+    );
+  }, this));
 };
 
 Client.prototype.getSEPAMandate = function (attrs, callback) {
-  var mergedAttrs = util.mergeOptions(this.attrs, attrs);
-  this.driver.get(
-    util.joinUrlFragments([this.clientApiUrl, 'v1', 'sepa_mandates.json']),
-    mergedAttrs,
-    function (d) { return {sepaMandate: new SEPAMandate(d.sepaMandates[0])}; },
-    callback,
-    this.requestTimeout
-  );
+  this._getGatewayConfiguration(bind(function (err, gatewayConfiguration) {
+    var mergedAttrs;
+
+    if (err) { return callback(err); }
+
+    mergedAttrs = util.mergeOptions(this._getAttrs(gatewayConfiguration), attrs);
+
+    this.driver.get(
+      util.joinUrlFragments([gatewayConfiguration.clientApiUrl, 'v1', 'sepa_mandates.json']),
+      mergedAttrs,
+      function (d) { return {sepaMandate: new SEPAMandate(d.sepaMandates[0])}; },
+      callback,
+      this.requestTimeout
+    );
+  }, this));
 };
 
 Client.prototype.addCoinbase = function (attrs, callback) {
-  var mergedAttrs;
-  delete attrs.share;
+  this._getGatewayConfiguration(bind(function (err, gatewayConfiguration) {
+    var mergedAttrs;
 
-  mergedAttrs = util.mergeOptions(this.attrs, {
-    coinbaseAccount: attrs,
-    _meta: {
-      integration: this.integration || 'custom',
-      source: 'coinbase'
-    }
-  });
+    if (err) { return callback(err); }
 
-  this.driver.post(
-    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods/coinbase_accounts']),
-    mergedAttrs,
-    function (d) {
-      return new CoinbaseAccount(d.coinbaseAccounts[0]);
-    },
-    callback,
-    this.requestTimeout
-  );
+    delete attrs.share;
+
+    mergedAttrs = util.mergeOptions(this._getAttrs(gatewayConfiguration), {
+      coinbaseAccount: attrs,
+      _meta: {
+        integration: this.integration || 'custom',
+        source: 'coinbase',
+        sessionId: this.sessionId
+      }
+    });
+
+    this.driver.post(
+      util.joinUrlFragments([gatewayConfiguration.clientApiUrl, 'v1', 'payment_methods/coinbase_accounts']),
+      mergedAttrs,
+      function (d) {
+        return new CoinbaseAccount(d.coinbaseAccounts[0]);
+      },
+      callback,
+      this.requestTimeout
+    );
+  }, this));
 };
 
 Client.prototype.addPayPalAccount = function (attrs, callback) {
-  var mergedAttrs;
-  delete attrs.share;
+  this._getGatewayConfiguration(bind(function (err, gatewayConfiguration) {
+    var mergedAttrs;
 
-  mergedAttrs = util.mergeOptions(this.attrs, {
-    paypalAccount: attrs,
-    _meta: {
-      integration: this.integration || 'paypal',
-      source: 'paypal'
-    }
-  });
+    if (err) { return callback(err); }
 
-  this.driver.post(
-    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods', 'paypal_accounts']),
-    mergedAttrs,
-    function (d) {
-      return new PayPalAccount(d.paypalAccounts[0]);
-    },
-    callback,
-    this.requestTimeout
-  );
+    delete attrs.share;
+
+    mergedAttrs = util.mergeOptions(this._getAttrs(gatewayConfiguration), {
+      paypalAccount: attrs,
+      _meta: {
+        integration: this.integration || 'paypal',
+        source: 'paypal',
+        sessionId: this.sessionId
+      }
+    });
+
+    this.driver.post(
+      util.joinUrlFragments([gatewayConfiguration.clientApiUrl, 'v1', 'payment_methods', 'paypal_accounts']),
+      mergedAttrs,
+      function (d) {
+        return new PayPalAccount(d.paypalAccounts[0]);
+      },
+      callback,
+      this.requestTimeout
+    );
+  }, this));
 };
 
 Client.prototype.addCreditCard = function (attrs, callback) {
-  var mergedAttrs, creditCard;
-  var share = attrs.share;
-  delete attrs.share;
+  this._getGatewayConfiguration(bind(function (err, gatewayConfiguration) {
+    var mergedAttrs, creditCard, share;
 
-  creditCard = normalizeCreditCardFields(attrs);
+    if (err) { return callback(err); }
 
-  mergedAttrs = util.mergeOptions(this.attrs, {
-    share: share,
-    creditCard: creditCard,
-    _meta: {
-      integration: this.integration || 'custom',
-      source: 'form'
-    }
-  });
+    share = attrs.share;
+    delete attrs.share;
 
-  this.driver.post(
-    util.joinUrlFragments([this.clientApiUrl, 'v1', 'payment_methods/credit_cards']),
-    mergedAttrs,
-    function (d) {
-      return new CreditCard(d.creditCards[0]);
-    },
-    callback,
-    this.requestTimeout
-  );
+    creditCard = normalizeCreditCardFields(attrs);
+
+    mergedAttrs = util.mergeOptions(this._getAttrs(gatewayConfiguration), {
+      share: share,
+      creditCard: creditCard,
+      _meta: {
+        integration: this.integration || 'custom',
+        source: 'form',
+        sessionId: this.sessionId
+      }
+    });
+
+    this.driver.post(
+      util.joinUrlFragments([gatewayConfiguration.clientApiUrl, 'v1', 'payment_methods/credit_cards']),
+      mergedAttrs,
+      function (d) {
+        return new CreditCard(d.creditCards[0]);
+      },
+      callback,
+      this.requestTimeout
+    );
+  }, this));
 };
 
 Client.prototype.sendAnalyticsEvents = function (events, callback) {
-  var attrs, event;
-  var url = this.analyticsUrl;
-  var eventObjects = [];
-  events = util.isArray(events) ? events : [events];
+  this._getGatewayConfiguration(bind(function (err, gatewayConfiguration) {
+    var attrs, event, url, eventObjects;
 
-  if (!url) {
-    if (callback) {
-      callback(null, {});
+    if (err) { return callback(err); }
+
+    url = gatewayConfiguration.analytics.url;
+    eventObjects = [];
+    events = util.isArray(events) ? events : [events];
+
+    if (!url) {
+      if (callback) {
+        callback(null, {});
+      }
+      return;
     }
-    return;
-  }
 
-  for (event in events) {
-    if (events.hasOwnProperty(event)) {
-      eventObjects.push({kind: events[event]});
+    for (event in events) {
+      if (events.hasOwnProperty(event)) {
+        eventObjects.push({kind: events[event]});
+      }
     }
-  }
 
-  attrs = util.mergeOptions(this.attrs, {
-    analytics: eventObjects,
-    _meta: {
-      merchantAppId: this.merchantAppId,
-      platform: 'web',
-      platformVersion: global.navigator.userAgent,
-      integrationType: this.integration,
-      sdkVersion: this.sdkVersion
-    }
-  });
+    attrs = util.mergeOptions(this._getAttrs(gatewayConfiguration), {
+      analytics: eventObjects,
+      _meta: {
+        merchantAppId: this.merchantAppId,
+        platform: 'web',
+        platformVersion: global.navigator.userAgent,
+        integrationType: this.integration,
+        sdkVersion: this.sdkVersion,
+        sessionId: this.sessionId
+      }
+    });
 
-  this.driver.post(url, attrs, function (d) { return d; }, callback, constants.ANALYTICS_TIMEOUT_MS);
+    this.driver.post(url, attrs, function (d) { return d; }, callback, constants.ANALYTICS_TIMEOUT_MS);
+  }, this));
 };
 
 Client.prototype.decryptBrowserswitchPayload = function (encryptedPayload, callback) {
-  var attrs = util.mergeOptions(this.attrs, {asymmetric_encrypted_payload: encryptedPayload});
-  var url = util.joinUrlFragments([this.clientApiUrl, '/v1/paypal_browser_switch/decrypt']);
-  this.driver.post(
-    url,
-    attrs,
-    function (d) { return d; },
-    callback,
-    this.requestTimeout
-  );
+  this._getGatewayConfiguration(bind(function (err, gatewayConfiguration) {
+    var attrs, url;
+
+    if (err) { return callback(err); }
+
+    attrs = util.mergeOptions(this._getAttrs(gatewayConfiguration), {asymmetric_encrypted_payload: encryptedPayload});
+    url = util.joinUrlFragments([gatewayConfiguration.clientApiUrl, '/v1/paypal_browser_switch/decrypt']);
+    this.driver.post(
+      url,
+      attrs,
+      function (d) { return d; },
+      callback,
+      this.requestTimeout
+    );
+  }, this));
 };
 
-Client.prototype.encryptBrowserswitchReturnPayload = function(payload, aesKey, callback) {
-  var attrs = util.mergeOptions(this.attrs, {
-    payload: payload,
-    aesKey: aesKey
-  });
-  var url = util.joinUrlFragments([this.clientApiUrl, '/v1/paypal_browser_switch/encrypt']);
-  this.driver.post(
-    url,
-    attrs,
-    function (d) { return d; },
-    callback,
-    this.requestTimeout
-  );
+Client.prototype.encryptBrowserswitchReturnPayload = function (payload, aesKey, callback) {
+  this._getGatewayConfiguration(bind(function (err, gatewayConfiguration) {
+    var attrs, url;
+
+    if (err) { return callback(err); }
+
+    attrs = util.mergeOptions(this._getAttrs(gatewayConfiguration), {
+      payload: payload,
+      aesKey: aesKey
+    });
+    url = util.joinUrlFragments([gatewayConfiguration.clientApiUrl, '/v1/paypal_browser_switch/encrypt']);
+    this.driver.post(
+      url,
+      attrs,
+      function (d) { return d; },
+      callback,
+      this.requestTimeout
+    );
+  }, this));
 };
 
 Client.prototype.exchangePaypalTokenForConsentCode = function (tokensObj, callback) {
-  var attrs = util.mergeOptions(this.attrs, tokensObj);
-  if (this.attrs.merchantAccountId) {
-    attrs.merchant_account_id = this.attrs.merchantAccountId;
-  }
-  var url = util.joinUrlFragments([this.clientApiUrl, '/v1/paypal_account_service/merchant_consent']);
-  this.driver.post(
-    url,
-    attrs,
-    function (d) { return d; },
-    callback,
-    this.requestTimeout
-  );
+  this._getGatewayConfiguration(bind(function (err, gatewayConfiguration) {
+    var attrs, url;
+
+    if (err) { return callback(err); }
+
+    attrs = util.mergeOptions(this._getAttrs(gatewayConfiguration), tokensObj);
+    if (gatewayConfiguration.merchantAccountId) {
+      attrs.merchant_account_id = gatewayConfiguration.merchantAccountId;
+    }
+    url = util.joinUrlFragments([gatewayConfiguration.clientApiUrl, '/v1/paypal_account_service/merchant_consent']);
+    this.driver.post(
+      url,
+      attrs,
+      function (d) { return d; },
+      callback,
+      this.requestTimeout
+    );
+  }, this));
 };
 
 Client.prototype.getAmexRewardsBalance = function (attrs, callback) {
-  var mergedAttrs = util.mergeOptions(this.attrs, attrs);
-  if (mergedAttrs.nonce) {
-    mergedAttrs.payment_method_nonce = mergedAttrs.nonce;
-    delete mergedAttrs.nonce;
-  }
+  this._getGatewayConfiguration(bind(function (err, gatewayConfiguration) {
+    var mergedAttrs;
 
-  this.driver.get(
-    util.joinUrlFragments([this.clientApiUrl, 'v1/payment_methods/amex_rewards_balance']),
-    mergedAttrs,
-    function (d) { return d; },
-    callback,
-    this.requestTimeout
-  );
+    if (err) { return callback(err); }
+
+    mergedAttrs = util.mergeOptions(this._getAttrs(gatewayConfiguration), attrs);
+    if (mergedAttrs.nonce) {
+      mergedAttrs.payment_method_nonce = mergedAttrs.nonce;
+      delete mergedAttrs.nonce;
+    }
+
+    this.driver.get(
+      util.joinUrlFragments([gatewayConfiguration.clientApiUrl, 'v1/payment_methods/amex_rewards_balance']),
+      mergedAttrs,
+      function (d) { return d; },
+      callback,
+      this.requestTimeout
+    );
+  }, this));
 };
 
 Client.prototype.getAmexExpressCheckoutNonceProfile = function (attrs, callback) {
-  var mergedAttrs = util.mergeOptions(this.attrs, attrs);
-  if (mergedAttrs.nonce) {
-    mergedAttrs.payment_method_nonce = mergedAttrs.nonce;
-    delete mergedAttrs.nonce;
+  this._getGatewayConfiguration(bind(function (err, gatewayConfiguration) {
+    var mergedAttrs;
+
+    if (err) { return callback(err); }
+
+    mergedAttrs = util.mergeOptions(this._getAttrs(gatewayConfiguration), attrs);
+    if (mergedAttrs.nonce) {
+      mergedAttrs.payment_method_nonce = mergedAttrs.nonce;
+      delete mergedAttrs.nonce;
+    }
+
+    this.driver.get(
+      util.joinUrlFragments([gatewayConfiguration.clientApiUrl, 'v1/payment_methods/amex_express_checkout_cards', mergedAttrs.payment_method_nonce]),
+      mergedAttrs,
+      function (d) { return d; },
+      callback,
+      this.requestTimeout
+    );
+  }, this));
+};
+
+Client.prototype.verify3DS = function () {
+  var args = arguments;
+
+  if (this._secure3d) {
+    return this._secure3d.verify.apply(this._secure3d, args);
   }
 
-  this.driver.get(
-    util.joinUrlFragments([this.clientApiUrl, 'v1/payment_methods/amex_express_checkout_cards', mergedAttrs.payment_method_nonce]),
-    mergedAttrs,
-    function (d) { return d; },
-    callback,
-    this.requestTimeout
-  );
+  this._getGatewayConfiguration(bind(function (err, gatewayConfiguration) {
+    var callback;
+
+    if (err) {
+      callback = args[args.length - 1];
+      return callback(err);
+    }
+
+    this._secure3d = braintree3ds.create(this, {
+      container: this.options.container,
+      clientToken: gatewayConfiguration
+    });
+
+    return this._secure3d.verify.apply(this._secure3d, args);
+  }, this));
 };
 
 module.exports = Client;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"11":11,"12":12,"13":13,"2":2,"26":26,"3":3,"4":4,"40":40,"5":5,"7":7,"8":8,"9":9,"95":95}],2:[function(require,module,exports){
+},{"11":11,"12":12,"13":13,"2":2,"26":26,"3":3,"4":4,"40":40,"5":5,"57":57,"6":6,"7":7,"8":8,"9":9,"95":95}],2:[function(require,module,exports){
 'use strict';
 
 var ATTRIBUTES = [
@@ -3107,7 +3242,11 @@ module.exports = {
     UNKNOWN_ERROR: 'Unknown error',
     INVALID_TIMEOUT: 'Timeout must be a number'
   },
-  ANALYTICS_TIMEOUT_MS: 4000
+  ANALYTICS_TIMEOUT_MS: 4000,
+  authorizationTypes: {
+    CLIENT_TOKEN: 'CLIENT_TOKEN',
+    TOKENIZATION_KEY: 'TOKENIZATION_KEY'
+  }
 };
 
 },{}],4:[function(require,module,exports){
@@ -3171,8 +3310,8 @@ var chooseRequestDriver = require(40).chooseDriver;
 var shouldEnableCORS = require(12);
 var constants = require(3);
 
-function _tokenizeClientKey(clientKey) {
-  var tokens = clientKey.split('_');
+function _tokenizeTokenizationKey(tokenizationKey) {
+  var tokens = tokenizationKey.split('_');
   var environment = tokens[0];
   var merchantId = tokens.slice(2).join('_');
 
@@ -3183,29 +3322,29 @@ function _tokenizeClientKey(clientKey) {
 }
 
 function getConfiguration(options, callback) {
-  var configUrl, clientKeyParts, parsedClientToken;
+  var configUrl, tokenizationKeyParts, parsedClientToken;
   var driver = chooseRequestDriver({enableCORS: shouldEnableCORS(options)});
-  var clientKey = options.clientKey;
   var attrs = {};
 
-  if (clientKey) {
-    attrs.clientKey = clientKey;
-    clientKeyParts = _tokenizeClientKey(clientKey);
-    configUrl = constants.apiUrls[clientKeyParts.environment] + '/merchants/' + clientKeyParts.merchantId + '/client_api/v1/configuration';
+  if (util.isTokenizationKey(options.authorization)) {
+    attrs.clientKey = options.authorization;
+    tokenizationKeyParts = _tokenizeTokenizationKey(options.authorization);
+    configUrl = constants.apiUrls[tokenizationKeyParts.environment] + '/merchants/' + tokenizationKeyParts.merchantId + '/client_api/v1/configuration';
   } else {
-    parsedClientToken = parseClientToken(options.clientToken);
+    parsedClientToken = parseClientToken(options.authorization);
+    attrs.authorizationFingerprint = parsedClientToken.authorizationFingerprint;
+    configUrl = parsedClientToken.configUrl;
+  }
 
-    if (parsedClientToken.authorizationFingerprint) {
-      attrs.authorizationFingerprint = parsedClientToken.authorizationFingerprint;
-      configUrl = parsedClientToken.configUrl;
-    }
+  if (options.sessionId) {
+    attrs._meta = {sessionId: options.sessionId};
   }
 
   driver.get(
     configUrl,
     attrs,
     function (d) {
-      return util.mergeOptions(parsedClientToken, d);
+      return d;
     },
     callback,
     options.timeout
@@ -3429,10 +3568,15 @@ function mergeOptions(obj1, obj2) {
   return obj3;
 }
 
+function isTokenizationKey(str) {
+  return /^[a-zA-Z0-9_]+_[a-zA-Z0-9]+_[a-zA-Z0-9_]+$/.test(str);
+}
+
 module.exports = {
   joinUrlFragments: joinUrlFragments,
   isArray: isArray,
-  mergeOptions: mergeOptions
+  mergeOptions: mergeOptions,
+  isTokenizationKey: isTokenizationKey
 };
 
 },{}],14:[function(require,module,exports){
@@ -9402,7 +9546,7 @@ function BaseIntegration(configuration) {
     channel: this.configuration.channel,
     merchantUrl: global.location.href
   });
-  this._createApiClient();
+  this.apiClient = new api.Client(this.configuration);
   this._configureCallbacks();
   this._configureAnalytics();
   this._attachEvents();
@@ -9411,20 +9555,6 @@ function BaseIntegration(configuration) {
 
 BaseIntegration.prototype._emitInitializing = function () {
   this.bus.emit(Bus.events.ASYNC_DEPENDENCY_INITIALIZING);
-};
-
-BaseIntegration.prototype._createApiClient = function () {
-  var apiClientOptions = {
-    clientToken: this.configuration.gatewayConfiguration,
-    integration: this.configuration.integrationType,
-    analyticsConfiguration: this.configuration.analyticsConfiguration
-  };
-
-  if (this.configuration.merchantConfiguration.enableCORS) {
-    apiClientOptions.enableCORS = true;
-  }
-
-  this.apiClient = new api.Client(apiClientOptions);
 };
 
 BaseIntegration.prototype._configureCallbacks = function () {
@@ -9461,8 +9591,9 @@ BaseIntegration.prototype._configureAnalytics = function () {
 };
 
 BaseIntegration.prototype._attachEvents = function () {
-  var replyConfiguration;
-  var configuration = this.configuration;
+  var replyConfiguration = clone(this.configuration, function (value) {
+    if (isJQueryElement(value) || isHTMLElement(value)) { return {}; }
+  });
 
   this.bus.on(Bus.events.ERROR, this.onError);
   this.bus.on(Bus.events.PAYMENT_METHOD_RECEIVED, this.onSuccess);
@@ -9470,16 +9601,6 @@ BaseIntegration.prototype._attachEvents = function () {
   this.bus.on(Bus.events.WARNING, function (warning) {
     try { console.warn(warning); } catch (e) { /* ignored */ } // eslint-disable-line no-console
   });
-
-  replyConfiguration = {
-    enableCORS: configuration.merchantConfiguration.enableCORS,
-    configuration: configuration.gatewayConfiguration,
-    integration: configuration.integrationType,
-    analyticsConfiguration: configuration.analyticsConfiguration,
-    merchantConfiguration: clone(configuration.merchantConfiguration, function (value) {
-      if (isJQueryElement(value) || isHTMLElement(value)) { return {}; }
-    })
-  };
 
   this.bus.on(Bus.events.CONFIGURATION_REQUEST, function (reply) {
     reply(replyConfiguration);
@@ -9571,35 +9692,25 @@ module.exports = BaseIntegration;
 },{"14":14,"148":148,"163":163,"167":167,"174":174,"176":176,"177":177,"178":178,"192":192,"85":85,"95":95}],169:[function(require,module,exports){
 'use strict';
 
-var clone = require(148);
+var assign = require(155);
 var create = require(156);
 var bind = require(95);
-var api = require(14);
 var coinbase = require(180);
 var Bus = require(163);
 var BaseIntegration = require(168);
 
 function CoinbaseIntegration() {
-  var coinbaseConfiguration, coinbaseIntegration;
+  var coinbaseIntegration;
 
   BaseIntegration.apply(this, arguments);
 
-  coinbaseConfiguration = clone(this.configuration.merchantConfiguration);
-
   this._attachBusEvents();
 
-  coinbaseConfiguration.channel = this.configuration.channel;
-  coinbaseConfiguration.configuration = clone(this.configuration.gatewayConfiguration);
-  coinbaseConfiguration.coinbase = clone(coinbaseConfiguration.coinbase || {});
-  coinbaseConfiguration.apiClient = new api.Client({
-    enableCORS: this.configuration.merchantConfiguration.enableCORS || false,
-    clientToken: this.configuration.gatewayConfiguration,
-    integration: 'coinbase'
-  });
+  coinbaseIntegration = coinbase.create(assign({}, this.configuration, {
+    apiClient: this.apiClient
+  }));
 
-  coinbaseIntegration = coinbase.create(coinbaseConfiguration);
-
-  if (coinbaseConfiguration != null) {
+  if (coinbaseIntegration != null) {
     this.destructor.registerFunctionForTeardown(function (done) {
       coinbaseIntegration.teardown(done);
     });
@@ -9622,7 +9733,7 @@ CoinbaseIntegration.prototype._onPaymentMethodGenerated = function (payload) {
 
 module.exports = CoinbaseIntegration;
 
-},{"14":14,"148":148,"156":156,"163":163,"168":168,"180":180,"95":95}],170:[function(require,module,exports){
+},{"155":155,"156":156,"163":163,"168":168,"180":180,"95":95}],170:[function(require,module,exports){
 'use strict';
 
 var clone = require(148);
@@ -9724,18 +9835,20 @@ CustomIntegration.prototype._setupForm = function () {
 };
 
 CustomIntegration.prototype._setupPayPal = function () {
-  var paypalCallbackLookup, legacyPaypalSuccessCallback, legacyPaypalCancelledCallback, dummyInput, paypalConfiguration;
-  var merchantConfiguration = this.configuration.merchantConfiguration;
+  var configuration, paypalCallbackLookup, legacyPaypalSuccessCallback, legacyPaypalCancelledCallback, dummyInput, paypalConfiguration, merchantConfiguration;
 
-  if (!merchantConfiguration.paypal) { return; }
+  if (!this.configuration.merchantConfiguration.paypal) { return; }
 
-  paypalConfiguration = clone(merchantConfiguration.paypal, function (value) {
+  configuration = clone(this.configuration, function (value) {
     if (isJQueryElement(value)) {
       return value[0];
     } else if (isHTMLElement(value)) {
       return value;
     }
   });
+
+  merchantConfiguration = configuration.merchantConfiguration;
+  paypalConfiguration = merchantConfiguration.paypal;
 
   paypalCallbackLookup = getIntegrationCallbackLookup(merchantConfiguration, 'paypal');
   legacyPaypalSuccessCallback = paypalCallbackLookup('onSuccess');
@@ -9763,7 +9876,7 @@ CustomIntegration.prototype._setupPayPal = function () {
     paypalConfiguration.enableCORS = true;
   }
 
-  this.paypalIntegration = paypal.create(this.configuration.gatewayConfiguration, paypalConfiguration, this.configuration.channel);
+  this.paypalIntegration = paypal.create(configuration);
 
   if (this.paypalIntegration != null) {
     this.destructor.registerFunctionForTeardown(bind(function () {
@@ -9779,11 +9892,8 @@ CustomIntegration.prototype._setupCoinbase = function () {
 
   if (navigator.userAgent.match(/MSIE 8\.0/)) { return; }
 
-  coinbaseConfiguration = clone(this.configuration.merchantConfiguration);
-  coinbaseConfiguration.channel = this.configuration.channel;
-  coinbaseConfiguration.configuration = this.configuration.gatewayConfiguration;
+  coinbaseConfiguration = clone(this.configuration);
   coinbaseConfiguration.apiClient = this.apiClient;
-  delete coinbaseConfiguration.paypal;
 
   coinbaseIntegration = coinbase.create(coinbaseConfiguration);
 
@@ -9828,6 +9938,7 @@ module.exports = CustomIntegration;
 },{"148":148,"151":151,"156":156,"163":163,"166":166,"167":167,"168":168,"175":175,"177":177,"180":180,"201":201,"207":207,"213":213,"88":88,"95":95}],171:[function(require,module,exports){
 'use strict';
 
+var clone = require(148);
 var create = require(156);
 var dropin = require(199);
 var bind = require(95);
@@ -9850,11 +9961,12 @@ function _hasRootCallback(options) {
 }
 
 function DropinIntegration() {
-  var merchantConfiguration, legacyCallback, hasRootCallback, dropinIntegration;
+  var merchantConfiguration, legacyCallback, hasRootCallback, dropinIntegration, configuration;
 
   BaseIntegration.apply(this, arguments);
 
-  merchantConfiguration = this.configuration.merchantConfiguration;
+  configuration = clone(this.configuration);
+  merchantConfiguration = configuration.merchantConfiguration;
   legacyCallback = _getLegacyCallback(merchantConfiguration);
   hasRootCallback = _hasRootCallback(merchantConfiguration);
 
@@ -9868,7 +9980,7 @@ function DropinIntegration() {
     }, this);
   }
 
-  dropinIntegration = dropin.create(this.configuration);
+  dropinIntegration = dropin.create(configuration);
   this.destructor.registerFunctionForTeardown(function (done) {
     dropinIntegration.teardown(done);
   });
@@ -9882,7 +9994,7 @@ DropinIntegration.prototype = create(BaseIntegration.prototype, {
 
 module.exports = DropinIntegration;
 
-},{"151":151,"156":156,"163":163,"167":167,"168":168,"178":178,"199":199,"95":95}],172:[function(require,module,exports){
+},{"148":148,"151":151,"156":156,"163":163,"167":167,"168":168,"178":178,"199":199,"95":95}],172:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -9895,6 +10007,7 @@ module.exports = {
 },{"169":169,"170":170,"171":171,"173":173}],173:[function(require,module,exports){
 'use strict';
 
+var clone = require(148);
 var create = require(156);
 var paypal = require(213);
 var bind = require(95);
@@ -9918,17 +10031,25 @@ function _hasRootCallback(options) {
   return isFunction(options[constants.ROOT_SUCCESS_CALLBACK]);
 }
 
-function PayPalIntegration() {
-  var merchantConfiguration, legacyCallback, hasRootCallback;
+function PayPalIntegration(configuration) {
+  var merchantConfiguration, legacyCallback, hasRootCallback, key;
 
-  BaseIntegration.apply(this, arguments);
+  configuration = clone(configuration);
+  configuration.merchantConfiguration.paypal = configuration.merchantConfiguration.paypal || {};
+  for (key in configuration.merchantConfiguration) {
+    if (configuration.merchantConfiguration.hasOwnProperty(key) && key !== 'paypal') {
+      configuration.merchantConfiguration.paypal[key] = configuration.merchantConfiguration[key];
+    }
+  }
+
+  BaseIntegration.call(this, configuration);
 
   merchantConfiguration = this.configuration.merchantConfiguration;
   legacyCallback = _getLegacyCallback(merchantConfiguration);
   hasRootCallback = _hasRootCallback(merchantConfiguration);
 
   if (legacyCallback || hasRootCallback) {
-    merchantConfiguration.onSuccess = bind(function (payload) {
+    merchantConfiguration.paypal.onSuccess = bind(function (payload) {
       if (legacyCallback) {
         legacyCallback(
           payload.nonce,
@@ -9941,7 +10062,7 @@ function PayPalIntegration() {
     }, this);
   }
 
-  this.paypalIntegration = paypal.create(this.configuration.gatewayConfiguration, merchantConfiguration, this.configuration.channel);
+  this.paypalIntegration = paypal.create(this.configuration);
 
   this.destructor.registerFunctionForTeardown(bind(function () {
     this.paypalIntegration.teardown(); // eslint-disable-line no-invalid-this
@@ -9976,7 +10097,7 @@ PayPalIntegration.prototype._onIntegrationReady = function () {
 
 module.exports = PayPalIntegration;
 
-},{"151":151,"156":156,"163":163,"166":166,"167":167,"168":168,"213":213,"95":95}],174:[function(require,module,exports){
+},{"148":148,"151":151,"156":156,"163":163,"166":166,"167":167,"168":168,"213":213,"95":95}],174:[function(require,module,exports){
 'use strict';
 
 module.exports = function fallbackError(error) {
@@ -10129,7 +10250,7 @@ module.exports = function sanitizePayload(payload) {
 (function (global){
 'use strict';
 
-var VERSION = "2.16.1";
+var VERSION = "2.17.0";
 var api = require(14);
 var paypal = require(213);
 var dropin = require(199);
@@ -10137,19 +10258,23 @@ var integrations = require(172);
 var constants = require(167);
 var fallbackErrorHandler = require(174);
 var lookupCallbackFor = require(176);
-var uuid = require(81).uuid;
+var utils = require(81);
 var dataCollector = require(192);
 
-function setup(clientToken, integrationType, merchantConfiguration) {
+function setup(authorization, integrationType, merchantConfiguration) {
+  var channel;
+
   if (!integrations.hasOwnProperty(integrationType)) {
     throw new Error(integrationType + ' is an unsupported integration');
   }
 
   merchantConfiguration = merchantConfiguration || {};
+  channel = utils.uuid();
 
   api._getConfiguration({
     enableCORS: merchantConfiguration.enableCORS || false,
-    clientToken: clientToken
+    authorization: authorization,
+    sessionId: channel
   }, function (err, gatewayConfiguration) {
     var errorFallback;
 
@@ -10160,14 +10285,16 @@ function setup(clientToken, integrationType, merchantConfiguration) {
     }
 
     new integrations[integrationType]({ // eslint-disable-line no-new
-      channel: uuid(),
+      channel: channel,
+      authorization: authorization,
       gatewayConfiguration: gatewayConfiguration,
       integrationType: integrationType,
       merchantConfiguration: merchantConfiguration,
       analyticsConfiguration: {
         sdkVersion: 'braintree/web/' + VERSION,
         merchantAppId: global.location.host
-      }
+      },
+      isMerchantPageHttps: utils.isBrowserHttps()
     });
   });
 }
@@ -10275,14 +10402,15 @@ var callbacks = require(182);
 var constants = require(184);
 var detector = require(185);
 var Bus = require(163);
+var api = require(14);
 
-function _getPopupParams(options) {
+function _getPopupParams(configuration) {
   return {
-    clientId: options.configuration.coinbase.clientId,
-    redirectUrl: options.configuration.coinbase.redirectUrl,
-    scopes: options.configuration.coinbase.scopes || constants.SCOPES,
+    clientId: configuration.gatewayConfiguration.coinbase.clientId,
+    redirectUrl: configuration.gatewayConfiguration.coinbase.redirectUrl,
+    scopes: configuration.gatewayConfiguration.coinbase.scopes || constants.SCOPES,
     meta: {
-      authorizations_merchant_account: options.configuration.coinbase.merchantAccount || '' // eslint-disable-line camelcase
+      authorizations_merchant_account: configuration.gatewayConfiguration.coinbase.merchantAccount || '' // eslint-disable-line camelcase
     }
   };
 }
@@ -10293,13 +10421,13 @@ function _error(bus) {
   };
 }
 
-function _optionsAreValid(options, bus) {
-  var cbOptions = (options || {}).coinbase;
+function _optionsAreValid(configuration, bus) {
+  var cbOptions = (configuration.merchantConfiguration || {}).coinbase;
   var busError = _error(bus);
 
-  if (options.apiClient == null) {
-    busError('settings.apiClient is required for coinbase', constants.CONFIGURATION_ERROR);
-  } else if (!options.configuration.coinbaseEnabled) {
+  if (configuration.apiClient == null) {
+    busError('apiClient is required for coinbase', constants.CONFIGURATION_ERROR);
+  } else if (!configuration.gatewayConfiguration.coinbaseEnabled) {
     busError('Coinbase is not enabled for your merchant account', constants.CONFIGURATION_ERROR);
   } else if (!cbOptions || !cbOptions.container && !cbOptions.button) {
     busError('Either options.coinbase.container or options.coinbase.button is required for Coinbase integrations', constants.CONFIGURATION_ERROR);
@@ -10314,40 +10442,37 @@ function _optionsAreValid(options, bus) {
   return false;
 }
 
-function Coinbase(options) {
+function Coinbase(configuration) {
   var context, busOptions;
   var self = this;
 
+  this.configuration = configuration;
   this.destructor = new Destructor();
 
-  this.channel = options.channel;
-
-  busOptions = {channel: this.channel};
+  busOptions = {channel: configuration.channel};
 
   try {
-    if (options.coinbase.container) {
+    if (configuration.coinbase.container) {
       busOptions.merchantUrl = global.location.href;
     }
   } catch (e) { /* ignored */ }
 
-  this.bus = options.bus || new Bus(busOptions);
+  this.bus = configuration.bus || new Bus(busOptions);
 
-  this.canCreateIntegration = _optionsAreValid(options, this.bus);
+  this.canCreateIntegration = _optionsAreValid(configuration, this.bus);
   if (!this.canCreateIntegration) {
     return;
   }
 
-  this.buttonId = options.coinbase.button || constants.BUTTON_ID;
-  this.apiClient = options.apiClient;
-  this.assetsUrl = options.configuration.assetsUrl;
-  this.environment = options.configuration.coinbase.environment;
+  this.buttonId = configuration.merchantConfiguration.coinbase.button || constants.BUTTON_ID;
+  this.apiClient = configuration.apiClient || new api.Client(configuration);
   this._onOAuthSuccess = bind(this._onOAuthSuccess, this);
   this._handleButtonClick = bind(this._handleButtonClick, this);
-  this.popupParams = _getPopupParams(options);
+  this.popupParams = _getPopupParams(configuration);
   this.redirectDoneInterval = null;
 
-  if (options.coinbase.container) {
-    context = utils.normalizeElement(options.coinbase.container);
+  if (configuration.merchantConfiguration.coinbase.container) {
+    context = utils.normalizeElement(configuration.merchantConfiguration.coinbase.container);
     this._insertFrame(context);
   } else {
     global.braintreeCoinbasePopupCallback = this._onOAuthSuccess;
@@ -10367,7 +10492,7 @@ function Coinbase(options) {
 
 Coinbase.prototype._insertFrame = function (container) {
   var self = this;
-  var frame = DOMComposer.createFrame({channel: this.channel});
+  var frame = DOMComposer.createFrame({channel: this.configuration.channel});
 
   this.bus.emit(Bus.events.ASYNC_DEPENDENCY_INITIALIZING);
 
@@ -10378,7 +10503,7 @@ Coinbase.prototype._insertFrame = function (container) {
 
   // Delayed to make sure browser caches are busted.
   setTimeout(function () {
-    frame.src = self.assetsUrl + '/coinbase/' + constants.VERSION + '/coinbase-frame.html#' + self.channel;
+    frame.src = self.configuration.gatewayConfiguration.assetsUrl + '/coinbase/' + constants.VERSION + '/coinbase-frame.html#' + self.configuration.channel;
   }, 0);
 };
 
@@ -10473,7 +10598,7 @@ Coinbase.prototype._openPopup = function () {
 Coinbase.prototype._getOAuthBaseUrl = function () {
   var baseUrl;
 
-  if (this.environment === 'shared_sandbox') {
+  if (this.configuration.gatewayConfiguration.coinbase.environment === 'shared_sandbox') {
     baseUrl = constants.SANDBOX_OAUTH_BASE_URL;
   } else {
     baseUrl = constants.PRODUCTION_OAUTH_BASE_URL;
@@ -10523,7 +10648,7 @@ Coinbase.prototype.teardown = function (done) {
 module.exports = Coinbase;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"163":163,"182":182,"184":184,"185":185,"187":187,"190":190,"81":81,"85":85,"95":95}],184:[function(require,module,exports){
+},{"14":14,"163":163,"182":182,"184":184,"185":185,"187":187,"190":190,"81":81,"85":85,"95":95}],184:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -10534,7 +10659,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "2.16.1",
+  VERSION: "2.17.0",
   INTEGRATION_NAME: 'Coinbase',
   CONFIGURATION_ERROR: 'CONFIGURATION',
   UNSUPPORTED_BROWSER_ERROR: 'UNSUPPORTED_BROWSER',
@@ -10998,12 +11123,11 @@ var rpc = require(63);
 var utils = require(81);
 var normalizeElement = utils.normalizeElement;
 var bind = require(95);
-var isBrowserHttps = utils.isBrowserHttps;
 var APIProxyServer = require(194);
 var MerchantFormManager = require(198);
 var FrameContainer = require(197);
 var constants = require(200);
-var version = "2.16.1";
+var version = "2.17.0";
 var PayPalModalView = require(217);
 
 function getElementStyle(element, style) {
@@ -11032,43 +11156,30 @@ function isMobile() {
   return isMobileUserAgent;
 }
 
-function Client(settings) {
+function Client(configuration) {
   var inlineFramePath, modalFramePath, formElement;
   var self = this;
 
-  this.channel = settings.channel;
+  this.configuration = configuration;
   this.destructor = new Destructor();
-  this.merchantConfiguration = settings.merchantConfiguration;
-  this.encodedClientToken = settings.gatewayConfiguration;
-  this.analyticsConfiguration = settings.analyticsConfiguration;
-  this.paypalOptions = settings.merchantConfiguration.paypal || {};
   this.container = null;
   this.merchantFormManager = null;
-  this.root = settings.root;
   this.configurationRequests = [];
-  this.braintreeApiClient = api.configure({
-    clientToken: settings.gatewayConfiguration,
-    analyticsConfiguration: this.analyticsConfiguration,
-    integration: 'dropin',
-    enableCORS: this.merchantConfiguration.enableCORS
-  });
-
-  this.paymentMethodNonceReceivedCallback = settings.merchantConfiguration.paymentMethodNonceReceived;
-  this.clientToken = api.parseClientToken(settings.gatewayConfiguration);
+  this.braintreeApiClient = new api.Client(this.configuration);
 
   this.braintreeBus = new BraintreeBus({
     merchantUrl: global.location.href,
-    channel: settings.channel
+    channel: this.configuration.channel
   });
 
-  this.bus = new rpc.MessageBus(this.root, this.channel);
+  this.bus = new rpc.MessageBus(this.configuration.root, this.configuration.channel);
   this.rpcServer = new rpc.RPCServer(this.bus);
   this.apiProxyServer = new APIProxyServer(this.braintreeApiClient);
 
   this.apiProxyServer.attach(this.rpcServer);
 
-  inlineFramePath = settings.inlineFramePath || this.clientToken.assetsUrl + '/dropin/' + version + '/inline-frame.html';
-  modalFramePath = settings.modalFramePath || this.clientToken.assetsUrl + '/dropin/' + version + '/modal-frame.html';
+  inlineFramePath = this.configuration.inlineFramePath || this.configuration.gatewayConfiguration.assetsUrl + '/dropin/' + version + '/inline-frame.html';
+  modalFramePath = this.configuration.modalFramePath || this.configuration.gatewayConfiguration.assetsUrl + '/dropin/' + version + '/modal-frame.html';
   htmlNode = document.documentElement;
   bodyNode = document.body;
 
@@ -11077,14 +11188,13 @@ function Client(settings) {
     modal: this._createFrame(modalFramePath, constants.MODAL_FRAME_NAME)
   };
 
-  this.container = normalizeElement(settings.merchantConfiguration.container, 'Unable to find valid container.');
-
-  formElement = normalizeElement(settings.merchantConfiguration.form || this._findClosest(this.container, 'form'));
+  this.container = normalizeElement(this.configuration.merchantConfiguration.container, 'Unable to find valid container.');
+  formElement = normalizeElement(this.configuration.merchantConfiguration.form || this._findClosest(this.container, 'form'));
 
   this.merchantFormManager = new MerchantFormManager({
     form: formElement,
     frames: this.frames,
-    onSubmit: this.paymentMethodNonceReceivedCallback,
+    onSubmit: this.configuration.merchantConfiguration.paymentMethodNonceReceived,
     apiClient: this.braintreeApiClient
   }).initialize();
 
@@ -11092,7 +11202,7 @@ function Client(settings) {
     self.merchantFormManager.teardown();
   });
 
-  if (settings.gatewayConfiguration.paypalEnabled) {
+  if (this.configuration.gatewayConfiguration.paypalEnabled) {
     this._configurePayPal();
   }
 
@@ -11132,13 +11242,7 @@ Client.prototype.initialize = function () {
   this.braintreeBus.on(BraintreeBus.events.PAYMENT_METHOD_GENERATED, bind(this._handleAltPayData, this));
 
   this.rpcServer.define('getConfiguration', function (reply) {
-    reply({
-      enableCORS: self.merchantConfiguration.enableCORS,
-      clientToken: self.encodedClientToken,
-      paypalOptions: self.paypalOptions,
-      analyticsConfiguration: self.analyticsConfiguration,
-      merchantHttps: isBrowserHttps()
-    });
+    reply(self.configuration);
   });
 
   this.rpcServer.define('selectPaymentMethod', function (paymentMethods) {
@@ -11251,11 +11355,13 @@ Client.prototype._hideModal = function (done) {
 };
 
 Client.prototype._configurePayPal = function () {
+  var paypalOptions = this.configuration.merchantConfiguration.paypal || {};
+
   this.paypalModalView = new PayPalModalView({
-    channel: this.channel,
-    insertFrameFunction: this.paypalOptions.insertFrame,
-    paypalAssetsUrl: this.clientToken.paypal.assetsUrl,
-    isHermes: Boolean(this.paypalOptions.singleUse) && Boolean(this.paypalOptions.amount) && Boolean(this.paypalOptions.currency)
+    channel: this.configuration.channel,
+    insertFrameFunction: paypalOptions.insertFrame,
+    paypalAssetsUrl: this.configuration.gatewayConfiguration.paypal.assetsUrl,
+    isHermes: Boolean(paypalOptions.singleUse) && Boolean(paypalOptions.amount) && Boolean(paypalOptions.currency)
   });
 };
 
@@ -11304,7 +11410,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require(195);
-var VERSION = "2.16.1";
+var VERSION = "2.17.0";
 
 function create(options) {
   var client = new Client(options);
@@ -11844,7 +11950,7 @@ module.exports = function validateAnnotations(htmlForm) {
 
 var HostedFields = require(209);
 var events = require(211).events;
-var VERSION = "2.16.1";
+var VERSION = "2.17.0";
 
 module.exports = {
   create: function (configuration) {
@@ -12069,7 +12175,7 @@ module.exports = function shouldUseLabelFocus() {
 'use strict';
 /* eslint-disable no-reserved-keys */
 
-var VERSION = "2.16.1";
+var VERSION = "2.17.0";
 
 module.exports = {
   VERSION: VERSION,
@@ -12204,28 +12310,18 @@ var constants = require(226);
 var util = require(236);
 var bindAll = require(96);
 
-function Client(clientToken, options, channel) {
-  options = options || {};
-
-  this._clientToken = clientToken;
-  this._clientOptions = options;
-
-  this._clientToken.correlationId = util.generateUid();
+function Client(configuration) {
+  this.configuration = configuration;
 
   this.destructor = new Destructor();
 
-  this.channel = channel;
   this.bus = new Bus({
     merchantUrl: global.location.href,
-    channel: this.channel
+    channel: this.configuration.channel
   });
 
-  this.container = braintreeUtil.normalizeElement(options.container || document.body);
-  this.paymentMethodNonceInputField = options.paymentMethodNonceInputField;
+  this.container = braintreeUtil.normalizeElement(this.configuration.merchantConfiguration.paypal.container || document.body);
 
-  this.insertFrameFunction = options.insertFrame;
-  this.onSuccess = options.onSuccess;
-  this.onCancelled = options.onCancelled;
   this.loggedInView = null;
   this.loggedOutView = null;
   this.appView = null;
@@ -12233,8 +12329,6 @@ function Client(clientToken, options, channel) {
   this.paymentMethodNonceInputFieldView = null;
   this.overlayView = null;
   this.bridgeIframeView = null;
-  this.headless = options.headless;
-  this.isDropin = options.isDropin;
 
   bindAll(this, ['initAuthFlow', 'closeAuthFlow']);
 }
@@ -12245,21 +12339,11 @@ Client.prototype.initialize = function () {
   this._createViews();
 
   this.bus.on(
-    constants.events.GET_CLIENT_TOKEN,
-    bind(this._handleGetClientToken, this)
-  );
-
-  this.bus.on(
-    constants.events.GET_CLIENT_OPTIONS,
-    bind(this._handleGetClientOptions, this)
-  );
-
-  this.bus.on(
     Bus.events.PAYMENT_METHOD_CANCELLED,
     bind(this._handlePaymentMethodCancelled, this)
   );
 
-  if (!this.isDropin) {
+  if (this.configuration.integrationType !== 'dropin') {
     this.bus.on(
       Bus.events.PAYMENT_METHOD_GENERATED,
       bind(this._handlePaymentMethodGenerated, this)
@@ -12277,65 +12361,66 @@ Client.prototype._createViews = function () {
   var i;
   var views = [];
   var self = this;
+  var isDropin = this.configuration.integrationType === 'dropin';
 
   if (browser.isBridgeIframeRequired()) {
     this.bridgeIframeView = new BridgeIframeView({
       container: this.container,
-      paypalAssetsUrl: this._clientToken.paypal.assetsUrl,
-      channel: this.channel
+      paypalAssetsUrl: this.configuration.gatewayConfiguration.paypal.assetsUrl,
+      channel: this.configuration.channel
     });
     views.push(this.bridgeIframeView);
   }
 
   this.appView = new AppView({
-    insertFrameFunction: this.insertFrameFunction,
-    paypalAssetsUrl: this._clientToken.paypal.assetsUrl,
-    isHermes: util.isHermesConfiguration(this._clientToken, this._clientOptions),
-    isDropin: this.isDropin,
-    channel: this.channel
+    insertFrameFunction: this.configuration.merchantConfiguration.paypal.insertFrameFunction,
+    paypalAssetsUrl: this.configuration.gatewayConfiguration.paypal.assetsUrl,
+    isHermes: util.isHermesConfiguration(this.configuration),
+    isDropin: isDropin,
+    channel: this.configuration.channel
   });
   views.push(this.appView);
 
-  if (!this.isDropin) {
+  if (!isDropin) {
     this.merchantPageView = new MerchantPageView({
-      channel: this.channel
+      channel: this.configuration.channel
     });
     views.push(this.merchantPageView);
 
     if (browser.isPopupSupported() && browser.isOverlaySupported()) {
       this.overlayView = new OverlayView({
-        paypalAssetsUrl: this._clientToken.paypal.assetsUrl,
+        paypalAssetsUrl: this.configuration.gatewayConfiguration.paypal.assetsUrl,
         onFocus: function () { self.bus.emit(constants.events.FOCUS_APP); },
         onClose: function () { self.bus.emit(constants.events.CLOSE_APP); },
-        locale: this._clientOptions.locale,
-        channel: this.channel
+        locale: this.configuration.merchantConfiguration.paypal.locale,
+        channel: this.configuration.channel
       });
       views.push(this.overlayView);
     }
   }
 
-  if (!(this.isDropin || this.headless)) {
+  if (!(isDropin || this.configuration.merchantConfiguration.paypal.headless)) {
     this.paymentMethodNonceInputFieldView = new PaymentMethodNonceInputFieldView({
       container: this.container,
-      el: this.paymentMethodNonceInputField,
-      channel: this.channel
+      el: this.configuration.merchantConfiguration.paypal.paymentMethodNonceInputField,
+      channel: this.configuration.channel
     });
     views.push(this.paymentMethodNonceInputFieldView);
 
     this.loggedInView = new LoggedInView({
-      paypalAssetsUrl: this._clientToken.paypal.assetsUrl,
+      paypalAssetsUrl: this.configuration.gatewayConfiguration.paypal.assetsUrl,
       container: this.container,
-      locale: this._clientOptions.locale,
-      channel: this.channel
+      locale: this.configuration.merchantConfiguration.paypal.locale,
+      channel: this.configuration.channel
     });
     views.push(this.loggedInView);
 
     this.loggedOutView = new LoggedOutView({
-      paypalAssetsUrl: this._clientToken.paypal.assetsUrl,
+      paypalAssetsUrl: this.configuration.gatewayConfiguration.paypal.assetsUrl,
       container: this.container,
-      enablePayPalButton: util.isOnetimeHermesConfiguration(this._clientToken, this._clientOptions),
-      locale: this._clientOptions.locale,
-      channel: this.channel
+      enablePayPalButton: util.isOnetimeHermesConfiguration(this.configuration),
+      locale: this.configuration.merchantConfiguration.paypal.locale,
+      channel: this.configuration.channel
     });
     views.push(this.loggedOutView);
   }
@@ -12373,66 +12458,26 @@ Client.prototype.closeAuthFlow = function () {
 
 Client.prototype._isButton = function (node) {
   var isPayPalButton = node.id === 'braintree-paypal-button';
-  var isHermesButton = util.isOnetimeHermesConfiguration(this._clientToken, this._clientOptions) &&
+  var isHermesButton = util.isOnetimeHermesConfiguration(this.configuration) &&
     node.className.match(/paypal-button(?!-widget)/);
 
   return isPayPalButton || isHermesButton;
 };
 
 Client.prototype._handlePaymentMethodGenerated = function (bundle) {
-  if (bundle.type === constants.NONCE_TYPE && isFunction(this.onSuccess)) {
-    this.onSuccess(bundle);
+  var onSuccess = this.configuration.merchantConfiguration.paypal.onSuccess;
+
+  if (bundle.type === constants.NONCE_TYPE && isFunction(onSuccess)) {
+    onSuccess(bundle);
   }
 };
 
 Client.prototype._handlePaymentMethodCancelled = function (payload) {
-  if (payload.source === constants.PAYPAL_INTEGRATION_NAME && isFunction(this.onCancelled)) {
-    this.onCancelled();
+  var onCancelled = this.configuration.merchantConfiguration.paypal.onCancelled;
+
+  if (payload.source === constants.PAYPAL_INTEGRATION_NAME && isFunction(onCancelled)) {
+    onCancelled();
   }
-};
-
-Client.prototype._clientTokenData = function () {
-  return {
-    analyticsUrl: this._clientToken.analytics ?
-      this._clientToken.analytics.url : null,
-    authorizationFingerprint: this._clientToken.authorizationFingerprint,
-    clientApiUrl: this._clientToken.clientApiUrl,
-    displayName: this._clientOptions.displayName || this._clientToken.paypal.displayName,
-    paypalAssetsUrl: this._clientToken.paypal.assetsUrl,
-    paypalClientId: this._clientToken.paypal.clientId,
-    paypalPrivacyUrl: this._clientToken.paypal.privacyUrl,
-    paypalUserAgreementUrl: this._clientToken.paypal.userAgreementUrl,
-    billingAgreementsEnabled: this._clientToken.paypal.billingAgreementsEnabled,
-    unvettedMerchant: this._clientToken.paypal.unvettedMerchant,
-    payeeEmail: this._clientToken.paypal.payeeEmail,
-    correlationId: this._clientToken.correlationId,
-    offline: this._clientOptions.offline || this._clientToken.paypal.environmentNoNetwork,
-    sdkVersion: this._clientToken.sdkVersion,
-    merchantAppId: this._clientToken.merchantAppId
-  };
-};
-
-Client.prototype._handleGetClientToken = function (callback) {
-  callback(this._clientTokenData());
-};
-
-Client.prototype._clientOptionsData = function () {
-  return {
-    locale: this._clientOptions.locale || 'en_us',
-    onetime: this._clientOptions.singleUse || false,
-    integration: this._clientOptions.integration || 'paypal',
-    enableShippingAddress: this._clientOptions.enableShippingAddress || false,
-    enableBillingAddress: this._clientOptions.enableBillingAddress || false,
-    enableHermes: util.isHermesConfiguration(this._clientToken, this._clientOptions),
-    amount: this._clientOptions.amount || null,
-    currency: this._clientOptions.currency || null,
-    shippingAddressOverride: this._clientOptions.shippingAddressOverride || null,
-    enableCORS: this._clientOptions.enableCORS
-  };
-};
-
-Client.prototype._handleGetClientOptions = function (callback) {
-  callback(this._clientOptionsData());
 };
 
 Client.prototype.teardown = function () {
@@ -12453,17 +12498,14 @@ var Client = require(214);
 var browser = require(234);
 var constants = require(226);
 var getLocale = require(228);
-var isHermesConfiguration = require(236).isHermesConfiguration;
-var isOnetimeHermesConfiguration = require(236).isOnetimeHermesConfiguration;
-var VERSION = "2.16.1";
+var util = require(236);
+var VERSION = "2.17.0";
 var braintreeUtil = require(81);
-var braintreeApi = require(14);
 
-function create(clientToken, options, channel) {
+function create(configuration) {
   var client, onUnsupported;
 
-  options = options || {};
-  onUnsupported = options.onUnsupported;
+  onUnsupported = configuration.merchantConfiguration.onUnsupported;
 
   if (typeof onUnsupported !== 'function') {
     onUnsupported = function (error) {
@@ -12473,14 +12515,7 @@ function create(clientToken, options, channel) {
     };
   }
 
-  if (!clientToken) {
-    onUnsupported(new Error('Parameter "clientToken" cannot be null'));
-    return null;
-  }
-
-  clientToken = braintreeApi.parseClientToken(clientToken);
-
-  if (!clientToken.paypalEnabled) {
+  if (!configuration.gatewayConfiguration.paypalEnabled) {
     onUnsupported(new Error('PayPal is not enabled'));
     return null;
   }
@@ -12490,41 +12525,41 @@ function create(clientToken, options, channel) {
     return null;
   }
 
-  if (!options.container && !options.headless) {
+  if (!configuration.merchantConfiguration.paypal.container && !configuration.merchantConfiguration.paypal.headless) {
     onUnsupported(new Error('Please supply a container for the PayPal button to be appended to'));
     return null;
   }
 
-  if (!isBrowserSecure(clientToken, options)) {
+  if (!isBrowserSecure(configuration)) {
     onUnsupported(new Error('unsupported protocol detected'));
     return null;
   }
 
-  if (isMisconfiguredUnvettedMerchant(clientToken, options)) {
+  if (isMisconfiguredUnvettedMerchant(configuration)) {
     onUnsupported(new Error('Unvetted merchant client token does not include a payee email'));
     return null;
   }
 
-  if (isHermesConfiguration(clientToken, options)) {
-    if (!isHermesSupportedCountry(options.locale)) {
+  if (util.isHermesConfiguration(configuration)) {
+    if (!isHermesSupportedCountry(configuration.merchantConfiguration.paypal.locale)) {
       onUnsupported(new Error('This PayPal integration does not support this country'));
       return null;
     }
   }
 
-  if (isOnetimeHermesConfiguration(clientToken, options)) {
-    if (!isHermesSupportedCurrency(options.currency)) {
+  if (util.isOnetimeHermesConfiguration(configuration)) {
+    if (!isHermesSupportedCurrency(configuration.merchantConfiguration.paypal.currency)) {
       onUnsupported(new Error('This PayPal integration does not support this currency'));
       return null;
     }
 
-    if (!isValidAmount(options.amount)) {
+    if (!isValidAmount(configuration.merchantConfiguration.paypal.amount)) {
       onUnsupported(new Error('Amount must be a number'));
       return null;
     }
   }
 
-  client = new Client(clientToken, options, channel);
+  client = new Client(configuration);
   client.initialize();
 
   return client;
@@ -12557,14 +12592,14 @@ function isValidAmount(amount) {
   return typeof amount === 'number' && !isNaN(amount) && amount >= 0;
 }
 
-function isMisconfiguredUnvettedMerchant(clientToken, options) {
-  return clientToken.paypal.unvettedMerchant && (!isHermesConfiguration(clientToken, options) || !clientToken.paypal.payeeEmail);
+function isMisconfiguredUnvettedMerchant(configuration) {
+  return configuration.gatewayConfiguration.paypal.unvettedMerchant && (!util.isHermesConfiguration(configuration) || !configuration.gatewayConfiguration.paypal.payeeEmail);
 }
 
-function isBrowserSecure(clientToken, options) {
-  if (clientToken.paypal.allowHttp) { return true; }
+function isBrowserSecure(configuration) {
+  if (configuration.gatewayConfiguration.paypal.allowHttp) { return true; }
   if (browser.isPopupSupported()) { return true; }
-  if ('merchantHttps' in options) { return options.merchantHttps; }
+  if ('isMerchantPageHttps' in configuration) { return configuration.isMerchantPageHttps; }
 
   return braintreeUtil.isBrowserHttps();
 }
@@ -12574,7 +12609,7 @@ module.exports = {
   VERSION: VERSION
 };
 
-},{"14":14,"214":214,"226":226,"228":228,"234":234,"236":236,"81":81}],216:[function(require,module,exports){
+},{"214":214,"226":226,"228":228,"234":234,"236":236,"81":81}],216:[function(require,module,exports){
 module.exports={
   "en_us": {
     "cancel": "Cancel",
@@ -13761,7 +13796,7 @@ module.exports = PopupView;
 'use strict';
 
 var i;
-var version = "2.16.1";
+var version = "2.17.0";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
@@ -14305,10 +14340,10 @@ function preventDefault(event) {
   }
 }
 
-function getOnetimeConfigurationType(merchantConfiguration) {
+function getOnetimeConfigurationType(configuration) {
   var configurationType;
 
-  if (Boolean(merchantConfiguration.amount) && Boolean(merchantConfiguration.currency)) {
+  if (Boolean(configuration.merchantConfiguration.paypal.amount) && Boolean(configuration.merchantConfiguration.paypal.currency)) {
     configurationType = constants.CONFIGURATION_TYPES.HERMES_ONETIME;
   } else {
     configurationType = constants.CONFIGURATION_TYPES.LEGACY_ONETIME;
@@ -14317,10 +14352,10 @@ function getOnetimeConfigurationType(merchantConfiguration) {
   return configurationType;
 }
 
-function getFuturePaymentsConfigurationType(gatewayConfiguration) {
+function getFuturePaymentsConfigurationType(configuration) {
   var configurationType;
 
-  if (Boolean(gatewayConfiguration.paypal.billingAgreementsEnabled)) {
+  if (Boolean(configuration.gatewayConfiguration.paypal.billingAgreementsEnabled)) {
     configurationType = constants.CONFIGURATION_TYPES.HERMES_BILLING_AGREEMENTS;
   } else {
     configurationType = constants.CONFIGURATION_TYPES.LEGACY_FUTURE_PAYMENTS;
@@ -14329,26 +14364,26 @@ function getFuturePaymentsConfigurationType(gatewayConfiguration) {
   return configurationType;
 }
 
-function getConfigurationType(gatewayConfiguration, merchantConfiguration) {
+function getConfigurationType(configuration) {
   var configurationType;
 
-  if (Boolean(merchantConfiguration.singleUse)) {
-    configurationType = getOnetimeConfigurationType(merchantConfiguration);
+  if (Boolean(configuration.merchantConfiguration.paypal.singleUse)) {
+    configurationType = getOnetimeConfigurationType(configuration);
   } else {
-    configurationType = getFuturePaymentsConfigurationType(gatewayConfiguration);
+    configurationType = getFuturePaymentsConfigurationType(configuration);
   }
 
   return configurationType;
 }
 
-function isHermesConfiguration(gatewayConfiguration, merchantConfiguration) {
-  var configurationType = getConfigurationType(gatewayConfiguration, merchantConfiguration);
+function isHermesConfiguration(configuration) {
+  var configurationType = getConfigurationType(configuration);
 
   return configurationType === constants.CONFIGURATION_TYPES.HERMES_ONETIME || configurationType === constants.CONFIGURATION_TYPES.HERMES_BILLING_AGREEMENTS;
 }
 
-function isOnetimeHermesConfiguration(gatewayConfiguration, merchantConfiguration) {
-  var configurationType = getConfigurationType(gatewayConfiguration, merchantConfiguration);
+function isOnetimeHermesConfiguration(configuration) {
+  var configurationType = getConfigurationType(configuration);
 
   return configurationType === constants.CONFIGURATION_TYPES.HERMES_ONETIME;
 }
