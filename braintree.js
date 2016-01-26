@@ -3572,7 +3572,7 @@ function mergeOptions(obj1, obj2) {
 }
 
 function isTokenizationKey(str) {
-  return /^[a-zA-Z0-9_]+_[a-zA-Z0-9]+_[a-zA-Z0-9_]+$/.test(str);
+  return /^[a-zA-Z0-9]+_[a-zA-Z0-9]+_[a-zA-Z0-9_]+$/.test(str);
 }
 
 module.exports = {
@@ -9334,7 +9334,7 @@ module.exports = function sanitizePayload(payload) {
 (function (global){
 'use strict';
 
-var VERSION = "2.17.6";
+var VERSION = "2.18.0";
 var api = require(14);
 var paypal = require(206);
 var dropin = require(192);
@@ -9743,7 +9743,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "2.17.6",
+  VERSION: "2.18.0",
   INTEGRATION_NAME: 'Coinbase',
   CONFIGURATION_ERROR: 'CONFIGURATION',
   UNSUPPORTED_BROWSER_ERROR: 'UNSUPPORTED_BROWSER',
@@ -10211,7 +10211,7 @@ var APIProxyServer = require(187);
 var MerchantFormManager = require(191);
 var FrameContainer = require(190);
 var constants = require(193);
-var version = "2.17.6";
+var version = "2.18.0";
 var PayPalModalView = require(210);
 
 function getElementStyle(element, style) {
@@ -10490,7 +10490,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require(188);
-var VERSION = "2.17.6";
+var VERSION = "2.18.0";
 
 function create(options) {
   var client = new Client(options);
@@ -11030,7 +11030,7 @@ module.exports = function validateAnnotations(htmlForm) {
 
 var HostedFields = require(202);
 var events = require(204).events;
-var VERSION = "2.17.6";
+var VERSION = "2.18.0";
 
 module.exports = {
   create: function (configuration) {
@@ -11182,11 +11182,7 @@ function HostedFieldsIntegration(configuration) {
 
   this.bus.on(events.FRAME_READY, function (reply) {
     fieldCount--;
-    if (fieldCount === 0) {
-      reply(true);
-    } else {
-      reply(false);
-    }
+    reply(fieldCount === 0);
   });
 
   this.bus.on(
@@ -11255,7 +11251,7 @@ module.exports = function shouldUseLabelFocus() {
 'use strict';
 /* eslint-disable no-reserved-keys */
 
-var VERSION = "2.17.6";
+var VERSION = "2.18.0";
 
 module.exports = {
   VERSION: VERSION,
@@ -11294,8 +11290,10 @@ module.exports = {
   whitelistedStyles: [
     '-moz-osx-font-smoothing',
     '-moz-transition',
+    '-moz-tap-highlight-color',
     '-webkit-font-smoothing',
     '-webkit-transition',
+    '-webkit-tap-highlight-color',
     'color',
     'font',
     'font-family',
@@ -11579,7 +11577,7 @@ var browser = require(227);
 var constants = require(219);
 var getLocale = require(221);
 var util = require(229);
-var VERSION = "2.17.6";
+var VERSION = "2.18.0";
 var braintreeUtil = require(73);
 
 function create(configuration) {
@@ -12876,7 +12874,7 @@ module.exports = PopupView;
 'use strict';
 
 var i;
-var version = "2.17.6";
+var version = "2.18.0";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
