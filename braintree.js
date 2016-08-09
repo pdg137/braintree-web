@@ -5473,7 +5473,7 @@ module.exports = FormNapper;
   } else {
     root.framebus = factory();
   }
-})(this, function () {
+})(this, function () { // eslint-disable-line no-invalid-this
   var win, framebus;
   var popups = [];
   var subscribers = {};
@@ -5505,7 +5505,7 @@ module.exports = FormNapper;
 
   function publish(event) {
     var payload, args;
-    var origin = _getOrigin(this);
+    var origin = _getOrigin(this); // eslint-disable-line no-invalid-this
 
     if (_isntString(event)) { return false; }
     if (_isntString(origin)) { return false; }
@@ -5521,7 +5521,7 @@ module.exports = FormNapper;
   }
 
   function subscribe(event, fn) {
-    var origin = _getOrigin(this);
+    var origin = _getOrigin(this); // eslint-disable-line no-invalid-this
 
     if (_subscriptionArgsInvalid(event, fn, origin)) { return false; }
 
@@ -5534,7 +5534,7 @@ module.exports = FormNapper;
 
   function unsubscribe(event, fn) {
     var i, subscriberList;
-    var origin = _getOrigin(this);
+    var origin = _getOrigin(this); // eslint-disable-line no-invalid-this
 
     if (_subscriptionArgsInvalid(event, fn, origin)) { return false; }
 
@@ -5562,7 +5562,7 @@ module.exports = FormNapper;
   function _packagePayload(event, args, origin) {
     var packaged = false;
     var payload = {
-      event:  event,
+      event: event,
       origin: origin
     };
     var reply = args[args.length - 1];
@@ -5598,8 +5598,9 @@ module.exports = FormNapper;
       replySource = e.source;
       replyEvent = payload.reply;
 
-      payload.reply = function reply(data) {
+      payload.reply = function reply(data) { // eslint-disable-line consistent-return
         var replyPayload = _packagePayload(replyEvent, [data], replyOrigin);
+
         if (replyPayload === false) { return false; }
 
         replySource.postMessage(replyPayload, replyOrigin);
@@ -5630,12 +5631,14 @@ module.exports = FormNapper;
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
       var r = Math.random() * 16 | 0;
       var v = c === 'x' ? r : r & 0x3 | 0x8;
+
       return v.toString(16);
     });
   }
 
   function _onmessage(e) {
     var payload;
+
     if (_isntString(e.data)) { return; }
 
     payload = _unpackPayload(e);
@@ -5648,6 +5651,7 @@ module.exports = FormNapper;
 
   function _dispatch(origin, event, args, e) {
     var i;
+
     if (!subscribers[origin]) { return; }
     if (!subscribers[origin][event]) { return; }
 
@@ -5656,13 +5660,22 @@ module.exports = FormNapper;
     }
   }
 
+  function _hasOpener(frame) {
+    if (frame.top !== frame) { return false; }
+    if (frame.opener == null) { return false; }
+    if (frame.opener === frame) { return false; }
+    if (frame.opener.closed === true) { return false; }
+
+    return true;
+  }
+
   function _broadcast(frame, payload, origin) {
     var i;
 
     try {
       frame.postMessage(payload, origin);
 
-      if (frame.opener && frame.opener !== frame && !frame.opener.closed && frame.opener !== win) {
+      if (_hasOpener(frame)) {
         _broadcast(frame.opener.top, payload, origin);
       }
 
@@ -5709,18 +5722,18 @@ module.exports = FormNapper;
   _attach();
 
   framebus = {
-    target:                   target,
-    include:                  include,
-    publish:                  publish,
-    pub:                      publish,
-    trigger:                  publish,
-    emit:                     publish,
-    subscribe:                subscribe,
-    sub:                      subscribe,
-    on:                       subscribe,
-    unsubscribe:              unsubscribe,
-    unsub:                    unsubscribe,
-    off:                      unsubscribe
+    target: target,
+    include: include,
+    publish: publish,
+    pub: publish,
+    trigger: publish,
+    emit: publish,
+    subscribe: subscribe,
+    sub: subscribe,
+    on: subscribe,
+    unsubscribe: unsubscribe,
+    unsub: unsubscribe,
+    off: unsubscribe
   };
 
   return framebus;
@@ -9627,7 +9640,7 @@ module.exports = function sanitizePayload(payload) {
 (function (global){
 'use strict';
 
-var VERSION = "2.24.0";
+var VERSION = "2.24.1";
 var api = require(14);
 var paypal = require(209);
 var dropin = require(195);
@@ -10036,7 +10049,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "2.24.0",
+  VERSION: "2.24.1",
   INTEGRATION_NAME: 'Coinbase',
   CONFIGURATION_ERROR: 'CONFIGURATION',
   UNSUPPORTED_BROWSER_ERROR: 'UNSUPPORTED_BROWSER',
@@ -10509,7 +10522,7 @@ var APIProxyServer = require(190);
 var MerchantFormManager = require(194);
 var FrameContainer = require(193);
 var constants = require(196);
-var version = "2.24.0";
+var version = "2.24.1";
 var PayPalModalView = require(213);
 
 function getElementStyle(element, style) {
@@ -10788,7 +10801,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require(191);
-var VERSION = "2.24.0";
+var VERSION = "2.24.1";
 
 function create(options) {
   var client = new Client(options);
@@ -11328,7 +11341,7 @@ module.exports = function validateAnnotations(htmlForm) {
 
 var HostedFields = require(205);
 var events = require(207).events;
-var VERSION = "2.24.0";
+var VERSION = "2.24.1";
 
 module.exports = {
   create: function (configuration) {
@@ -11549,7 +11562,7 @@ module.exports = function shouldUseLabelFocus() {
 'use strict';
 /* eslint-disable no-reserved-keys */
 
-var VERSION = "2.24.0";
+var VERSION = "2.24.1";
 
 module.exports = {
   VERSION: VERSION,
@@ -11885,7 +11898,7 @@ var browser = require(230);
 var constants = require(222);
 var getLocale = require(224);
 var util = require(232);
-var VERSION = "2.24.0";
+var VERSION = "2.24.1";
 var braintreeUtil = require(73);
 
 function create(configuration) {
@@ -13214,7 +13227,7 @@ module.exports = PopupView;
 'use strict';
 
 var i;
-var version = "2.24.0";
+var version = "2.24.1";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
@@ -13243,7 +13256,7 @@ exports.POPUP_WIDTH = 410;
 exports.HERMES_POPUP_HEIGHT = 535;
 exports.HERMES_POPUP_WIDTH = 450;
 exports.BRIDGE_FRAME_NAME = 'bt-proxy-frame';
-exports.HERMES_SUPPORTED_CURRENCIES = ['USD', 'GBP', 'EUR', 'AUD', 'CAD', 'DKK', 'NOK', 'PLN', 'SEK', 'CHF', 'TRY', 'BRL', 'MXN', 'ILS', 'SGD', 'THB', 'PHP', 'NZD', 'HKD', 'MYR'];
+exports.HERMES_SUPPORTED_CURRENCIES = ['USD', 'GBP', 'EUR', 'AUD', 'CAD', 'DKK', 'NOK', 'PLN', 'SEK', 'CHF', 'TRY', 'BRL', 'MXN', 'ILS', 'SGD', 'THB', 'PHP', 'NZD', 'HKD', 'MYR', 'CZK', 'JPY', 'RUB'];
 exports.HERMES_SUPPORTED_COUNTRIES = ['US', 'GB', 'AU', 'CA', 'ES', 'FR', 'DE', 'IT', 'NL', 'NO', 'PL', 'CH', 'TR', 'DK', 'BE', 'AT', 'SE', 'HK'];
 exports.NONCE_TYPE = 'PayPalAccount';
 exports.PAYPAL_INTEGRATION_NAME = 'PayPal';
