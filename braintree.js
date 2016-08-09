@@ -2833,13 +2833,26 @@ Client.prototype._getAttrs = function (gatewayConfiguration) {
   return attrs;
 };
 
-Client.prototype.getCreditCards = function (callback) {
+Client.prototype.getCreditCards = function (options, callback) {
+  if (typeof options === 'function') {
+    callback = options;
+    options = {};
+  }
+
   this._getGatewayConfiguration(bind(function (err, gatewayConfiguration) {
+    var data;
+
     if (err) { return callback(err); }
+
+    data = this._getAttrs(gatewayConfiguration);
+
+    if (options.defaultFirst === true) {
+      data.defaultFirst = 1;
+    }
 
     this.driver.get(
       util.joinUrlFragments([gatewayConfiguration.clientApiUrl, 'v1', 'payment_methods']),
-      this._getAttrs(gatewayConfiguration),
+      data,
       function (d) {
         var i = 0;
         var len = d.paymentMethods.length;
@@ -9614,7 +9627,7 @@ module.exports = function sanitizePayload(payload) {
 (function (global){
 'use strict';
 
-var VERSION = "2.23.0";
+var VERSION = "2.24.0";
 var api = require(14);
 var paypal = require(209);
 var dropin = require(195);
@@ -10023,7 +10036,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "2.23.0",
+  VERSION: "2.24.0",
   INTEGRATION_NAME: 'Coinbase',
   CONFIGURATION_ERROR: 'CONFIGURATION',
   UNSUPPORTED_BROWSER_ERROR: 'UNSUPPORTED_BROWSER',
@@ -10496,7 +10509,7 @@ var APIProxyServer = require(190);
 var MerchantFormManager = require(194);
 var FrameContainer = require(193);
 var constants = require(196);
-var version = "2.23.0";
+var version = "2.24.0";
 var PayPalModalView = require(213);
 
 function getElementStyle(element, style) {
@@ -10775,7 +10788,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require(191);
-var VERSION = "2.23.0";
+var VERSION = "2.24.0";
 
 function create(options) {
   var client = new Client(options);
@@ -11315,7 +11328,7 @@ module.exports = function validateAnnotations(htmlForm) {
 
 var HostedFields = require(205);
 var events = require(207).events;
-var VERSION = "2.23.0";
+var VERSION = "2.24.0";
 
 module.exports = {
   create: function (configuration) {
@@ -11536,7 +11549,7 @@ module.exports = function shouldUseLabelFocus() {
 'use strict';
 /* eslint-disable no-reserved-keys */
 
-var VERSION = "2.23.0";
+var VERSION = "2.24.0";
 
 module.exports = {
   VERSION: VERSION,
@@ -11872,7 +11885,7 @@ var browser = require(230);
 var constants = require(222);
 var getLocale = require(224);
 var util = require(232);
-var VERSION = "2.23.0";
+var VERSION = "2.24.0";
 var braintreeUtil = require(73);
 
 function create(configuration) {
@@ -13201,7 +13214,7 @@ module.exports = PopupView;
 'use strict';
 
 var i;
-var version = "2.23.0";
+var version = "2.24.0";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
@@ -13231,7 +13244,7 @@ exports.HERMES_POPUP_HEIGHT = 535;
 exports.HERMES_POPUP_WIDTH = 450;
 exports.BRIDGE_FRAME_NAME = 'bt-proxy-frame';
 exports.HERMES_SUPPORTED_CURRENCIES = ['USD', 'GBP', 'EUR', 'AUD', 'CAD', 'DKK', 'NOK', 'PLN', 'SEK', 'CHF', 'TRY', 'BRL', 'MXN', 'ILS', 'SGD', 'THB', 'PHP', 'NZD', 'HKD', 'MYR'];
-exports.HERMES_SUPPORTED_COUNTRIES = ['US', 'GB', 'AU', 'CA', 'ES', 'FR', 'DE', 'IT', 'NL', 'NO', 'PL', 'CH', 'TR', 'DK', 'BE', 'AT'];
+exports.HERMES_SUPPORTED_COUNTRIES = ['US', 'GB', 'AU', 'CA', 'ES', 'FR', 'DE', 'IT', 'NL', 'NO', 'PL', 'CH', 'TR', 'DK', 'BE', 'AT', 'SE', 'HK'];
 exports.NONCE_TYPE = 'PayPalAccount';
 exports.PAYPAL_INTEGRATION_NAME = 'PayPal';
 exports.ILLEGAL_XHR_ERROR = 'Illegal XHR request attempted';
@@ -13472,12 +13485,17 @@ function isIos() {
   return isIpad() || isIpod() || isIphone();
 }
 
+function isIos9() {
+  return userAgent.matchUserAgent('(iPhone|iPod|iPad) OS 9');
+}
+
 module.exports = {
   isAndroid: isAndroid,
   isIpad: isIpad,
   isIpod: isIpod,
   isIphone: isIphone,
-  isIos: isIos
+  isIos: isIos,
+  isIos9: isIos9
 };
 
 },{"229":229}],229:[function(require,module,exports){
@@ -13529,6 +13547,10 @@ function detectedPostMessage() {
 function isPopupSupported() {
   if (browser.isOperaMini()) {
     return false;
+  }
+
+  if (platform.isIos9() && browser.isChrome()) {
+    return true;
   }
 
   if (device.isDesktop()) {
