@@ -1,6 +1,21 @@
 CHANGELOG
 =========
 
+## 2.22.1
+
+* Fixes an issue that prevented `2.22.0` from being `require`-able when installing through `npm`
+
+## 2.22.0
+
+* PayPal
+  * Adds support for additional currencies in Checkout with PayPal flow
+     - `SGD`
+     - `THB`
+     - `PHP`
+     - `NZD`
+     - `HKD`
+     - `MYR`
+
 ## 2.21.0
 
 * PayPal
