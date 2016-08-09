@@ -9654,7 +9654,7 @@ module.exports = function sanitizePayload(payload) {
 (function (global){
 'use strict';
 
-var VERSION = "2.25.0";
+var VERSION = "2.26.0";
 var api = require(14);
 var paypal = require(209);
 var dropin = require(195);
@@ -10063,7 +10063,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "2.25.0",
+  VERSION: "2.26.0",
   INTEGRATION_NAME: 'Coinbase',
   CONFIGURATION_ERROR: 'CONFIGURATION',
   UNSUPPORTED_BROWSER_ERROR: 'UNSUPPORTED_BROWSER',
@@ -10538,7 +10538,7 @@ var APIProxyServer = require(190);
 var MerchantFormManager = require(194);
 var FrameContainer = require(193);
 var constants = require(196);
-var version = "2.25.0";
+var version = "2.26.0";
 var PayPalModalView = require(213);
 
 function getElementStyle(element, style) {
@@ -10817,7 +10817,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require(191);
-var VERSION = "2.25.0";
+var VERSION = "2.26.0";
 
 function create(options) {
   var client = new Client(options);
@@ -11357,7 +11357,7 @@ module.exports = function validateAnnotations(htmlForm) {
 
 var HostedFields = require(205);
 var events = require(207).events;
-var VERSION = "2.25.0";
+var VERSION = "2.26.0";
 
 module.exports = {
   create: function (configuration) {
@@ -11578,7 +11578,7 @@ module.exports = function shouldUseLabelFocus() {
 'use strict';
 /* eslint-disable no-reserved-keys */
 
-var VERSION = "2.25.0";
+var VERSION = "2.26.0";
 
 module.exports = {
   VERSION: VERSION,
@@ -11914,7 +11914,7 @@ var browser = require(230);
 var constants = require(222);
 var getLocale = require(224);
 var util = require(232);
-var VERSION = "2.25.0";
+var VERSION = "2.26.0";
 var braintreeUtil = require(73);
 
 function create(configuration) {
@@ -12730,6 +12730,7 @@ var platform = require(228);
 var constants = require(222);
 var Bus = require(158);
 var iframer = require(82);
+var isIosUIWebView = require(230).isIosUIWebView;
 
 var ELEMENT_STYLES = {
   position: 'fixed',
@@ -12775,9 +12776,12 @@ ModalView.prototype._initialize = function () {
     assign(this.el.style, ELEMENT_STYLES, {
       height: this.options.height || '100%',
       width: this.options.width || '100%',
-      overflow: 'scroll',
-      webkitOverflowScrolling: 'touch'
+      overflow: 'scroll'
     });
+
+    if (!isIosUIWebView()) {
+      this.el.style.webkitOverflowScrolling = 'touch';
+    }
 
     this.el.appendChild(iframer({
       src: this.options.src,
@@ -12846,7 +12850,7 @@ ModalView.prototype.teardown = function () {
 module.exports = ModalView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"146":146,"150":150,"158":158,"222":222,"228":228,"82":82,"87":87}],219:[function(require,module,exports){
+},{"146":146,"150":150,"158":158,"222":222,"228":228,"230":230,"82":82,"87":87}],219:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -13243,7 +13247,7 @@ module.exports = PopupView;
 'use strict';
 
 var i;
-var version = "2.25.0";
+var version = "2.26.0";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
@@ -13273,7 +13277,7 @@ exports.HERMES_POPUP_HEIGHT = 535;
 exports.HERMES_POPUP_WIDTH = 450;
 exports.BRIDGE_FRAME_NAME = 'bt-proxy-frame';
 exports.HERMES_SUPPORTED_CURRENCIES = ['USD', 'GBP', 'EUR', 'AUD', 'CAD', 'DKK', 'NOK', 'PLN', 'SEK', 'CHF', 'TRY', 'BRL', 'MXN', 'ILS', 'SGD', 'THB', 'PHP', 'NZD', 'HKD', 'MYR', 'CZK', 'JPY', 'RUB'];
-exports.HERMES_SUPPORTED_COUNTRIES = ['US', 'GB', 'AU', 'CA', 'ES', 'FR', 'DE', 'IT', 'NL', 'NO', 'PL', 'CH', 'TR', 'DK', 'BE', 'AT', 'SE', 'HK'];
+exports.HERMES_SUPPORTED_COUNTRIES = ['US', 'GB', 'AU', 'CA', 'ES', 'FR', 'DE', 'IT', 'NL', 'NO', 'PL', 'CH', 'TR', 'DK', 'BE', 'AT', 'SE', 'HK', 'BR', 'XC'];
 exports.NONCE_TYPE = 'PayPalAccount';
 exports.PAYPAL_INTEGRATION_NAME = 'PayPal';
 exports.ILLEGAL_XHR_ERROR = 'Illegal XHR request attempted';
@@ -13660,6 +13664,10 @@ function isMetroBrowser() {
   return !supported;
 }
 
+function isIosUIWebView() {
+  return browser.isIosWebView() && !window.indexedDB;
+}
+
 module.exports = {
   isMobile: isMobile,
   isMobileDevice: isMobileDevice,
@@ -13667,7 +13675,8 @@ module.exports = {
   isPopupSupported: isPopupSupported,
   isOverlaySupported: isOverlaySupported,
   isBridgeIframeRequired: isBridgeIframeRequired,
-  isMetroBrowser: isMetroBrowser
+  isMetroBrowser: isMetroBrowser,
+  isIosUIWebView: isIosUIWebView
 };
 
 },{"226":226,"227":227,"228":228,"229":229}],231:[function(require,module,exports){
