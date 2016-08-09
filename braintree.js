@@ -9614,7 +9614,7 @@ module.exports = function sanitizePayload(payload) {
 (function (global){
 'use strict';
 
-var VERSION = "2.20.0";
+var VERSION = "2.21.0";
 var api = require(14);
 var paypal = require(209);
 var dropin = require(195);
@@ -10023,7 +10023,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "2.20.0",
+  VERSION: "2.21.0",
   INTEGRATION_NAME: 'Coinbase',
   CONFIGURATION_ERROR: 'CONFIGURATION',
   UNSUPPORTED_BROWSER_ERROR: 'UNSUPPORTED_BROWSER',
@@ -10491,7 +10491,7 @@ var APIProxyServer = require(190);
 var MerchantFormManager = require(194);
 var FrameContainer = require(193);
 var constants = require(196);
-var version = "2.20.0";
+var version = "2.21.0";
 var PayPalModalView = require(213);
 
 function getElementStyle(element, style) {
@@ -10770,7 +10770,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require(191);
-var VERSION = "2.20.0";
+var VERSION = "2.21.0";
 
 function create(options) {
   var client = new Client(options);
@@ -11310,7 +11310,7 @@ module.exports = function validateAnnotations(htmlForm) {
 
 var HostedFields = require(205);
 var events = require(207).events;
-var VERSION = "2.20.0";
+var VERSION = "2.21.0";
 
 module.exports = {
   create: function (configuration) {
@@ -11531,7 +11531,7 @@ module.exports = function shouldUseLabelFocus() {
 'use strict';
 /* eslint-disable no-reserved-keys */
 
-var VERSION = "2.20.0";
+var VERSION = "2.21.0";
 
 module.exports = {
   VERSION: VERSION,
@@ -11664,6 +11664,7 @@ var MerchantPageView = require(217);
 var PaymentMethodNonceInputFieldView = require(220);
 var BridgeIframeView = require(214);
 var browser = require(230);
+var ua = require(226);
 var constants = require(222);
 var util = require(232);
 var bindAll = require(88);
@@ -11721,6 +11722,15 @@ Client.prototype._createViews = function () {
   var self = this;
   var isDropin = this.configuration.integrationType === 'dropin';
 
+  function overlayOnFocus() {
+    if (ua.isFirefox()) {
+      self.closeAuthFlow();
+      self.initAuthFlow();
+    } else {
+      self.bus.emit(constants.events.FOCUS_APP);
+    }
+  }
+
   if (browser.isBridgeIframeRequired()) {
     this.bridgeIframeView = new BridgeIframeView({
       container: this.container,
@@ -11748,7 +11758,7 @@ Client.prototype._createViews = function () {
     if (browser.isPopupSupported() && browser.isOverlaySupported()) {
       this.overlayView = new OverlayView({
         paypalAssetsUrl: this.configuration.gatewayConfiguration.paypal.assetsUrl,
-        onFocus: function () { self.bus.emit(constants.events.FOCUS_APP); },
+        onFocus: overlayOnFocus,
         onClose: function () { self.bus.emit(constants.events.CLOSE_APP); },
         locale: this.configuration.merchantConfiguration.paypal.locale,
         channel: this.configuration.channel
@@ -11849,7 +11859,7 @@ Client.prototype.teardown = function () {
 module.exports = Client;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"146":146,"158":158,"213":213,"214":214,"215":215,"216":216,"217":217,"219":219,"220":220,"222":222,"230":230,"232":232,"73":73,"77":77,"87":87,"88":88}],211:[function(require,module,exports){
+},{"146":146,"158":158,"213":213,"214":214,"215":215,"216":216,"217":217,"219":219,"220":220,"222":222,"226":226,"230":230,"232":232,"73":73,"77":77,"87":87,"88":88}],211:[function(require,module,exports){
 'use strict';
 
 var Client = require(210);
@@ -11857,7 +11867,7 @@ var browser = require(230);
 var constants = require(222);
 var getLocale = require(224);
 var util = require(232);
-var VERSION = "2.20.0";
+var VERSION = "2.21.0";
 var braintreeUtil = require(73);
 
 function create(configuration) {
@@ -13118,7 +13128,7 @@ PopupView.prototype.isClosed = function () {
 };
 
 PopupView.prototype.open = function () {
-  if (!this.el) {
+  if (!this.el || this.isClosed()) {
     this.el = window.open(this.options.src, this.name, this._getPopupOptions());
     this.focus();
 
@@ -13154,7 +13164,7 @@ module.exports = PopupView;
 'use strict';
 
 var i;
-var version = "2.20.0";
+var version = "2.21.0";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
