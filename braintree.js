@@ -9614,7 +9614,7 @@ module.exports = function sanitizePayload(payload) {
 (function (global){
 'use strict';
 
-var VERSION = "2.22.1";
+var VERSION = "2.22.2";
 var api = require(14);
 var paypal = require(209);
 var dropin = require(195);
@@ -10023,7 +10023,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "2.22.1",
+  VERSION: "2.22.2",
   INTEGRATION_NAME: 'Coinbase',
   CONFIGURATION_ERROR: 'CONFIGURATION',
   UNSUPPORTED_BROWSER_ERROR: 'UNSUPPORTED_BROWSER',
@@ -10421,7 +10421,12 @@ Kount.prototype._setupIFrame = function () {
   document.body.appendChild(iframe);
   setTimeout(function () {
     iframe.src = self._currentEnvironment.url + '/logo.htm' + params;
-    iframe.innerHTML = '<img src="' + self._currentEnvironment.url + '/logo.gif' + params + '" />';
+
+    // This is in a try/catch because it throws an error in IE8.
+    // Kount will still work even if this fails.
+    try {
+      iframe.innerHTML = '<img src="' + self._currentEnvironment.url + '/logo.gif' + params + '" />';
+    } catch (e) { /* ignored */ }
   }, 10);
 
   return iframe;
@@ -10491,7 +10496,7 @@ var APIProxyServer = require(190);
 var MerchantFormManager = require(194);
 var FrameContainer = require(193);
 var constants = require(196);
-var version = "2.22.1";
+var version = "2.22.2";
 var PayPalModalView = require(213);
 
 function getElementStyle(element, style) {
@@ -10770,7 +10775,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require(191);
-var VERSION = "2.22.1";
+var VERSION = "2.22.2";
 
 function create(options) {
   var client = new Client(options);
@@ -11310,7 +11315,7 @@ module.exports = function validateAnnotations(htmlForm) {
 
 var HostedFields = require(205);
 var events = require(207).events;
-var VERSION = "2.22.1";
+var VERSION = "2.22.2";
 
 module.exports = {
   create: function (configuration) {
@@ -11531,7 +11536,7 @@ module.exports = function shouldUseLabelFocus() {
 'use strict';
 /* eslint-disable no-reserved-keys */
 
-var VERSION = "2.22.1";
+var VERSION = "2.22.2";
 
 module.exports = {
   VERSION: VERSION,
@@ -11867,7 +11872,7 @@ var browser = require(230);
 var constants = require(222);
 var getLocale = require(224);
 var util = require(232);
-var VERSION = "2.22.1";
+var VERSION = "2.22.2";
 var braintreeUtil = require(73);
 
 function create(configuration) {
@@ -12676,11 +12681,25 @@ module.exports = MerchantPageView;
 'use strict';
 
 var bind = require(87);
+var assign = require(150);
 var isFunction = require(146);
-var browser = require(230);
+var platform = require(228);
 var constants = require(222);
 var Bus = require(158);
 var iframer = require(82);
+
+var ELEMENT_STYLES = {
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  bottom: 0,
+  padding: 0,
+  margin: 0,
+  border: 0,
+  outline: 'none',
+  zIndex: 20001,
+  background: '#FFFFFF'
+};
 
 function ModalView(options) {
   this.options = options || {};
@@ -12707,24 +12726,41 @@ ModalView.prototype._attachBusEvents = function () {
 ModalView.prototype._initialize = function () {
   var name = this.options.isHermes ? constants.HERMES_FRAME_NAME : constants.FRAME_NAME;
 
-  this.el = iframer({
-    src: this.options.src,
-    name: name,
-    height: this.options.height || '100%',
-    width: this.options.width || '100%',
-    style: {
-      position: browser.isMobile() ? 'absolute' : 'fixed',
-      top: 0,
-      left: 0,
-      bottom: 0,
-      padding: 0,
-      margin: 0,
-      border: 0,
-      outline: 'none',
-      zIndex: 20001,
-      background: '#FFFFFF'
-    }
-  });
+  if (platform.isIos()) {
+    this.el = document.createElement('div');
+    this.el.className = constants.FRAME_CONTAINER_NAME;
+    assign(this.el.style, ELEMENT_STYLES, {
+      height: this.options.height || '100%',
+      width: this.options.width || '100%',
+      overflow: 'scroll',
+      webkitOverflowScrolling: 'touch'
+    });
+
+    this.el.appendChild(iframer({
+      src: this.options.src,
+      name: name,
+      scrolling: 'yes',
+      height: '100%',
+      width: '100%',
+      style: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        border: 0,
+        outline: 'none',
+        background: '#FFFFFF'
+      }
+    }));
+  } else {
+    this.el = iframer({
+      src: this.options.src,
+      name: name,
+      scrolling: 'yes',
+      height: this.options.height || '100%',
+      width: this.options.width || '100%',
+      style: ELEMENT_STYLES
+    });
+  }
 };
 
 ModalView.prototype.isClosed = function () {
@@ -12767,7 +12803,7 @@ ModalView.prototype.teardown = function () {
 module.exports = ModalView;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"146":146,"158":158,"222":222,"230":230,"82":82,"87":87}],219:[function(require,module,exports){
+},{"146":146,"150":150,"158":158,"222":222,"228":228,"82":82,"87":87}],219:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -13164,7 +13200,7 @@ module.exports = PopupView;
 'use strict';
 
 var i;
-var version = "2.22.1";
+var version = "2.22.2";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
@@ -13185,6 +13221,7 @@ exports.POPUP_NAME = 'braintree_paypal_popup';
 exports.HERMES_POPUP_NAME = 'PPFrameRedirect';
 exports.FRAME_NAME = 'braintree-paypal-frame';
 exports.HERMES_FRAME_NAME = 'PPFrameRedirect';
+exports.FRAME_CONTAINER_NAME = 'braintree-paypal-frame-container';
 exports.POPUP_PATH = '/pwpp/' + version + '/html/braintree-frame.html';
 exports.POPUP_OPTIONS = 'resizable,scrollbars';
 exports.POPUP_HEIGHT = 470;
