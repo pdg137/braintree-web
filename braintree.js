@@ -9086,6 +9086,7 @@ var isFunction = require(146);
 var hostedFields = require(203);
 var FormNapper = require(80);
 var constants = require(162);
+var paypalConstants = require(222);
 var Bus = require(158);
 var convertToLegacyShippingAddress = require(161).convertToLegacyShippingAddress;
 var BaseIntegration = require(163);
@@ -9100,7 +9101,8 @@ function CustomIntegration() {
     this._setupForm();
   }
 
-  this._setupPayPal();
+  this._setupPayPal(false);
+  this._setupPayPal(true);
   this._setupCoinbase();
 
   this.bus.emit(Bus.events.ASYNC_DEPENDENCY_READY);
@@ -9171,13 +9173,19 @@ CustomIntegration.prototype._setupForm = function () {
   }
 };
 
-CustomIntegration.prototype._setupPayPal = function () {
-  var configuration, paypalCallbackLookup, legacyPaypalSuccessCallback, legacyPaypalCancelledCallback, dummyInput, paypalConfiguration, merchantConfiguration, authorizationDismissedHandler, nonce;
+CustomIntegration.prototype._setupPayPal = function (offerPaypalCredit) {
+  var configuration, paypalCallbackLookup, legacyPaypalSuccessCallback, legacyPaypalCancelledCallback, dummyInput, paypalConfiguration, merchantConfiguration, authorizationDismissedSource, authorizationDismissedHandler, nonce, paypalIntegration;
 
-  if (!this.configuration.merchantConfiguration.paypal) { return; }
+  if (offerPaypalCredit && !this.configuration.merchantConfiguration.paypalCredit) { return; }
+  if (!offerPaypalCredit && !this.configuration.merchantConfiguration.paypal) { return; }
 
   configuration = cloneAndPreserveDOM(this.configuration);
   merchantConfiguration = configuration.merchantConfiguration;
+
+  if (offerPaypalCredit && merchantConfiguration.paypalCredit) {
+    merchantConfiguration.paypal = merchantConfiguration.paypalCredit;
+  }
+
   paypalConfiguration = merchantConfiguration.paypal;
 
   paypalCallbackLookup = getIntegrationCallbackLookup(merchantConfiguration, 'paypal');
@@ -9201,9 +9209,10 @@ CustomIntegration.prototype._setupPayPal = function () {
   };
 
   if (isFunction(paypalConfiguration.onAuthorizationDismissed)) {
+    authorizationDismissedSource = offerPaypalCredit ? paypalConstants.PAYPAL_CREDIT_INTEGRATION_NAME : paypalConstants.PAYPAL_INTEGRATION_NAME;
     authorizationDismissedHandler = debounce(function (event) {
       defer(function () {
-        if (event && event.source === 'PayPal' && !nonce) {
+        if (event && event.source === authorizationDismissedSource && !nonce) {
           paypalConfiguration.onAuthorizationDismissed();
         }
       });
@@ -9222,12 +9231,18 @@ CustomIntegration.prototype._setupPayPal = function () {
     paypalConfiguration.enableCORS = true;
   }
 
-  this.paypalIntegration = paypal.create(configuration);
+  paypalIntegration = paypal.create(configuration, offerPaypalCredit);
 
-  if (this.paypalIntegration != null) {
-    this.destructor.registerFunctionForTeardown(bind(function () {
-      this.paypalIntegration.teardown(); // eslint-disable-line no-invalid-this
-    }, this));
+  if (offerPaypalCredit) {
+    this.paypalCreditIntegration = paypalIntegration;
+  } else {
+    this.paypalIntegration = paypalIntegration;
+  }
+
+  if (paypalIntegration) {
+    this.destructor.registerFunctionForTeardown(function () {
+      paypalIntegration.teardown();
+    });
   }
 };
 
@@ -9281,7 +9296,7 @@ function getIntegrationCallbackLookup(options, integration) {
 
 module.exports = CustomIntegration;
 
-},{"146":146,"151":151,"158":158,"161":161,"162":162,"163":163,"169":169,"171":171,"176":176,"197":197,"203":203,"209":209,"80":80,"87":87,"89":89,"90":90}],166:[function(require,module,exports){
+},{"146":146,"151":151,"158":158,"161":161,"162":162,"163":163,"169":169,"171":171,"176":176,"197":197,"203":203,"209":209,"222":222,"80":80,"87":87,"89":89,"90":90}],166:[function(require,module,exports){
 'use strict';
 
 var cloneAndPreserveDOM = require(169).cloneAndPreserveDOM;
@@ -9654,7 +9669,7 @@ module.exports = function sanitizePayload(payload) {
 (function (global){
 'use strict';
 
-var VERSION = "2.26.0";
+var VERSION = "2.27.0";
 var api = require(14);
 var paypal = require(209);
 var dropin = require(195);
@@ -10063,7 +10078,7 @@ module.exports = {
   POPUP_NAME: 'coinbase',
   BUTTON_ID: 'bt-coinbase-button',
   SCOPES: 'send',
-  VERSION: "2.26.0",
+  VERSION: "2.27.0",
   INTEGRATION_NAME: 'Coinbase',
   CONFIGURATION_ERROR: 'CONFIGURATION',
   UNSUPPORTED_BROWSER_ERROR: 'UNSUPPORTED_BROWSER',
@@ -10538,7 +10553,7 @@ var APIProxyServer = require(190);
 var MerchantFormManager = require(194);
 var FrameContainer = require(193);
 var constants = require(196);
-var version = "2.26.0";
+var version = "2.27.0";
 var PayPalModalView = require(213);
 
 function getElementStyle(element, style) {
@@ -10763,13 +10778,25 @@ Client.prototype._hideModal = function (done) {
 
 Client.prototype._configurePayPal = function () {
   var paypalOptions = this.configuration.merchantConfiguration.paypal || {};
+  var paypalCreditOptions = this.configuration.merchantConfiguration.paypalCredit;
 
   this.paypalModalView = new PayPalModalView({
     channel: this.configuration.channel,
     insertFrameFunction: paypalOptions.insertFrame,
     paypalAssetsUrl: this.configuration.gatewayConfiguration.paypal.assetsUrl,
-    isHermes: Boolean(paypalOptions.singleUse) && Boolean(paypalOptions.amount) && Boolean(paypalOptions.currency)
+    isHermes: Boolean(paypalOptions.singleUse) && Boolean(paypalOptions.amount) && Boolean(paypalOptions.currency),
+    offerPaypalCredit: false
   });
+
+  if (paypalCreditOptions) {
+    this.paypalCreditModalView = new PayPalModalView({
+      channel: this.configuration.channel,
+      insertFrameFunction: paypalCreditOptions.insertFrame,
+      paypalAssetsUrl: this.configuration.gatewayConfiguration.paypal.assetsUrl,
+      isHermes: Boolean(paypalCreditOptions.singleUse) && Boolean(paypalCreditOptions.amount) && Boolean(paypalCreditOptions.currency),
+      offerPaypalCredit: true
+    });
+  }
 };
 
 Client.prototype._handleAltPayData = function (payload) {
@@ -10794,6 +10821,10 @@ Client.prototype._findClosest = function (node, tagName) {
 Client.prototype.teardown = function (done) {
   var self = this;
 
+  if (this.paypalCreditModalView) {
+    this.paypalCreditModalView.teardown();
+  }
+
   if (this.paypalModalView) {
     this.paypalModalView.teardown();
   }
@@ -10817,7 +10848,7 @@ module.exports = Client;
 'use strict';
 
 var Client = require(191);
-var VERSION = "2.26.0";
+var VERSION = "2.27.0";
 
 function create(options) {
   var client = new Client(options);
@@ -11357,7 +11388,7 @@ module.exports = function validateAnnotations(htmlForm) {
 
 var HostedFields = require(205);
 var events = require(207).events;
-var VERSION = "2.26.0";
+var VERSION = "2.27.0";
 
 module.exports = {
   create: function (configuration) {
@@ -11578,7 +11609,7 @@ module.exports = function shouldUseLabelFocus() {
 'use strict';
 /* eslint-disable no-reserved-keys */
 
-var VERSION = "2.26.0";
+var VERSION = "2.27.0";
 
 module.exports = {
   VERSION: VERSION,
@@ -11716,8 +11747,10 @@ var constants = require(222);
 var util = require(232);
 var bindAll = require(88);
 
-function Client(configuration) {
+function Client(configuration, offerPaypalCredit) {
   this.configuration = configuration;
+  this.offerPaypalCredit = offerPaypalCredit;
+  this.sourceName = offerPaypalCredit ? constants.PAYPAL_CREDIT_INTEGRATION_NAME : constants.PAYPAL_INTEGRATION_NAME;
 
   this.destructor = new Destructor();
 
@@ -11768,6 +11801,7 @@ Client.prototype._createViews = function () {
   var views = [];
   var self = this;
   var isDropin = this.configuration.integrationType === 'dropin';
+  var offerPaypalCredit = this.offerPaypalCredit;
 
   function overlayOnFocus() {
     if (ua.isFirefox()) {
@@ -11782,7 +11816,8 @@ Client.prototype._createViews = function () {
     this.bridgeIframeView = new BridgeIframeView({
       container: this.container,
       paypalAssetsUrl: this.configuration.gatewayConfiguration.paypal.assetsUrl,
-      channel: this.configuration.channel
+      channel: this.configuration.channel,
+      offerPaypalCredit: offerPaypalCredit
     });
     views.push(this.bridgeIframeView);
   }
@@ -11792,13 +11827,15 @@ Client.prototype._createViews = function () {
     paypalAssetsUrl: this.configuration.gatewayConfiguration.paypal.assetsUrl,
     isHermes: util.isHermesConfiguration(this.configuration),
     isDropin: isDropin,
-    channel: this.configuration.channel
+    channel: this.configuration.channel,
+    offerPaypalCredit: offerPaypalCredit
   });
   views.push(this.appView);
 
   if (!isDropin) {
     this.merchantPageView = new MerchantPageView({
-      channel: this.configuration.channel
+      channel: this.configuration.channel,
+      offerPaypalCredit: offerPaypalCredit
     });
     views.push(this.merchantPageView);
 
@@ -11808,7 +11845,8 @@ Client.prototype._createViews = function () {
         onFocus: overlayOnFocus,
         onClose: function () { self.bus.emit(constants.events.CLOSE_APP); },
         locale: this.configuration.merchantConfiguration.paypal.locale,
-        channel: this.configuration.channel
+        channel: this.configuration.channel,
+        offerPaypalCredit: offerPaypalCredit
       });
       views.push(this.overlayView);
     }
@@ -11818,7 +11856,8 @@ Client.prototype._createViews = function () {
     this.paymentMethodNonceInputFieldView = new PaymentMethodNonceInputFieldView({
       container: this.container,
       el: this.configuration.merchantConfiguration.paypal.paymentMethodNonceInputField,
-      channel: this.configuration.channel
+      channel: this.configuration.channel,
+      offerPaypalCredit: offerPaypalCredit
     });
     views.push(this.paymentMethodNonceInputFieldView);
 
@@ -11826,7 +11865,8 @@ Client.prototype._createViews = function () {
       paypalAssetsUrl: this.configuration.gatewayConfiguration.paypal.assetsUrl,
       container: this.container,
       locale: this.configuration.merchantConfiguration.paypal.locale,
-      channel: this.configuration.channel
+      channel: this.configuration.channel,
+      offerPaypalCredit: offerPaypalCredit
     });
     views.push(this.loggedInView);
 
@@ -11835,7 +11875,8 @@ Client.prototype._createViews = function () {
       container: this.container,
       enablePayPalButton: util.isOnetimeHermesConfiguration(this.configuration),
       locale: this.configuration.merchantConfiguration.paypal.locale,
-      channel: this.configuration.channel
+      channel: this.configuration.channel,
+      offerPaypalCredit: offerPaypalCredit
     });
     views.push(this.loggedOutView);
   }
@@ -11849,17 +11890,17 @@ Client.prototype._createViews = function () {
 
 Client.prototype._handleClickLogin = function (event) {
   var target = event.target || event.srcElement;
+  var offerPaypalCredit = this.offerPaypalCredit;
 
   while (true) { // eslint-disable-line no-constant-condition
     if (target == null) { return; }
     if (target === event.currentTarget) { return; }
-    if (this._isButton(target)) { break; }
+    if (this._isButton(target, offerPaypalCredit)) { break; }
 
     target = target.parentNode;
   }
 
   util.preventDefault(event);
-
   this.initAuthFlow();
 };
 
@@ -11871,18 +11912,18 @@ Client.prototype.closeAuthFlow = function () {
   this.appView.close();
 };
 
-Client.prototype._isButton = function (node) {
-  var isPayPalButton = node.id === 'braintree-paypal-button';
-  var isHermesButton = util.isOnetimeHermesConfiguration(this.configuration) &&
-    node.className.match(/paypal-button(?!-widget)/);
-
-  return isPayPalButton || isHermesButton;
+Client.prototype._isButton = function (node, offerPaypalCredit) {
+  return offerPaypalCredit ? node.id === 'braintree-paypal-credit-button' : node.id === 'braintree-paypal-button';
 };
 
-Client.prototype._handlePaymentMethodGenerated = function (bundle) {
-  var onSuccess = this.configuration.merchantConfiguration.paypal.onSuccess;
+Client.prototype._handlePaymentMethodGenerated = function (bundle, extras) {
+  var paypalConfiguration = this.configuration.merchantConfiguration.paypal;
+  var onSuccess = paypalConfiguration.onSuccess;
+  var offerPaypalCredit = this.offerPaypalCredit;
 
-  if (bundle.type === constants.NONCE_TYPE && isFunction(onSuccess)) {
+  extras = extras || {};
+
+  if (bundle.type === constants.NONCE_TYPE && extras.offerPaypalCredit === offerPaypalCredit && isFunction(onSuccess)) {
     onSuccess(bundle);
   }
 };
@@ -11890,7 +11931,7 @@ Client.prototype._handlePaymentMethodGenerated = function (bundle) {
 Client.prototype._handlePaymentMethodCancelled = function (payload) {
   var onCancelled = this.configuration.merchantConfiguration.paypal.onCancelled;
 
-  if (payload.source === constants.PAYPAL_INTEGRATION_NAME && isFunction(onCancelled)) {
+  if (payload.source === this.sourceName && isFunction(onCancelled)) {
     onCancelled();
   }
 };
@@ -11914,10 +11955,10 @@ var browser = require(230);
 var constants = require(222);
 var getLocale = require(224);
 var util = require(232);
-var VERSION = "2.26.0";
+var VERSION = "2.27.0";
 var braintreeUtil = require(73);
 
-function create(configuration) {
+function create(configuration, offerPaypalCredit) {
   var client, onUnsupported;
 
   onUnsupported = configuration.merchantConfiguration.onUnsupported;
@@ -11974,7 +12015,7 @@ function create(configuration) {
     }
   }
 
-  client = new Client(configuration);
+  client = new Client(configuration, offerPaypalCredit);
   client.initialize();
 
   return client;
@@ -12192,7 +12233,8 @@ AppView.prototype._initialize = function () {
     this.app = new PopupView({
       src: this._buildUrl(),
       isHermes: this.options.isHermes,
-      channel: this.options.channel
+      channel: this.options.channel,
+      offerPaypalCredit: this.options.offerPaypalCredit
     });
   } else {
     this.app = new ModalView({
@@ -12200,7 +12242,8 @@ AppView.prototype._initialize = function () {
       isDropin: this.options.isDropin,
       isHermes: this.options.isHermes,
       insertFrameFunction: this.options.insertFrameFunction,
-      channel: this.options.channel
+      channel: this.options.channel,
+      offerPaypalCredit: this.options.offerPaypalCredit
     });
   }
 
@@ -12216,11 +12259,12 @@ AppView.prototype._initialize = function () {
 
 AppView.prototype._buildUrl = function () {
   var url = this.options.paypalAssetsUrl;
+  var prefix = this.options.offerPaypalCredit ? constants.PAYPAL_CREDIT_INTEGRATION_NAME : constants.PAYPAL_INTEGRATION_NAME;
 
   url += '/pwpp/';
   url += constants.VERSION;
   url += '/html/braintree-frame.html';
-  url += '#' + this.options.channel;
+  url += '#' + prefix + ':' + this.options.channel;
 
   return url;
 };
@@ -12232,7 +12276,9 @@ AppView.prototype.open = function () {
 };
 
 AppView.prototype._handleForceClose = function (event) {
-  if (event.target === constants.PAYPAL_INTEGRATION_NAME) {
+  var sourceName = this.options.offerPaypalCredit ? constants.PAYPAL_CREDIT_INTEGRATION_NAME : constants.PAYPAL_INTEGRATION_NAME;
+
+  if (event.target === sourceName) {
     this.close();
   }
 };
@@ -12265,8 +12311,12 @@ AppView.prototype.poll = function () {
   }, 100);
 };
 
-AppView.prototype._handlePaymentMethodGenerated = function (bundle) {
-  if (bundle.type === constants.NONCE_TYPE) {
+AppView.prototype._handlePaymentMethodGenerated = function (bundle, extras) {
+  var offerPaypalCredit = Boolean(this.options.offerPaypalCredit);
+
+  extras = extras || {};
+
+  if (bundle.type === constants.NONCE_TYPE && extras.offerPaypalCredit === offerPaypalCredit) {
     this.close();
   }
 };
@@ -12296,10 +12346,11 @@ var iframer = require(82);
 
 function BridgeIframeView(options) {
   this.options = options || {};
+  this.prefix = this.options.offerPaypalCredit ? constants.PAYPAL_CREDIT_INTEGRATION_NAME : constants.PAYPAL_INTEGRATION_NAME;
 
   this.el = iframer({
     src: this._buildUrl(),
-    name: constants.BRIDGE_FRAME_NAME,
+    name: this.prefix + ':' + constants.BRIDGE_FRAME_NAME,
     height: 1,
     width: 1,
     style: {
@@ -12324,7 +12375,7 @@ BridgeIframeView.prototype._buildUrl = function () {
   url += '/pwpp/';
   url += constants.VERSION;
   url += '/html/bridge-frame.html';
-  url += '#' + this.options.channel;
+  url += '#' + this.prefix + ':' + this.options.channel;
 
   return url;
 };
@@ -12354,6 +12405,8 @@ function LoggedInView(options) {
 
   this.options = options || {};
   this.wrapper = this.options.container || document.body;
+
+  this.sourceName = this.options.offerPaypalCredit ? constants.PAYPAL_CREDIT_INTEGRATION_NAME : constants.PAYPAL_INTEGRATION_NAME;
 
   this.destructor = new Destructor();
 
@@ -12489,11 +12542,14 @@ LoggedInView.prototype.hide = function () {
 LoggedInView.prototype._handleClickLogout = function (event) {
   util.preventDefault(event);
 
-  this.bus.emit(Bus.events.PAYMENT_METHOD_CANCELLED, {source: constants.PAYPAL_INTEGRATION_NAME});
+  this.bus.emit(Bus.events.PAYMENT_METHOD_CANCELLED, {source: this.sourceName});
 };
 
-LoggedInView.prototype._handlePaymentMethodGenerated = function (bundle) {
+LoggedInView.prototype._handlePaymentMethodGenerated = function (bundle, extras) {
   var email;
+  var offerPaypalCredit = Boolean(this.options.offerPaypalCredit);
+
+  if (!extras || extras.offerPaypalCredit !== offerPaypalCredit) { return; }
 
   if (bundle.type === constants.NONCE_TYPE) {
     email = bundle && bundle.details && bundle.details.email ? bundle.details.email : '';
@@ -12502,7 +12558,7 @@ LoggedInView.prototype._handlePaymentMethodGenerated = function (bundle) {
 };
 
 LoggedInView.prototype._handlePaymentMethodCancelled = function (event) {
-  if (event.source === constants.PAYPAL_INTEGRATION_NAME) {
+  if (event.source === this.sourceName) {
     this.hide();
   }
 };
@@ -12528,6 +12584,8 @@ var getLocale = require(224);
 function LoggedOutView(options) {
   this.options = options;
   this.wrapper = this.options.container || document.body;
+
+  this.sourceName = this.options.offerPaypalCredit ? constants.PAYPAL_CREDIT_INTEGRATION_NAME : constants.PAYPAL_INTEGRATION_NAME;
 
   this.bus = new Bus({
     merchantUrl: global.location.href,
@@ -12589,15 +12647,21 @@ LoggedOutView.prototype.createPayWithPayPalButton = function () {
 };
 
 LoggedOutView.prototype.createCheckoutWithPayPalButton = function () {
-  var script = document.createElement('script');
   var attr;
+  var script = document.createElement('script');
   var scriptAttrs = {
     'data-merchant': 'merchant-id',
     'data-button': 'checkout',
     'data-type': 'button',
     'data-color': 'blue',
-    'data-lc': getLocale(this.options.locale)
+    'data-lc': getLocale(this.options.locale),
+    'data-id': 'braintree-paypal-button'
   };
+
+  if (this.options.offerPaypalCredit) {
+    scriptAttrs['data-button'] = 'credit';
+    scriptAttrs['data-id'] = 'braintree-paypal-credit-button';
+  }
 
   script.src = '//www.paypalobjects.com/api/button.js';
   script.async = true;
@@ -12619,14 +12683,18 @@ LoggedOutView.prototype.hide = function () {
   this.container.style.display = 'none';
 };
 
-LoggedOutView.prototype._handlePaymentMethodGenerated = function (bundle) {
+LoggedOutView.prototype._handlePaymentMethodGenerated = function (bundle, extras) {
+  var offerPaypalCredit = Boolean(this.options.offerPaypalCredit);
+
+  if (!extras || extras.offerPaypalCredit !== offerPaypalCredit) { return; }
+
   if (bundle.type === constants.NONCE_TYPE) {
     this.hide();
   }
 };
 
 LoggedOutView.prototype._handlePaymentMethodCancelled = function (event) {
-  if (event.source === constants.PAYPAL_INTEGRATION_NAME) {
+  if (event.source === this.sourceName) {
     this.show();
   }
 };
@@ -12649,6 +12717,7 @@ var constants = require(222);
 
 function MerchantPageView(options) {
   this.options = options;
+  this.sourceName = this.options.offerPaypalCredit ? constants.PAYPAL_CREDIT_INTEGRATION_NAME : constants.PAYPAL_INTEGRATION_NAME;
 
   this.bus = new Bus({
     merchantUrl: global.location.href,
@@ -12678,13 +12747,13 @@ MerchantPageView.prototype.unlockWindowSize = function () {
 };
 
 MerchantPageView.prototype._handleUIModalDidOpen = function (event) {
-  if (event.source === constants.PAYPAL_INTEGRATION_NAME) {
+  if (event.source === this.sourceName) {
     this.lockWindowSize();
   }
 };
 
 MerchantPageView.prototype._handleUIModalDidClose = function (event) {
-  if (event.source === constants.PAYPAL_INTEGRATION_NAME) {
+  if (event.source === this.sourceName) {
     this.unlockWindowSize();
   }
 };
@@ -12749,6 +12818,8 @@ function ModalView(options) {
   this.options = options || {};
   this.container = document.body;
 
+  this.sourceName = this.options.offerPaypalCredit ? constants.PAYPAL_CREDIT_INTEGRATION_NAME : constants.PAYPAL_INTEGRATION_NAME;
+
   this.bus = new Bus({
     merchantUrl: global.location.href,
     channel: options.channel
@@ -12764,7 +12835,7 @@ function ModalView(options) {
 }
 
 ModalView.prototype._attachBusEvents = function () {
-  this.bus.on(constants.events.OPEN_MODAL, bind(this.open, this));
+  this.bus.on(constants.events.OPEN_MODAL, bind(this._handleOpenModal, this));
 };
 
 ModalView.prototype._initialize = function () {
@@ -12814,8 +12885,14 @@ ModalView.prototype.isClosed = function () {
   return !this.container.contains(this.el);
 };
 
+ModalView.prototype._handleOpenModal = function (payload) {
+  if (payload.source === this.sourceName) {
+    this.open();
+  }
+};
+
 ModalView.prototype._openHeadless = function () {
-  this.bus.emit(constants.events.OPEN_MODAL);
+  this.bus.emit(constants.events.OPEN_MODAL, {source: this.sourceName});
 };
 
 ModalView.prototype._open = function () {
@@ -12825,7 +12902,7 @@ ModalView.prototype._open = function () {
     this.container.appendChild(this.el);
   }
 
-  this.bus.emit(Bus.events.UI_MODAL_DID_OPEN, {source: constants.PAYPAL_INTEGRATION_NAME});
+  this.bus.emit(Bus.events.UI_MODAL_DID_OPEN, {source: this.sourceName});
 };
 
 ModalView.prototype.open = function () {
@@ -12838,7 +12915,7 @@ ModalView.prototype.close = function () {
   if (!this.isClosed()) {
     this.container.removeChild(this.el);
 
-    this.bus.emit(Bus.events.UI_MODAL_DID_CLOSE, {source: constants.PAYPAL_INTEGRATION_NAME});
+    this.bus.emit(Bus.events.UI_MODAL_DID_CLOSE, {source: this.sourceName});
   }
 };
 
@@ -12867,6 +12944,7 @@ function OverlayView(options) {
   var localizationData;
 
   this.options = options;
+  this.sourceName = this.options.offerPaypalCredit ? constants.PAYPAL_CREDIT_INTEGRATION_NAME : constants.PAYPAL_INTEGRATION_NAME;
   this.spriteSrc = this.options.paypalAssetsUrl + '/pwpp/' + constants.VERSION + '/images/pp_overlay_sprite.png';
 
   this.bus = new Bus({
@@ -12901,13 +12979,13 @@ OverlayView.prototype.close = function () {
 };
 
 OverlayView.prototype._handleUIPopupDidClose = function (event) {
-  if (event.source === constants.PAYPAL_INTEGRATION_NAME) {
+  if (event.source === this.sourceName) {
     this.close();
   }
 };
 
 OverlayView.prototype._handleUIPopupDidOpen = function (event) {
-  if (event.source === constants.PAYPAL_INTEGRATION_NAME) {
+  if (event.source === this.sourceName) {
     this.open();
   }
 };
@@ -13072,6 +13150,7 @@ function PaymentMethodNonceInputFieldView(options) {
   this.options = options || {};
   this.container = this.options.container || document.body;
   this.el = this.options.el;
+  this.sourceName = this.options.offerPaypalCredit ? constants.PAYPAL_CREDIT_INTEGRATION_NAME : constants.PAYPAL_INTEGRATION_NAME;
 
   this.destructor = new Destructor();
 
@@ -13130,13 +13209,17 @@ PaymentMethodNonceInputFieldView.prototype.clear = function () {
 };
 
 PaymentMethodNonceInputFieldView.prototype._handlePaymentMethodCancelled = function (event) {
-  if (event.source === constants.PAYPAL_INTEGRATION_NAME) {
+  if (event.source === this.sourceName) {
     this.clear();
   }
 };
 
-PaymentMethodNonceInputFieldView.prototype._handlePaymentMethodGenerated = function (bundle) {
-  if (bundle.type === constants.NONCE_TYPE) {
+PaymentMethodNonceInputFieldView.prototype._handlePaymentMethodGenerated = function (bundle, extras) {
+  var offerPaypalCredit = Boolean(this.options.offerPaypalCredit);
+
+  extras = extras || {};
+
+  if (bundle.type === constants.NONCE_TYPE && extras.offerPaypalCredit === offerPaypalCredit) {
     this.value(bundle.nonce);
   }
 };
@@ -13159,6 +13242,7 @@ var browser = require(226);
 
 function PopupView(options) {
   this.options = options;
+  this.sourceName = this.options.offerPaypalCredit ? constants.PAYPAL_CREDIT_INTEGRATION_NAME : constants.PAYPAL_INTEGRATION_NAME;
 
   this.bus = new Bus({
     merchantUrl: global.location.href,
@@ -13215,7 +13299,7 @@ PopupView.prototype.open = function () {
     this.el = window.open(this.options.src, this.name, this._getPopupOptions());
     this.focus();
 
-    this.bus.emit(Bus.events.UI_POPUP_DID_OPEN, {source: constants.PAYPAL_INTEGRATION_NAME});
+    this.bus.emit(Bus.events.UI_POPUP_DID_OPEN, {source: this.sourceName});
   }
 };
 
@@ -13225,7 +13309,7 @@ PopupView.prototype.close = function () {
       this.el.close();
     }
 
-    this.bus.emit(Bus.events.UI_POPUP_DID_CLOSE, {source: constants.PAYPAL_INTEGRATION_NAME});
+    this.bus.emit(Bus.events.UI_POPUP_DID_CLOSE, {source: this.sourceName});
   }
 };
 
@@ -13247,7 +13331,7 @@ module.exports = PopupView;
 'use strict';
 
 var i;
-var version = "2.26.0";
+var version = "2.27.0";
 var events = [
   'GET_CLIENT_TOKEN',
   'GET_CLIENT_OPTIONS',
@@ -13280,6 +13364,7 @@ exports.HERMES_SUPPORTED_CURRENCIES = ['USD', 'GBP', 'EUR', 'AUD', 'CAD', 'DKK',
 exports.HERMES_SUPPORTED_COUNTRIES = ['US', 'GB', 'AU', 'CA', 'ES', 'FR', 'DE', 'IT', 'NL', 'NO', 'PL', 'CH', 'TR', 'DK', 'BE', 'AT', 'SE', 'HK', 'BR', 'XC'];
 exports.NONCE_TYPE = 'PayPalAccount';
 exports.PAYPAL_INTEGRATION_NAME = 'PayPal';
+exports.PAYPAL_CREDIT_INTEGRATION_NAME = 'PayPalCredit';
 exports.ILLEGAL_XHR_ERROR = 'Illegal XHR request attempted';
 exports.CONFIGURATION_TYPES = configurationTypes;
 exports.events = {};
@@ -13440,7 +13525,8 @@ function isOperaMini() {
 }
 
 function isSafari() {
-  return userAgent.matchUserAgent('Safari') && !isChrome() && !isAndroid();
+  // iOS Google Search App useragent includes "Safari" but uses webview
+  return userAgent.matchUserAgent('Safari') && !isChrome() && !isAndroid() && !isGoogleSearchApp();
 }
 
 function isIosWebView() {
@@ -13453,6 +13539,10 @@ function isAndroidWebView() {
   return platform.isAndroid() && userAgent.matchUserAgent(androidWebviewRegExp);
 }
 
+function isGoogleSearchApp() {
+  return userAgent.matchUserAgent(/\bGSA\b/);
+}
+
 module.exports = {
   isAndroid: isAndroid,
   isChrome: isChrome,
@@ -13463,7 +13553,8 @@ module.exports = {
   isOperaMini: isOperaMini,
   isSafari: isSafari,
   isIosWebView: isIosWebView,
-  isAndroidWebView: isAndroidWebView
+  isAndroidWebView: isAndroidWebView,
+  isGoogleSearchApp: isGoogleSearchApp
 };
 
 },{"228":228,"229":229}],227:[function(require,module,exports){
@@ -13819,7 +13910,7 @@ function getOnetimeConfigurationType(configuration) {
 function getFuturePaymentsConfigurationType(configuration) {
   var configurationType;
 
-  if (Boolean(configuration.gatewayConfiguration.paypal.billingAgreementsEnabled)) {
+  if (configuration.gatewayConfiguration.paypal.billingAgreementsEnabled) {
     configurationType = constants.CONFIGURATION_TYPES.HERMES_BILLING_AGREEMENTS;
   } else {
     configurationType = constants.CONFIGURATION_TYPES.LEGACY_FUTURE_PAYMENTS;
@@ -13831,7 +13922,7 @@ function getFuturePaymentsConfigurationType(configuration) {
 function getConfigurationType(configuration) {
   var configurationType;
 
-  if (Boolean(configuration.merchantConfiguration.paypal.singleUse)) {
+  if (configuration.merchantConfiguration.paypal.singleUse) {
     configurationType = getOnetimeConfigurationType(configuration);
   } else {
     configurationType = getFuturePaymentsConfigurationType(configuration);
